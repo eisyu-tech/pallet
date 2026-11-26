@@ -1,8 +1,8 @@
 -- PalletStudio (LocalScript): StarterPlayer > StarterPlayerScripts に入れる (これ1個だけで動く)
--- 検出: Workspace直下に自動生成される「<自分のUserId>_SpawnedInToys」フォルダの中の参照だけを「板1, 板2…」として出す
---       (他プレイヤーのフォルダ/板は構造的に見えない)。専用フォルダがまだ無い瞬間は、共有フォルダを OwnerUserId で直接確認する保険あり。
+-- 検出: Workspace の「<自分の@ID(ユーザー名)>SpawnedInToys」フォルダの直下にある PalletLightBrown だけを「板1, 板2…」として出す。
+--       他のフォルダ・他プレイヤーのフォルダの板は見ない。フォルダの自動作成はしない (サーバー側も同じ条件の板しか受け付けない)。
 -- 起動時に必ず、サーバー用コードを CodeLoader (ServerScriptService) へ送る。サーバー側が無ければ、この画面だけに直接反映する。
--- 「その他」タブの中: 視野 / 軽量化(マップだけ・1項目ずつ順番に実行・OFFで元に戻る) / UI設定(透明度・大きさ・テーマ色・背景アニメ)
+-- タブ: ホーム(アイコン・@ID・検出状況) / 色(グラデーション対応) / 素材 / プリセット / 質感(反射) / 光 / 効果 / その他(視野・軽量化・UI設定)
 -- 板を切り替えた時は、スライダー/トグルの表示だけを初期位置へ戻す(板そのものは「元に戻す」ボタンの時だけ戻る)。
 -- 起動時、右下に make by aino の演出が出て、終わると開閉ボタンが現れる。
 
@@ -10,82 +10,13 @@ local RS_ = game:GetService("ReplicatedStorage")
 local SERVER_CODE = [=====[
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local FOLDER_NAME = "tntnmziSpawnedInToys"
-local folder = workspace:FindFirstChild(FOLDER_NAME)
-if not folder then
-	folder = Instance.new("Folder")
-	folder.Name = FOLDER_NAME
-	folder.Parent = workspace
-end
-
--- プレイヤーが参加したら、Workspace直下に「<UserId>_SpawnedInToys」フォルダを自動生成する。
--- 実体の板(Model)は本体(SpawnToyServer)の管理どおり tntnmziSpawnedInToys から動かさない
--- (個数制限などSpawnToyServer側の挙動を壊さないため)。代わりに、このフォルダの中には
--- 本人の板を指す ObjectValue(参照)だけを置く。クライアントはこの参照先だけを「自分の板」として扱うので、
--- 他プレイヤーのフォルダ/板は構造的に見えない。
-local function playerFolderName(player)
-	return tostring(player.UserId) .. "_SpawnedInToys"
-end
-
-local function getPlayerFolder(player)
-	local name = playerFolderName(player)
-	local f = workspace:FindFirstChild(name)
-	if not f then
-		f = Instance.new("Folder")
-		f.Name = name
-		f.Parent = workspace
-	end
-	return f
-end
-
-local function refKey(model)
-	return "ref_" .. model:GetDebugId()
-end
-
-local function unlinkBoard(model)
-	local owner = model:GetAttribute("OwnerUserId")
-	if not owner then return end
-	local player = Players:GetPlayerByUserId(owner)
-	if not player then return end
-	local pf = workspace:FindFirstChild(playerFolderName(player))
-	if not pf then return end
-	local ref = pf:FindFirstChild(refKey(model))
-	if ref then ref:Destroy() end
-end
-
-local function linkBoard(model)
-	if not model:IsA("Model") or model.Name ~= "PalletLightBrown" then return end
-	local owner = model:GetAttribute("OwnerUserId")
-	if not owner then return end
-	local player = Players:GetPlayerByUserId(owner)
-	if not player then return end
-	local pf = getPlayerFolder(player)
-	local key = refKey(model)
-	if pf:FindFirstChild(key) then return end
-	local ref = Instance.new("ObjectValue")
-	ref.Name = key
-	ref.Value = model
-	ref.Parent = pf
-end
-
-for _, p in ipairs(Players:GetPlayers()) do
-	getPlayerFolder(p)
-end
-Players.PlayerAdded:Connect(getPlayerFolder)
-
-for _, c in ipairs(folder:GetChildren()) do
-	linkBoard(c)
-end
-folder.ChildAdded:Connect(linkBoard)
-folder.ChildRemoved:Connect(unlinkBoard)
--- OwnerUserId がまだ付いていない瞬間に板が追加されることがあるので、少し待って再試行する
-folder.ChildAdded:Connect(function(model)
-	task.delay(0.5, function()
-		if model.Parent == folder then linkBoard(model) end
-	end)
-end)
+-- この Roblox に存在しない素材名は黙って飛ばす (新しい素材は古い版に無いことがあるため)
+local function hasMat(n) return (pcall(function() return Enum.Material[n] end)) end
 local MATERIAL_SET = {}
-for _, n in ipairs({ "Plastic", "SmoothPlastic", "Wood", "WoodPlanks", "Metal", "DiamondPlate", "Foil", "Neon", "Glass", "Ice", "Marble", "Granite", "Slate", "Concrete", "Brick", "Cobblestone", "Sand", "Fabric", "ForceField" }) do MATERIAL_SET[n] = true end
+for _, n in ipairs({ "Plastic", "SmoothPlastic", "Wood", "WoodPlanks", "Metal", "DiamondPlate", "Foil", "Neon", "Glass", "Ice", "Marble", "Granite", "Slate", "Concrete", "Brick", "Cobblestone", "Sand", "Fabric", "ForceField",
+	"Glacier", "Snow", "Mud", "Rubber", "Leather", "Plaster", "CeramicTiles", "Carpet", "Cardboard", "Basalt", "Pebble", "Limestone", "Sandstone", "CorrodedMetal", "CrackedLava" }) do
+	if hasMat(n) then MATERIAL_SET[n] = true end
+end
 
 local PRESETS = {
 	NeonBlue = { Color = Color3.fromRGB(56, 189, 248), Material = "Neon", Reflectance = 0, Transparency = 0, Glow = 2, Range = 14 },
@@ -129,6 +60,26 @@ local LOOKS = {
 	Fabric = { Color3.fromRGB(90, 120, 200), "Fabric", 0, 0, 0 },
 	ForceField = { Color3.fromRGB(120, 200, 255), "ForceField", 0, 0.2, 1 },
 }
+-- 追加の素材 (存在するものだけ)。{ 色, 素材名, 反射, 透明度, 発光 }
+for n, lk in pairs({
+	Glacier = { Color3.fromRGB(190, 230, 245), "Glacier", 0.1, 0, 0 },
+	Snow = { Color3.fromRGB(245, 248, 252), "Snow", 0, 0, 0 },
+	Mud = { Color3.fromRGB(95, 70, 50), "Mud", 0, 0, 0 },
+	Rubber = { Color3.fromRGB(40, 40, 46), "Rubber", 0, 0, 0 },
+	Leather = { Color3.fromRGB(125, 72, 46), "Leather", 0, 0, 0 },
+	Plaster = { Color3.fromRGB(232, 225, 212), "Plaster", 0, 0, 0 },
+	CeramicTiles = { Color3.fromRGB(236, 240, 242), "CeramicTiles", 0.08, 0, 0 },
+	Carpet = { Color3.fromRGB(150, 60, 72), "Carpet", 0, 0, 0 },
+	Cardboard = { Color3.fromRGB(192, 152, 102), "Cardboard", 0, 0, 0 },
+	Basalt = { Color3.fromRGB(62, 64, 70), "Basalt", 0, 0, 0 },
+	Pebble = { Color3.fromRGB(150, 140, 130), "Pebble", 0, 0, 0 },
+	Limestone = { Color3.fromRGB(222, 214, 192), "Limestone", 0, 0, 0 },
+	Sandstone = { Color3.fromRGB(202, 162, 112), "Sandstone", 0, 0, 0 },
+	CorrodedMetal = { Color3.fromRGB(132, 100, 80), "CorrodedMetal", 0, 0, 0 },
+	CrackedLava = { Color3.fromRGB(255, 120, 40), "CrackedLava", 0, 0, 0.8 },
+}) do
+	if hasMat(n) then LOOKS[n] = lk end
+end
 
 local orig = setmetatable({}, { __mode = "k" })
 local stateOf = setmetatable({}, { __mode = "k" })
@@ -156,7 +107,7 @@ local function partsOf(model)
 end
 
 local function remember(p)
-	if not orig[p] then orig[p] = { p.Color, p.Material, p.Reflectance, p.Transparency } end
+	if not orig[p] then orig[p] = { p.Color, p.Material, p.Reflectance, p.Transparency, p.CastShadow } end
 	return orig[p]
 end
 
@@ -164,35 +115,59 @@ local function glowHost(model)
 	return model:FindFirstChild("SoundPart") or model.PrimaryPart
 end
 
+-- 1枚ごとの色。色ムラ(variance)と経年劣化(weather)をここでまとめて掛ける
+local function tint(s, i, c)
+	local amt, wt = s.variance or 0, s.weather or 0
+	if amt <= 0 and wt <= 0 then return c end
+	local h, sa, v = c:ToHSV()
+	if amt > 0 then
+		v = v + (((i * 37) % 17) / 16 - 0.5) * amt * 0.6
+	end
+	if wt > 0 then
+		local d = 0.35 + 0.65 * (((i * 53 + 7) % 13) / 12)   -- 板ごとに汚れ方を変える
+		v = v * (1 - 0.5 * wt * d)
+		sa = sa * (1 - 0.4 * wt * d)
+	end
+	return Color3.fromHSV(h, math.clamp(sa, 0, 1), math.clamp(v, 0, 1))
+end
+
 local function paint(model, parts, c)
 	local s = st(model)
 	s.base = c
-	local amt = s.variance or 0
-	local h, sa, v = c:ToHSV()
 	for i, p in ipairs(parts) do
 		remember(p)
-		if amt > 0 then
-			local r = ((i * 37) % 17) / 16 - 0.5
-			p.Color = Color3.fromHSV(h, sa, math.clamp(v + r * amt * 0.6, 0, 1))
-		else
-			p.Color = c
-		end
+		p.Color = tint(s, i, c)
 	end
 end
 
+-- 光の形: Point=全方向 / Down=下向きスポット / Up=上向きスポット
+local LIGHT_CLASS = { Point = "PointLight", Down = "SpotLight", Up = "SpotLight" }
 local function setGlow(model, color, brightness, range)
 	local h = glowHost(model)
 	if not h then return end
+	local s = st(model)
 	local l = h:FindFirstChild("SkinGlow")
 	if brightness <= 0 then
+		s.glowB = 0
 		if l then l:Destroy() end
 		return
 	end
+	s.glowB = brightness
+	local shape = s.lightShape or "Point"
+	local cls = LIGHT_CLASS[shape]
+	if l and l.ClassName ~= cls then
+		l:Destroy()
+		l = nil
+	end
 	if not l then
-		l = Instance.new("PointLight")
+		l = Instance.new(cls)
 		l.Name = "SkinGlow"
 		l.Shadows = false
 		l.Parent = h
+	end
+	if cls == "SpotLight" then
+		l.Face = (shape == "Up") and Enum.NormalId.Top or Enum.NormalId.Bottom
+		l.Angle = 120
 	end
 	l.Color = color
 	l.Brightness = brightness
@@ -267,10 +242,310 @@ local function setTexture(parts, show)
 	end
 end
 
+---------------------------------------------------------------------
+-- 追加機能 (反射の修正 / グラデーション / ネオン / 明滅 / 炎・煙・紙吹雪)
+---------------------------------------------------------------------
+local SK = { pulseSet = {} }
+do
+	-- ===== 反射 =====
+	-- Reflectance は プラスチック/つるつる/ガラス の時だけ見える。金属・ネオン・ホイルや、PBRテクスチャ付きの板では
+	-- 効かないので、反射を上げている間だけ自動で切り替える (0に戻すと元に戻る)。
+	local REFLECT_OK = { Plastic = true, SmoothPlastic = true, Glass = true }
+	function SK.reflect(model, parts, v)
+		local s = st(model)
+		v = math.clamp(v, 0, 1)
+		local was = (s.refl or 0) > 0
+		s.refl = v
+		s.reflSaved = s.reflSaved or {}
+		for _, p in ipairs(parts) do
+			remember(p)
+			p.Reflectance = v
+			if v > 0 then
+				if not s.neon and not REFLECT_OK[p.Material.Name] then
+					if s.reflSaved[p] == nil then s.reflSaved[p] = p.Material end
+					p.Material = Enum.Material.SmoothPlastic
+				end
+			elseif s.reflSaved[p] ~= nil then
+				if p.Material == Enum.Material.SmoothPlastic then p.Material = s.reflSaved[p] end
+				s.reflSaved[p] = nil
+			end
+		end
+		if v > 0 then
+			if not s.reflTexOff and s.texUser ~= false then
+				s.reflTexOff = true
+				setTexture(parts, false)
+			end
+		elseif s.reflTexOff then
+			s.reflTexOff = nil
+			if s.texUser ~= false then setTexture(parts, true) end
+		end
+		if s.grad and ((v > 0) ~= was) then SK.gradient(model, parts, s.grad) end   -- 反射の有無で、重ね貼りの有無が変わる
+	end
+
+	-- ===== グラデーション (2色を混ぜる。動かない) =====
+	local AXIS = { X = 1, Y = 2, Z = 3 }
+	local function comp(v, ax) return ax == 1 and v.X or (ax == 2 and v.Y or v.Z) end
+	local function mix(a, b, t)   -- 暗く沈まないよう、光の強さ(リニア)の空間で混ぜる
+		local function m(x, y) return (x ^ 2.2 * (1 - t) + y ^ 2.2 * t) ^ (1 / 2.2) end
+		return Color3.new(m(a.R, b.R), m(a.G, b.G), m(a.B, b.B))
+	end
+	local function gradAt(cfg, t)
+		t = math.clamp(t, 0, 1)
+		if cfg.rev then t = 1 - t end
+		if cfg.stripes > 1 then
+			local k = math.min(math.floor(t * cfg.stripes), cfg.stripes - 1)
+			return (k % 2 == 0) and cfg.a or cfg.b
+		end
+		return mix(cfg.a, cfg.b, t ^ (math.log(0.5) / math.log(cfg.mid)))   -- mid の位置でちょうど半分の色になる
+	end
+	-- 面ごとの GUI の向き (外から見て 右 / 上 が、パーツのどの向きか)
+	local FACES = {
+		{ "Front", Vector3.new(-1, 0, 0), Vector3.new(0, 1, 0) },
+		{ "Back", Vector3.new(1, 0, 0), Vector3.new(0, 1, 0) },
+		{ "Left", Vector3.new(0, 0, 1), Vector3.new(0, 1, 0) },
+		{ "Right", Vector3.new(0, 0, -1), Vector3.new(0, 1, 0) },
+		{ "Top", Vector3.new(0, 0, -1), Vector3.new(-1, 0, 0) },
+	}
+	-- t0(左/上) → t1(右/下) の ColorSequence を作る。ストライプの時は境目を急に切り替える
+	local function buildSeq(cfg, t0, t1, tf)
+		local us = {}
+		if cfg.stripes > 1 then
+			us[#us + 1] = 0
+			for k = 1, cfg.stripes - 1 do
+				local u = (k / cfg.stripes - t0) / ((t1 - t0 == 0) and 1e-9 or (t1 - t0))
+				if u > 0.004 and u < 0.996 then
+					us[#us + 1] = u - 0.002
+					us[#us + 1] = u + 0.002
+				end
+			end
+			us[#us + 1] = 1
+			table.sort(us)
+		else
+			for i = 0, 10 do us[#us + 1] = i / 10 end
+		end
+		local keys, last = {}, -1
+		for _, u in ipairs(us) do
+			if u > last + 1e-4 then
+				keys[#keys + 1] = ColorSequenceKeypoint.new(u, tf(gradAt(cfg, t0 + (t1 - t0) * u)))
+				last = u
+			end
+		end
+		return ColorSequence.new(keys)
+	end
+	local function addOverlay(p, face, seq, vertical, tr)
+		local sg = Instance.new("SurfaceGui")
+		sg.Name = "SkinGrad"
+		sg.Face = Enum.NormalId[face]
+		sg.LightInfluence = 1
+		sg.AlwaysOnTop = false
+		pcall(function() sg.MaxDistance = 250 end)
+		local f = Instance.new("Frame")
+		f.Size = UDim2.fromScale(1, 1)
+		f.BackgroundColor3 = Color3.new(1, 1, 1)
+		f.BackgroundTransparency = tr or 0   -- 板の透明度に合わせる (重ね貼りだけ不透明に残らないように)
+		f.BorderSizePixel = 0
+		f.Parent = sg
+		local g = Instance.new("UIGradient")
+		g.Color = seq
+		g.Rotation = vertical and 90 or 0
+		g.Parent = f
+		sg.Parent = p   -- 親のパーツに貼る
+	end
+
+	function SK.clearGrad(model)
+		local s = st(model)
+		if not s.grad then return end
+		s.grad = nil
+		for _, p in ipairs(partsOf(model)) do
+			for _, c in ipairs(p:GetChildren()) do
+				if c.Name == "SkinGrad" then c:Destroy() end
+			end
+		end
+	end
+
+	function SK.syncGradTr(parts, tr)
+		for _, p in ipairs(parts) do
+			for _, c in ipairs(p:GetChildren()) do
+				if c.Name == "SkinGrad" then
+					local fr = c:FindFirstChildOfClass("Frame")
+					if fr then fr.BackgroundTransparency = tr end
+				end
+			end
+		end
+	end
+
+	-- v = { a=Color3, b=Color3, axis="X"|"Y"|"Z", rev=bool, mid=0.1~0.9, smooth=bool, stripes=0~8, topFlip=bool }
+	function SK.gradient(model, parts, v)
+		if typeof(v) ~= "table" or typeof(v.a) ~= "Color3" or typeof(v.b) ~= "Color3" or not AXIS[v.axis] then return false end
+		local cfg = {
+			a = v.a, b = v.b, axis = v.axis, rev = v.rev == true, smooth = v.smooth ~= false, topFlip = v.topFlip == true,
+			mid = isNum(v.mid) and math.clamp(v.mid, 0.1, 0.9) or 0.5,
+			stripes = isNum(v.stripes) and math.clamp(math.floor(v.stripes), 0, 8) or 0,
+		}
+		local s = st(model)
+		rainbowSet[model] = nil
+		SK.clearGrad(model)
+		s.texUser = false
+		setTexture(parts, false)   -- 木目が上に残ると色が見えないので、外す
+		s.grad = cfg
+		s.base = gradAt(cfg, 0.5)
+		local ax = AXIS[cfg.axis]
+		local pv = model:GetPivot()
+		local ex, lo, hi = {}, math.huge, -math.huge
+		for i, p in ipairs(parts) do
+			local rel = pv:ToObjectSpace(p.CFrame)
+			local sz = p.Size
+			local h = 0.5 * (math.abs(comp(rel.RightVector, ax)) * sz.X + math.abs(comp(rel.UpVector, ax)) * sz.Y + math.abs(comp(rel.LookVector, ax)) * sz.Z)
+			local c = comp(rel.Position, ax)
+			ex[i] = { rel = rel, c = c, h = h }
+			if c - h < lo then lo = c - h end
+			if c + h > hi then hi = c + h end
+		end
+		local span = hi - lo
+		local made = 0
+		for i, p in ipairs(parts) do
+			remember(p)
+			local e = ex[i]
+			local ta, tb = 0.5, 0.5
+			if span > 1e-3 then ta, tb = (e.c - e.h - lo) / span, (e.c + e.h - lo) / span end
+			local function tf(c) return tint(s, i, c) end
+			p.Color = tf(gradAt(cfg, (ta + tb) / 2))   -- 重ね貼りしない面(裏・端)はこの平均色
+			if cfg.smooth and (s.refl or 0) <= 0 and span > 1e-3 and made < 160 then   -- 反射中は重ね貼りが反射を隠すので、やめる
+				for _, f in ipairs(FACES) do
+					local fr, fu = f[2], f[3]
+					if f[1] == "Top" and cfg.topFlip then fr, fu = -fr, -fu end   -- 上面だけ向きが逆に見える時の保険
+					local dr = comp(e.rel:VectorToWorldSpace(fr), ax)
+					local du = comp(e.rel:VectorToWorldSpace(fu), ax)
+					local t0, t1, vertical
+					if math.abs(dr) > 0.9 then
+						vertical = false
+						if dr > 0 then t0, t1 = ta, tb else t0, t1 = tb, ta end
+					elseif math.abs(du) > 0.9 then
+						vertical = true
+						if du > 0 then t0, t1 = tb, ta else t0, t1 = ta, tb end
+					end
+					if t0 then
+						addOverlay(p, f[1], buildSeq(cfg, t0, t1, tf), vertical, p.Transparency)
+						made = made + 1
+					end
+				end
+			end
+		end
+		return true
+	end
+end
+
+do
+	-- ===== ネオン発光 (素材をネオンにする。OFFで元の素材に戻る) =====
+	function SK.neon(model, parts, on)
+		local s = st(model)
+		if on then
+			s.neonSaved = s.neonSaved or {}
+			for _, p in ipairs(parts) do
+				remember(p)
+				if s.neonSaved[p] == nil then s.neonSaved[p] = p.Material end
+				p.Material = Enum.Material.Neon
+			end
+			s.neon = true
+		else
+			if s.neonSaved then
+				for _, p in ipairs(parts) do
+					local m = s.neonSaved[p]
+					if m ~= nil and p.Material == Enum.Material.Neon then p.Material = m end
+				end
+			end
+			s.neonSaved = nil
+			s.neon = nil
+		end
+	end
+
+	-- ===== 明滅 (光がゆっくり強弱する。0=止める) =====
+	function SK.pulse(model, speed)
+		local s = st(model)
+		s.pulse = speed
+		if speed > 0 then
+			SK.pulseSet[model] = true
+		else
+			SK.pulseSet[model] = nil
+			local h = glowHost(model)
+			local l = h and h:FindFirstChild("SkinGlow")
+			if l and (s.glowB or 0) > 0 then l.Brightness = s.glowB end
+		end
+	end
+
+	-- ===== 炎 / 煙 / 紙吹雪 =====
+	function SK.fire(model, on, size)
+		local h = glowHost(model)
+		if not h then return end
+		local f = h:FindFirstChild("SkinFire")
+		if not on then
+			if f then f:Destroy() end
+			return
+		end
+		if not f then
+			f = Instance.new("Fire")
+			f.Name = "SkinFire"
+			f.Heat = 9
+			f.Size = 6
+			f.Parent = h
+		end
+		if size then f.Size = size end
+	end
+	function SK.smoke(model, on)
+		local h = glowHost(model)
+		if not h then return end
+		local f = h:FindFirstChild("SkinSmoke")
+		if not on then
+			if f then f:Destroy() end
+			return
+		end
+		if not f then
+			f = Instance.new("Smoke")
+			f.Name = "SkinSmoke"
+			f.Size = 4
+			f.Opacity = 0.45
+			f.RiseVelocity = 4
+			f.Color = Color3.fromRGB(190, 190, 200)
+			f.Parent = h
+		end
+	end
+	function SK.confetti(model, on)
+		local h = glowHost(model)
+		if not h then return end
+		local e = h:FindFirstChild("SkinConfetti")
+		if not on then
+			if e then e:Destroy() end
+			return
+		end
+		if e then return end
+		e = Instance.new("ParticleEmitter")
+		e.Name = "SkinConfetti"
+		e.Rate = 40
+		e.Lifetime = NumberRange.new(1.6, 2.6)
+		e.Speed = NumberRange.new(8, 16)
+		e.SpreadAngle = Vector2.new(60, 60)
+		e.EmissionDirection = Enum.NormalId.Top
+		e.Acceleration = Vector3.new(0, -22, 0)
+		e.Rotation = NumberRange.new(0, 360)
+		e.RotSpeed = NumberRange.new(-240, 240)
+		e.LightEmission = 0.2
+		e.Size = NumberSequence.new(0.35)
+		e.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(0.8, 0), NumberSequenceKeypoint.new(1, 1) })
+		local keys = {}
+		for i = 0, 6 do keys[#keys + 1] = ColorSequenceKeypoint.new(i / 6, Color3.fromHSV(i / 6, 0.85, 1)) end
+		e.Color = ColorSequence.new(keys)
+		e.Parent = h
+	end
+end
+
 local function applySkin(model, kind, value)
 	local parts = partsOf(model)
 	if #parts == 0 then return "板の部品が見つかりません" end
 	local s = st(model)
+	-- 色を直接変える操作・レインボーONの時は、重ね貼りしているグラデーションを先に外す
+	if kind == "Color" or kind == "HSV" or kind == "RGB" or kind == "Look" or kind == "Preset" or (kind == "Rainbow" and value == true) then
+		SK.clearGrad(model)
+	end
 
 	if kind == "Color" then
 		if typeof(value) ~= "Color3" then return "色が不正です" end
@@ -293,6 +568,8 @@ local function applySkin(model, kind, value)
 		if not lk then return "素材が不正です" end
 		rainbowSet[model] = nil
 		s.glowColor = nil
+		s.refl, s.reflSaved, s.reflTexOff, s.neon, s.neonSaved = nil, nil, nil, nil, nil
+		s.texUser = false
 		setTexture(parts, false)
 		paint(model, parts, lk[1])
 		for _, p in ipairs(parts) do
@@ -306,6 +583,7 @@ local function applySkin(model, kind, value)
 		local pr = typeof(value) == "string" and PRESETS[value] or nil
 		if not pr then return "プリセットが不正です" end
 		rainbowSet[model] = nil
+		s.refl, s.reflSaved, s.neon, s.neonSaved = nil, nil, nil, nil
 		paint(model, parts, pr.Color)
 		for _, p in ipairs(parts) do
 			p.Material = Enum.Material[pr.Material]
@@ -317,18 +595,30 @@ local function applySkin(model, kind, value)
 		return "プリセット「" .. value .. "」を適用しました"
 	elseif kind == "Reflectance" then
 		if not isNum(value) then return "値が不正です" end
-		for _, p in ipairs(parts) do remember(p) p.Reflectance = math.clamp(value, 0, 1) end
+		SK.reflect(model, parts, value)
+		if value > 0 and s.neon then return "ネオン発光中は反射が見えません (先にネオンをOFF)" end
 		return "反射を変えました"
 	elseif kind == "Transparency" then
 		if not isNum(value) then return "値が不正です" end
 		for _, p in ipairs(parts) do remember(p) p.Transparency = math.clamp(value, 0, 0.9) end
+		SK.syncGradTr(parts, math.clamp(value, 0, 0.9))
 		return "透明度を変えました"
 	elseif kind == "Variance" then
 		if not isNum(value) then return "値が不正です" end
 		s.variance = math.clamp(value, 0, 1)
-		paint(model, parts, s.base or parts[1].Color)
+		if s.grad then SK.gradient(model, parts, s.grad) else paint(model, parts, s.base or parts[1].Color) end
 		return "色ムラを変えました"
+	elseif kind == "Weather" then
+		if not isNum(value) then return "値が不正です" end
+		s.weather = math.clamp(value, 0, 1)
+		if s.grad then SK.gradient(model, parts, s.grad) else paint(model, parts, s.base or parts[1].Color) end
+		return "経年劣化を変えました"
 	elseif kind == "Texture" then
+		s.texUser = (value == true)
+		s.reflTexOff = nil
+		-- 元のテクスチャを出すと反射は効かなくなるので、反射は0に戻す
+		if value == true and (s.refl or 0) > 0 then SK.reflect(model, parts, 0) end
+		s.texUser = (value == true)
 		setTexture(parts, value == true)
 		return value == true and "テクスチャON" or "テクスチャOFF"
 	elseif kind == "Glow" then
@@ -339,7 +629,7 @@ local function applySkin(model, kind, value)
 		if not isNum(value) then return "値が不正です" end
 		local h = glowHost(model)
 		local l = h and h:FindFirstChild("SkinGlow")
-		setGlow(model, s.glowColor or s.base or parts[1].Color, l and l.Brightness or 1, math.clamp(value, 4, 30))
+		setGlow(model, s.glowColor or s.base or parts[1].Color, l and (s.glowB or l.Brightness) or 1, math.clamp(value, 4, 30))
 		return "発光の範囲を変えました"
 	elseif kind == "GlowHue" then
 		if not isNum(value) then return "値が不正です" end
@@ -378,8 +668,50 @@ local function applySkin(model, kind, value)
 		if not isNum(value) then return "値が不正です" end
 		setOutline(model, true, Color3.fromHSV(math.clamp(value, 0, 1), 0.75, 1))
 		return "縁取りの色を変えました"
+	elseif kind == "Gradient" then
+		if not SK.gradient(model, parts, value) then return "グラデーションの値が不正です" end
+		return "グラデーションを適用しました"
+	elseif kind == "GradientClear" then
+		SK.clearGrad(model)
+		paint(model, parts, s.base or parts[1].Color)
+		return "グラデーションを外しました"
+	elseif kind == "Neon" then
+		SK.neon(model, parts, value == true)
+		return value == true and "ネオン発光ON" or "ネオン発光OFF"
+	elseif kind == "Pulse" then
+		if not isNum(value) then return "値が不正です" end
+		SK.pulse(model, math.clamp(value, 0, 4))
+		return value > 0 and "明滅の速さを変えました" or "明滅OFF"
+	elseif kind == "LightShape" then
+		if value ~= "Point" and value ~= "Down" and value ~= "Up" then return "値が不正です" end
+		s.lightShape = value
+		local h = glowHost(model)
+		local l = h and h:FindFirstChild("SkinGlow")
+		if l then setGlow(model, l.Color, s.glowB or l.Brightness, l.Range) end
+		return "光の向きを変えました"
+	elseif kind == "Shadow" then
+		for _, p in ipairs(parts) do remember(p) p.CastShadow = (value == true) end
+		return value == true and "影を落とす" or "影を落とさない"
+	elseif kind == "Fire" then
+		SK.fire(model, value == true)
+		return value == true and "炎ON" or "炎OFF"
+	elseif kind == "FireSize" then
+		if not isNum(value) then return "値が不正です" end
+		SK.fire(model, true, math.clamp(value, 2, 30))
+		return "炎の大きさを変えました"
+	elseif kind == "Smoke" then
+		SK.smoke(model, value == true)
+		return value == true and "煙ON" or "煙OFF"
+	elseif kind == "Confetti" then
+		SK.confetti(model, value == true)
+		return value == true and "紙吹雪ON" or "紙吹雪OFF"
 	elseif kind == "Reset" then
 		rainbowSet[model] = nil
+		SK.pulseSet[model] = nil
+		SK.clearGrad(model)
+		SK.fire(model, false)
+		SK.smoke(model, false)
+		SK.confetti(model, false)
 		stateOf[model] = nil
 		setGlow(model, Color3.new(1, 1, 1), 0, nil)
 		setSparkle(model, false)
@@ -389,6 +721,7 @@ local function applySkin(model, kind, value)
 			local o = orig[p]
 			if o then
 				p.Color, p.Material, p.Reflectance, p.Transparency = o[1], o[2], o[3], o[4]
+				if o[5] ~= nil then p.CastShadow = o[5] end
 			end
 		end
 		return "元に戻しました"
@@ -398,9 +731,26 @@ end
 
 -- レインボーは毎フレーム更新 (Heartbeat) で滑らかに。パーツ一覧はキャッシュして毎回は数え直さない。
 local RunService = game:GetService("RunService")
+SK.lastPulse = 0
 RunService.Heartbeat:Connect(function()
-	if next(rainbowSet) == nil then return end
 	local now = os.clock()
+	-- 明滅: ライトの強さをゆっくり上下 (1秒に最大20回だけ更新して通信を増やさない)
+	if next(SK.pulseSet) ~= nil and now - SK.lastPulse >= 0.05 then
+		SK.lastPulse = now
+		for m in pairs(SK.pulseSet) do
+			if m.Parent then
+				local s = st(m)
+				local h = glowHost(m)
+				local l = h and h:FindFirstChild("SkinGlow")
+				if l and (s.glowB or 0) > 0 and (s.pulse or 0) > 0 then
+					l.Brightness = s.glowB * (0.15 + 0.85 * (0.5 + 0.5 * math.sin(now * s.pulse * 6.2832)))
+				end
+			else
+				SK.pulseSet[m] = nil
+			end
+		end
+	end
+	if next(rainbowSet) == nil then return end
 	for m in pairs(rainbowSet) do
 		if m.Parent then
 			local s = st(m)
@@ -422,31 +772,26 @@ RunService.Heartbeat:Connect(function()
 		end
 	end
 end)
+-- 板を変える受け口 (RemoteFunction)。フォルダなどは一切作らない。
 local remote = ReplicatedStorage:FindFirstChild("PalletStudioApply_v2")
 if not remote then
 	remote = Instance.new("RemoteFunction")
 	remote.Name = "PalletStudioApply_v2"
 	remote.Parent = ReplicatedStorage
 end
--- 操作してきたプレイヤー本人の板かどうか。SpawnToyServer が板に付けている OwnerUserId Attribute を正とする。
--- 古い板など Attribute が無い場合だけ PlayerValue (あれば) で判定し、何も無ければ許可する。
-local function isOwnedBy(model, player)
-	local owner = model:GetAttribute("OwnerUserId")
-	if owner ~= nil then return owner == player.UserId end
-	local pv = model:FindFirstChild("PlayerValue")
-	if not pv or not pv:IsA("ValueBase") then return true end
-	local v = pv.Value
-	if typeof(v) == "Instance" then return v == player end
-	if typeof(v) == "string" then return v == player.Name or v == player.DisplayName or v == tostring(player.UserId) end
-	if typeof(v) == "number" then return v == player.UserId end
-	return true
+
+-- 受け付ける板は、操作してきたプレイヤー本人の「Workspace/<ユーザー名>SpawnedInToys」の直下にある
+-- PalletLightBrown (Model) だけ。他の人のフォルダの板や、それ以外の場所の板は変えられない。
+local function ownFolder(player)
+	return workspace:FindFirstChild(player.Name .. "SpawnedInToys")
 end
 
 local last = {}
 remote.OnServerInvoke = function(player, kind, target, value)
 	if typeof(kind) ~= "string" or typeof(target) ~= "Instance" then return nil end
-	if not target:IsA("Model") or target.Name ~= "PalletLightBrown" or not target:IsDescendantOf(folder) then return nil end
-	if not isOwnedBy(target, player) then return "他のプレイヤーの板は変更できません" end
+	if not target:IsA("Model") or target.Name ~= "PalletLightBrown" then return nil end
+	local f = ownFolder(player)
+	if not f or target.Parent ~= f then return "自分の板ではありません" end
 	local now = os.clock()
 	if (last[player] or 0) + 0.03 > now then return nil end
 	last[player] = now
@@ -467,7 +812,8 @@ local UIS = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 
 local lp = Players.LocalPlayer
-local FOLDER = "tntnmziSpawnedInToys"
+-- 検出する板は「Workspace/<自分の@ID(ユーザー名)>SpawnedInToys」の直下にある PalletLightBrown だけ
+local function toyFolderName() return lp.Name .. "SpawnedInToys" end
 -- スマホ(タッチのみ、物理キーボード無し)かどうか。タッチ対応PCはキーボードもあるのでデスクトップ扱い。
 local isMobile = UIS.TouchEnabled and not UIS.KeyboardEnabled
 
@@ -523,35 +869,58 @@ local Lib = (function()
 		return math.floor(v / s + 0.5) * s
 	end
 
-	-- ドラッグ (動かさずに離したら onClick)
-	function M.drag(handle, target, onClick, scaleObj)
-		local dragging, moved = false, false
-		local startPos, startUI, lastInput
-		handle.InputBegan:Connect(function(i)
-			if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
-				dragging, moved = true, false
-				startPos, startUI = i.Position, target.Position
-				i.Changed:Connect(function()
-					if i.UserInputState == Enum.UserInputState.End then
-						if dragging and not moved and onClick then onClick() end
-						dragging = false
-					end
-				end)
-			end
+	-- 画面からはみ出し過ぎないように、新しい位置(オフセット)を補正する。失敗しても元の値を返す
+	local function clampOffset(target, sx, sy, ox, oy)
+		local ok, nx, ny = pcall(function()
+			local par = target.Parent
+			local ps, sz, ap = par.AbsoluteSize, target.AbsoluteSize, target.AnchorPoint
+			if ps.X <= 0 or ps.Y <= 0 or sz.X <= 0 or sz.Y <= 0 then return ox, oy end
+			local mx, my = math.min(60, sz.X), math.min(40, sz.Y)
+			local ax = sx * ps.X + ox - ap.X * sz.X   -- 左上の位置(px)
+			local ay = sy * ps.Y + oy - ap.Y * sz.Y
+			local lo, hi = mx - sz.X, math.max(mx - sz.X, ps.X - mx)
+			local cx = math.clamp(ax, lo, hi)
+			local cy = math.clamp(ay, 0, math.max(0, ps.Y - my))
+			return ox + (cx - ax), oy + (cy - ay)
 		end)
-		handle.InputChanged:Connect(function(i)
-			if i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch then
-				lastInput = i
+		if ok and type(nx) == "number" and type(ny) == "number" then return nx, ny end
+		return ox, oy
+	end
+
+	-- ドラッグ。マウス/指の動きと1ピクセルずつ完全に同じだけ動かす (補間や拡大率での割り算はしない)。
+	-- ほとんど動かさずに離したら onClick。
+	function M.drag(handle, target, onClick)
+		local active, moved = nil, false
+		local startPos, startUI
+		local THRESH = onClick and 5 or 0
+		handle.InputBegan:Connect(function(i)
+			if active then return end
+			if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+				active, moved = i, false
+				startPos, startUI = i.Position, target.Position
 			end
 		end)
 		UIS.InputChanged:Connect(function(i)
-			if i == lastInput and dragging then
-				local k = scaleObj and scaleObj.Scale or 1
-				local d = (i.Position - startPos) / math.max(k, 0.01)
-				if not moved and d.Magnitude < 6 then return end
+			if not active then return end
+			local isMove = i.UserInputType == Enum.UserInputType.MouseMovement
+				or (i.UserInputType == Enum.UserInputType.Touch and i == active)
+			if not isMove then return end
+			local dx, dy = i.Position.X - startPos.X, i.Position.Y - startPos.Y
+			if not moved then
+				if dx * dx + dy * dy < THRESH * THRESH then return end
 				moved = true
-				M.tween(target, { Position = UDim2.new(startUI.X.Scale, startUI.X.Offset + d.X, startUI.Y.Scale, startUI.Y.Offset + d.Y) }, 0.15)
 			end
+			local ox, oy = clampOffset(target, startUI.X.Scale, startUI.Y.Scale, startUI.X.Offset + dx, startUI.Y.Offset + dy)
+			target.Position = UDim2.new(startUI.X.Scale, ox, startUI.Y.Scale, oy)
+		end)
+		UIS.InputEnded:Connect(function(i)
+			if not active then return end
+			local isEnd = (i == active)
+				or (active.UserInputType == Enum.UserInputType.MouseButton1 and i.UserInputType == Enum.UserInputType.MouseButton1)
+			if not isEnd then return end
+			local wasClick = not moved
+			active = nil
+			if wasClick and onClick then pcall(onClick) end
 		end)
 	end
 
@@ -757,8 +1126,13 @@ local Lib = (function()
 
 	return M
 end)()
+-- この Roblox に存在しない素材名は黙って飛ばす (新しい素材は古い版に無いことがあるため)
+local function hasMat(n) return (pcall(function() return Enum.Material[n] end)) end
 local MATERIAL_SET = {}
-for _, n in ipairs({ "Plastic", "SmoothPlastic", "Wood", "WoodPlanks", "Metal", "DiamondPlate", "Foil", "Neon", "Glass", "Ice", "Marble", "Granite", "Slate", "Concrete", "Brick", "Cobblestone", "Sand", "Fabric", "ForceField" }) do MATERIAL_SET[n] = true end
+for _, n in ipairs({ "Plastic", "SmoothPlastic", "Wood", "WoodPlanks", "Metal", "DiamondPlate", "Foil", "Neon", "Glass", "Ice", "Marble", "Granite", "Slate", "Concrete", "Brick", "Cobblestone", "Sand", "Fabric", "ForceField",
+	"Glacier", "Snow", "Mud", "Rubber", "Leather", "Plaster", "CeramicTiles", "Carpet", "Cardboard", "Basalt", "Pebble", "Limestone", "Sandstone", "CorrodedMetal", "CrackedLava" }) do
+	if hasMat(n) then MATERIAL_SET[n] = true end
+end
 
 local PRESETS = {
 	NeonBlue = { Color = Color3.fromRGB(56, 189, 248), Material = "Neon", Reflectance = 0, Transparency = 0, Glow = 2, Range = 14 },
@@ -802,6 +1176,26 @@ local LOOKS = {
 	Fabric = { Color3.fromRGB(90, 120, 200), "Fabric", 0, 0, 0 },
 	ForceField = { Color3.fromRGB(120, 200, 255), "ForceField", 0, 0.2, 1 },
 }
+-- 追加の素材 (存在するものだけ)。{ 色, 素材名, 反射, 透明度, 発光 }
+for n, lk in pairs({
+	Glacier = { Color3.fromRGB(190, 230, 245), "Glacier", 0.1, 0, 0 },
+	Snow = { Color3.fromRGB(245, 248, 252), "Snow", 0, 0, 0 },
+	Mud = { Color3.fromRGB(95, 70, 50), "Mud", 0, 0, 0 },
+	Rubber = { Color3.fromRGB(40, 40, 46), "Rubber", 0, 0, 0 },
+	Leather = { Color3.fromRGB(125, 72, 46), "Leather", 0, 0, 0 },
+	Plaster = { Color3.fromRGB(232, 225, 212), "Plaster", 0, 0, 0 },
+	CeramicTiles = { Color3.fromRGB(236, 240, 242), "CeramicTiles", 0.08, 0, 0 },
+	Carpet = { Color3.fromRGB(150, 60, 72), "Carpet", 0, 0, 0 },
+	Cardboard = { Color3.fromRGB(192, 152, 102), "Cardboard", 0, 0, 0 },
+	Basalt = { Color3.fromRGB(62, 64, 70), "Basalt", 0, 0, 0 },
+	Pebble = { Color3.fromRGB(150, 140, 130), "Pebble", 0, 0, 0 },
+	Limestone = { Color3.fromRGB(222, 214, 192), "Limestone", 0, 0, 0 },
+	Sandstone = { Color3.fromRGB(202, 162, 112), "Sandstone", 0, 0, 0 },
+	CorrodedMetal = { Color3.fromRGB(132, 100, 80), "CorrodedMetal", 0, 0, 0 },
+	CrackedLava = { Color3.fromRGB(255, 120, 40), "CrackedLava", 0, 0, 0.8 },
+}) do
+	if hasMat(n) then LOOKS[n] = lk end
+end
 
 local orig = setmetatable({}, { __mode = "k" })
 local stateOf = setmetatable({}, { __mode = "k" })
@@ -829,7 +1223,7 @@ local function partsOf(model)
 end
 
 local function remember(p)
-	if not orig[p] then orig[p] = { p.Color, p.Material, p.Reflectance, p.Transparency } end
+	if not orig[p] then orig[p] = { p.Color, p.Material, p.Reflectance, p.Transparency, p.CastShadow } end
 	return orig[p]
 end
 
@@ -837,35 +1231,59 @@ local function glowHost(model)
 	return model:FindFirstChild("SoundPart") or model.PrimaryPart
 end
 
+-- 1枚ごとの色。色ムラ(variance)と経年劣化(weather)をここでまとめて掛ける
+local function tint(s, i, c)
+	local amt, wt = s.variance or 0, s.weather or 0
+	if amt <= 0 and wt <= 0 then return c end
+	local h, sa, v = c:ToHSV()
+	if amt > 0 then
+		v = v + (((i * 37) % 17) / 16 - 0.5) * amt * 0.6
+	end
+	if wt > 0 then
+		local d = 0.35 + 0.65 * (((i * 53 + 7) % 13) / 12)   -- 板ごとに汚れ方を変える
+		v = v * (1 - 0.5 * wt * d)
+		sa = sa * (1 - 0.4 * wt * d)
+	end
+	return Color3.fromHSV(h, math.clamp(sa, 0, 1), math.clamp(v, 0, 1))
+end
+
 local function paint(model, parts, c)
 	local s = st(model)
 	s.base = c
-	local amt = s.variance or 0
-	local h, sa, v = c:ToHSV()
 	for i, p in ipairs(parts) do
 		remember(p)
-		if amt > 0 then
-			local r = ((i * 37) % 17) / 16 - 0.5
-			p.Color = Color3.fromHSV(h, sa, math.clamp(v + r * amt * 0.6, 0, 1))
-		else
-			p.Color = c
-		end
+		p.Color = tint(s, i, c)
 	end
 end
 
+-- 光の形: Point=全方向 / Down=下向きスポット / Up=上向きスポット
+local LIGHT_CLASS = { Point = "PointLight", Down = "SpotLight", Up = "SpotLight" }
 local function setGlow(model, color, brightness, range)
 	local h = glowHost(model)
 	if not h then return end
+	local s = st(model)
 	local l = h:FindFirstChild("SkinGlow")
 	if brightness <= 0 then
+		s.glowB = 0
 		if l then l:Destroy() end
 		return
 	end
+	s.glowB = brightness
+	local shape = s.lightShape or "Point"
+	local cls = LIGHT_CLASS[shape]
+	if l and l.ClassName ~= cls then
+		l:Destroy()
+		l = nil
+	end
 	if not l then
-		l = Instance.new("PointLight")
+		l = Instance.new(cls)
 		l.Name = "SkinGlow"
 		l.Shadows = false
 		l.Parent = h
+	end
+	if cls == "SpotLight" then
+		l.Face = (shape == "Up") and Enum.NormalId.Top or Enum.NormalId.Bottom
+		l.Angle = 120
 	end
 	l.Color = color
 	l.Brightness = brightness
@@ -940,10 +1358,310 @@ local function setTexture(parts, show)
 	end
 end
 
+---------------------------------------------------------------------
+-- 追加機能 (反射の修正 / グラデーション / ネオン / 明滅 / 炎・煙・紙吹雪)
+---------------------------------------------------------------------
+local SK = { pulseSet = {} }
+do
+	-- ===== 反射 =====
+	-- Reflectance は プラスチック/つるつる/ガラス の時だけ見える。金属・ネオン・ホイルや、PBRテクスチャ付きの板では
+	-- 効かないので、反射を上げている間だけ自動で切り替える (0に戻すと元に戻る)。
+	local REFLECT_OK = { Plastic = true, SmoothPlastic = true, Glass = true }
+	function SK.reflect(model, parts, v)
+		local s = st(model)
+		v = math.clamp(v, 0, 1)
+		local was = (s.refl or 0) > 0
+		s.refl = v
+		s.reflSaved = s.reflSaved or {}
+		for _, p in ipairs(parts) do
+			remember(p)
+			p.Reflectance = v
+			if v > 0 then
+				if not s.neon and not REFLECT_OK[p.Material.Name] then
+					if s.reflSaved[p] == nil then s.reflSaved[p] = p.Material end
+					p.Material = Enum.Material.SmoothPlastic
+				end
+			elseif s.reflSaved[p] ~= nil then
+				if p.Material == Enum.Material.SmoothPlastic then p.Material = s.reflSaved[p] end
+				s.reflSaved[p] = nil
+			end
+		end
+		if v > 0 then
+			if not s.reflTexOff and s.texUser ~= false then
+				s.reflTexOff = true
+				setTexture(parts, false)
+			end
+		elseif s.reflTexOff then
+			s.reflTexOff = nil
+			if s.texUser ~= false then setTexture(parts, true) end
+		end
+		if s.grad and ((v > 0) ~= was) then SK.gradient(model, parts, s.grad) end   -- 反射の有無で、重ね貼りの有無が変わる
+	end
+
+	-- ===== グラデーション (2色を混ぜる。動かない) =====
+	local AXIS = { X = 1, Y = 2, Z = 3 }
+	local function comp(v, ax) return ax == 1 and v.X or (ax == 2 and v.Y or v.Z) end
+	local function mix(a, b, t)   -- 暗く沈まないよう、光の強さ(リニア)の空間で混ぜる
+		local function m(x, y) return (x ^ 2.2 * (1 - t) + y ^ 2.2 * t) ^ (1 / 2.2) end
+		return Color3.new(m(a.R, b.R), m(a.G, b.G), m(a.B, b.B))
+	end
+	local function gradAt(cfg, t)
+		t = math.clamp(t, 0, 1)
+		if cfg.rev then t = 1 - t end
+		if cfg.stripes > 1 then
+			local k = math.min(math.floor(t * cfg.stripes), cfg.stripes - 1)
+			return (k % 2 == 0) and cfg.a or cfg.b
+		end
+		return mix(cfg.a, cfg.b, t ^ (math.log(0.5) / math.log(cfg.mid)))   -- mid の位置でちょうど半分の色になる
+	end
+	-- 面ごとの GUI の向き (外から見て 右 / 上 が、パーツのどの向きか)
+	local FACES = {
+		{ "Front", Vector3.new(-1, 0, 0), Vector3.new(0, 1, 0) },
+		{ "Back", Vector3.new(1, 0, 0), Vector3.new(0, 1, 0) },
+		{ "Left", Vector3.new(0, 0, 1), Vector3.new(0, 1, 0) },
+		{ "Right", Vector3.new(0, 0, -1), Vector3.new(0, 1, 0) },
+		{ "Top", Vector3.new(0, 0, -1), Vector3.new(-1, 0, 0) },
+	}
+	-- t0(左/上) → t1(右/下) の ColorSequence を作る。ストライプの時は境目を急に切り替える
+	local function buildSeq(cfg, t0, t1, tf)
+		local us = {}
+		if cfg.stripes > 1 then
+			us[#us + 1] = 0
+			for k = 1, cfg.stripes - 1 do
+				local u = (k / cfg.stripes - t0) / ((t1 - t0 == 0) and 1e-9 or (t1 - t0))
+				if u > 0.004 and u < 0.996 then
+					us[#us + 1] = u - 0.002
+					us[#us + 1] = u + 0.002
+				end
+			end
+			us[#us + 1] = 1
+			table.sort(us)
+		else
+			for i = 0, 10 do us[#us + 1] = i / 10 end
+		end
+		local keys, last = {}, -1
+		for _, u in ipairs(us) do
+			if u > last + 1e-4 then
+				keys[#keys + 1] = ColorSequenceKeypoint.new(u, tf(gradAt(cfg, t0 + (t1 - t0) * u)))
+				last = u
+			end
+		end
+		return ColorSequence.new(keys)
+	end
+	local function addOverlay(p, face, seq, vertical, tr)
+		local sg = Instance.new("SurfaceGui")
+		sg.Name = "SkinGrad"
+		sg.Face = Enum.NormalId[face]
+		sg.LightInfluence = 1
+		sg.AlwaysOnTop = false
+		pcall(function() sg.MaxDistance = 250 end)
+		local f = Instance.new("Frame")
+		f.Size = UDim2.fromScale(1, 1)
+		f.BackgroundColor3 = Color3.new(1, 1, 1)
+		f.BackgroundTransparency = tr or 0   -- 板の透明度に合わせる (重ね貼りだけ不透明に残らないように)
+		f.BorderSizePixel = 0
+		f.Parent = sg
+		local g = Instance.new("UIGradient")
+		g.Color = seq
+		g.Rotation = vertical and 90 or 0
+		g.Parent = f
+		sg.Parent = p   -- 親のパーツに貼る
+	end
+
+	function SK.clearGrad(model)
+		local s = st(model)
+		if not s.grad then return end
+		s.grad = nil
+		for _, p in ipairs(partsOf(model)) do
+			for _, c in ipairs(p:GetChildren()) do
+				if c.Name == "SkinGrad" then c:Destroy() end
+			end
+		end
+	end
+
+	function SK.syncGradTr(parts, tr)
+		for _, p in ipairs(parts) do
+			for _, c in ipairs(p:GetChildren()) do
+				if c.Name == "SkinGrad" then
+					local fr = c:FindFirstChildOfClass("Frame")
+					if fr then fr.BackgroundTransparency = tr end
+				end
+			end
+		end
+	end
+
+	-- v = { a=Color3, b=Color3, axis="X"|"Y"|"Z", rev=bool, mid=0.1~0.9, smooth=bool, stripes=0~8, topFlip=bool }
+	function SK.gradient(model, parts, v)
+		if typeof(v) ~= "table" or typeof(v.a) ~= "Color3" or typeof(v.b) ~= "Color3" or not AXIS[v.axis] then return false end
+		local cfg = {
+			a = v.a, b = v.b, axis = v.axis, rev = v.rev == true, smooth = v.smooth ~= false, topFlip = v.topFlip == true,
+			mid = isNum(v.mid) and math.clamp(v.mid, 0.1, 0.9) or 0.5,
+			stripes = isNum(v.stripes) and math.clamp(math.floor(v.stripes), 0, 8) or 0,
+		}
+		local s = st(model)
+		rainbowSet[model] = nil
+		SK.clearGrad(model)
+		s.texUser = false
+		setTexture(parts, false)   -- 木目が上に残ると色が見えないので、外す
+		s.grad = cfg
+		s.base = gradAt(cfg, 0.5)
+		local ax = AXIS[cfg.axis]
+		local pv = model:GetPivot()
+		local ex, lo, hi = {}, math.huge, -math.huge
+		for i, p in ipairs(parts) do
+			local rel = pv:ToObjectSpace(p.CFrame)
+			local sz = p.Size
+			local h = 0.5 * (math.abs(comp(rel.RightVector, ax)) * sz.X + math.abs(comp(rel.UpVector, ax)) * sz.Y + math.abs(comp(rel.LookVector, ax)) * sz.Z)
+			local c = comp(rel.Position, ax)
+			ex[i] = { rel = rel, c = c, h = h }
+			if c - h < lo then lo = c - h end
+			if c + h > hi then hi = c + h end
+		end
+		local span = hi - lo
+		local made = 0
+		for i, p in ipairs(parts) do
+			remember(p)
+			local e = ex[i]
+			local ta, tb = 0.5, 0.5
+			if span > 1e-3 then ta, tb = (e.c - e.h - lo) / span, (e.c + e.h - lo) / span end
+			local function tf(c) return tint(s, i, c) end
+			p.Color = tf(gradAt(cfg, (ta + tb) / 2))   -- 重ね貼りしない面(裏・端)はこの平均色
+			if cfg.smooth and (s.refl or 0) <= 0 and span > 1e-3 and made < 160 then   -- 反射中は重ね貼りが反射を隠すので、やめる
+				for _, f in ipairs(FACES) do
+					local fr, fu = f[2], f[3]
+					if f[1] == "Top" and cfg.topFlip then fr, fu = -fr, -fu end   -- 上面だけ向きが逆に見える時の保険
+					local dr = comp(e.rel:VectorToWorldSpace(fr), ax)
+					local du = comp(e.rel:VectorToWorldSpace(fu), ax)
+					local t0, t1, vertical
+					if math.abs(dr) > 0.9 then
+						vertical = false
+						if dr > 0 then t0, t1 = ta, tb else t0, t1 = tb, ta end
+					elseif math.abs(du) > 0.9 then
+						vertical = true
+						if du > 0 then t0, t1 = tb, ta else t0, t1 = ta, tb end
+					end
+					if t0 then
+						addOverlay(p, f[1], buildSeq(cfg, t0, t1, tf), vertical, p.Transparency)
+						made = made + 1
+					end
+				end
+			end
+		end
+		return true
+	end
+end
+
+do
+	-- ===== ネオン発光 (素材をネオンにする。OFFで元の素材に戻る) =====
+	function SK.neon(model, parts, on)
+		local s = st(model)
+		if on then
+			s.neonSaved = s.neonSaved or {}
+			for _, p in ipairs(parts) do
+				remember(p)
+				if s.neonSaved[p] == nil then s.neonSaved[p] = p.Material end
+				p.Material = Enum.Material.Neon
+			end
+			s.neon = true
+		else
+			if s.neonSaved then
+				for _, p in ipairs(parts) do
+					local m = s.neonSaved[p]
+					if m ~= nil and p.Material == Enum.Material.Neon then p.Material = m end
+				end
+			end
+			s.neonSaved = nil
+			s.neon = nil
+		end
+	end
+
+	-- ===== 明滅 (光がゆっくり強弱する。0=止める) =====
+	function SK.pulse(model, speed)
+		local s = st(model)
+		s.pulse = speed
+		if speed > 0 then
+			SK.pulseSet[model] = true
+		else
+			SK.pulseSet[model] = nil
+			local h = glowHost(model)
+			local l = h and h:FindFirstChild("SkinGlow")
+			if l and (s.glowB or 0) > 0 then l.Brightness = s.glowB end
+		end
+	end
+
+	-- ===== 炎 / 煙 / 紙吹雪 =====
+	function SK.fire(model, on, size)
+		local h = glowHost(model)
+		if not h then return end
+		local f = h:FindFirstChild("SkinFire")
+		if not on then
+			if f then f:Destroy() end
+			return
+		end
+		if not f then
+			f = Instance.new("Fire")
+			f.Name = "SkinFire"
+			f.Heat = 9
+			f.Size = 6
+			f.Parent = h
+		end
+		if size then f.Size = size end
+	end
+	function SK.smoke(model, on)
+		local h = glowHost(model)
+		if not h then return end
+		local f = h:FindFirstChild("SkinSmoke")
+		if not on then
+			if f then f:Destroy() end
+			return
+		end
+		if not f then
+			f = Instance.new("Smoke")
+			f.Name = "SkinSmoke"
+			f.Size = 4
+			f.Opacity = 0.45
+			f.RiseVelocity = 4
+			f.Color = Color3.fromRGB(190, 190, 200)
+			f.Parent = h
+		end
+	end
+	function SK.confetti(model, on)
+		local h = glowHost(model)
+		if not h then return end
+		local e = h:FindFirstChild("SkinConfetti")
+		if not on then
+			if e then e:Destroy() end
+			return
+		end
+		if e then return end
+		e = Instance.new("ParticleEmitter")
+		e.Name = "SkinConfetti"
+		e.Rate = 40
+		e.Lifetime = NumberRange.new(1.6, 2.6)
+		e.Speed = NumberRange.new(8, 16)
+		e.SpreadAngle = Vector2.new(60, 60)
+		e.EmissionDirection = Enum.NormalId.Top
+		e.Acceleration = Vector3.new(0, -22, 0)
+		e.Rotation = NumberRange.new(0, 360)
+		e.RotSpeed = NumberRange.new(-240, 240)
+		e.LightEmission = 0.2
+		e.Size = NumberSequence.new(0.35)
+		e.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(0.8, 0), NumberSequenceKeypoint.new(1, 1) })
+		local keys = {}
+		for i = 0, 6 do keys[#keys + 1] = ColorSequenceKeypoint.new(i / 6, Color3.fromHSV(i / 6, 0.85, 1)) end
+		e.Color = ColorSequence.new(keys)
+		e.Parent = h
+	end
+end
+
 local function applySkin(model, kind, value)
 	local parts = partsOf(model)
 	if #parts == 0 then return "板の部品が見つかりません" end
 	local s = st(model)
+	-- 色を直接変える操作・レインボーONの時は、重ね貼りしているグラデーションを先に外す
+	if kind == "Color" or kind == "HSV" or kind == "RGB" or kind == "Look" or kind == "Preset" or (kind == "Rainbow" and value == true) then
+		SK.clearGrad(model)
+	end
 
 	if kind == "Color" then
 		if typeof(value) ~= "Color3" then return "色が不正です" end
@@ -966,6 +1684,8 @@ local function applySkin(model, kind, value)
 		if not lk then return "素材が不正です" end
 		rainbowSet[model] = nil
 		s.glowColor = nil
+		s.refl, s.reflSaved, s.reflTexOff, s.neon, s.neonSaved = nil, nil, nil, nil, nil
+		s.texUser = false
 		setTexture(parts, false)
 		paint(model, parts, lk[1])
 		for _, p in ipairs(parts) do
@@ -979,6 +1699,7 @@ local function applySkin(model, kind, value)
 		local pr = typeof(value) == "string" and PRESETS[value] or nil
 		if not pr then return "プリセットが不正です" end
 		rainbowSet[model] = nil
+		s.refl, s.reflSaved, s.neon, s.neonSaved = nil, nil, nil, nil
 		paint(model, parts, pr.Color)
 		for _, p in ipairs(parts) do
 			p.Material = Enum.Material[pr.Material]
@@ -990,18 +1711,30 @@ local function applySkin(model, kind, value)
 		return "プリセット「" .. value .. "」を適用しました"
 	elseif kind == "Reflectance" then
 		if not isNum(value) then return "値が不正です" end
-		for _, p in ipairs(parts) do remember(p) p.Reflectance = math.clamp(value, 0, 1) end
+		SK.reflect(model, parts, value)
+		if value > 0 and s.neon then return "ネオン発光中は反射が見えません (先にネオンをOFF)" end
 		return "反射を変えました"
 	elseif kind == "Transparency" then
 		if not isNum(value) then return "値が不正です" end
 		for _, p in ipairs(parts) do remember(p) p.Transparency = math.clamp(value, 0, 0.9) end
+		SK.syncGradTr(parts, math.clamp(value, 0, 0.9))
 		return "透明度を変えました"
 	elseif kind == "Variance" then
 		if not isNum(value) then return "値が不正です" end
 		s.variance = math.clamp(value, 0, 1)
-		paint(model, parts, s.base or parts[1].Color)
+		if s.grad then SK.gradient(model, parts, s.grad) else paint(model, parts, s.base or parts[1].Color) end
 		return "色ムラを変えました"
+	elseif kind == "Weather" then
+		if not isNum(value) then return "値が不正です" end
+		s.weather = math.clamp(value, 0, 1)
+		if s.grad then SK.gradient(model, parts, s.grad) else paint(model, parts, s.base or parts[1].Color) end
+		return "経年劣化を変えました"
 	elseif kind == "Texture" then
+		s.texUser = (value == true)
+		s.reflTexOff = nil
+		-- 元のテクスチャを出すと反射は効かなくなるので、反射は0に戻す
+		if value == true and (s.refl or 0) > 0 then SK.reflect(model, parts, 0) end
+		s.texUser = (value == true)
 		setTexture(parts, value == true)
 		return value == true and "テクスチャON" or "テクスチャOFF"
 	elseif kind == "Glow" then
@@ -1012,7 +1745,7 @@ local function applySkin(model, kind, value)
 		if not isNum(value) then return "値が不正です" end
 		local h = glowHost(model)
 		local l = h and h:FindFirstChild("SkinGlow")
-		setGlow(model, s.glowColor or s.base or parts[1].Color, l and l.Brightness or 1, math.clamp(value, 4, 30))
+		setGlow(model, s.glowColor or s.base or parts[1].Color, l and (s.glowB or l.Brightness) or 1, math.clamp(value, 4, 30))
 		return "発光の範囲を変えました"
 	elseif kind == "GlowHue" then
 		if not isNum(value) then return "値が不正です" end
@@ -1051,8 +1784,50 @@ local function applySkin(model, kind, value)
 		if not isNum(value) then return "値が不正です" end
 		setOutline(model, true, Color3.fromHSV(math.clamp(value, 0, 1), 0.75, 1))
 		return "縁取りの色を変えました"
+	elseif kind == "Gradient" then
+		if not SK.gradient(model, parts, value) then return "グラデーションの値が不正です" end
+		return "グラデーションを適用しました"
+	elseif kind == "GradientClear" then
+		SK.clearGrad(model)
+		paint(model, parts, s.base or parts[1].Color)
+		return "グラデーションを外しました"
+	elseif kind == "Neon" then
+		SK.neon(model, parts, value == true)
+		return value == true and "ネオン発光ON" or "ネオン発光OFF"
+	elseif kind == "Pulse" then
+		if not isNum(value) then return "値が不正です" end
+		SK.pulse(model, math.clamp(value, 0, 4))
+		return value > 0 and "明滅の速さを変えました" or "明滅OFF"
+	elseif kind == "LightShape" then
+		if value ~= "Point" and value ~= "Down" and value ~= "Up" then return "値が不正です" end
+		s.lightShape = value
+		local h = glowHost(model)
+		local l = h and h:FindFirstChild("SkinGlow")
+		if l then setGlow(model, l.Color, s.glowB or l.Brightness, l.Range) end
+		return "光の向きを変えました"
+	elseif kind == "Shadow" then
+		for _, p in ipairs(parts) do remember(p) p.CastShadow = (value == true) end
+		return value == true and "影を落とす" or "影を落とさない"
+	elseif kind == "Fire" then
+		SK.fire(model, value == true)
+		return value == true and "炎ON" or "炎OFF"
+	elseif kind == "FireSize" then
+		if not isNum(value) then return "値が不正です" end
+		SK.fire(model, true, math.clamp(value, 2, 30))
+		return "炎の大きさを変えました"
+	elseif kind == "Smoke" then
+		SK.smoke(model, value == true)
+		return value == true and "煙ON" or "煙OFF"
+	elseif kind == "Confetti" then
+		SK.confetti(model, value == true)
+		return value == true and "紙吹雪ON" or "紙吹雪OFF"
 	elseif kind == "Reset" then
 		rainbowSet[model] = nil
+		SK.pulseSet[model] = nil
+		SK.clearGrad(model)
+		SK.fire(model, false)
+		SK.smoke(model, false)
+		SK.confetti(model, false)
 		stateOf[model] = nil
 		setGlow(model, Color3.new(1, 1, 1), 0, nil)
 		setSparkle(model, false)
@@ -1062,6 +1837,7 @@ local function applySkin(model, kind, value)
 			local o = orig[p]
 			if o then
 				p.Color, p.Material, p.Reflectance, p.Transparency = o[1], o[2], o[3], o[4]
+				if o[5] ~= nil then p.CastShadow = o[5] end
 			end
 		end
 		return "元に戻しました"
@@ -1071,9 +1847,26 @@ end
 
 -- レインボーは毎フレーム更新 (Heartbeat) で滑らかに。パーツ一覧はキャッシュして毎回は数え直さない。
 local RunService = game:GetService("RunService")
+SK.lastPulse = 0
 RunService.Heartbeat:Connect(function()
-	if next(rainbowSet) == nil then return end
 	local now = os.clock()
+	-- 明滅: ライトの強さをゆっくり上下 (1秒に最大20回だけ更新して通信を増やさない)
+	if next(SK.pulseSet) ~= nil and now - SK.lastPulse >= 0.05 then
+		SK.lastPulse = now
+		for m in pairs(SK.pulseSet) do
+			if m.Parent then
+				local s = st(m)
+				local h = glowHost(m)
+				local l = h and h:FindFirstChild("SkinGlow")
+				if l and (s.glowB or 0) > 0 and (s.pulse or 0) > 0 then
+					l.Brightness = s.glowB * (0.15 + 0.85 * (0.5 + 0.5 * math.sin(now * s.pulse * 6.2832)))
+				end
+			else
+				SK.pulseSet[m] = nil
+			end
+		end
+	end
+	if next(rainbowSet) == nil then return end
 	for m in pairs(rainbowSet) do
 		if m.Parent then
 			local s = st(m)
@@ -1108,19 +1901,21 @@ local Opt = (function()
 	local SMOOTH = Enum.Material.SmoothPlastic
 	local NEON, FFIELD = Enum.Material.Neon, Enum.Material.ForceField
 
-	M.ORDER = { "shadow", "light", "fx", "decal", "post", "sky", "terrain", "material" }
+	M.ORDER = { "shadow", "light", "fx", "decal", "post", "sky", "terrain", "gui", "sound", "pbr", "material" }
 	M.LABEL = {
-		shadow = "影を消す", light = "ライトを切る", fx = "粒エフェクト停止", decal = "デカール消し",
-		post = "ぼかし系を切る", sky = "雲・大気を消す", terrain = "水・草を軽く", material = "素材を単純化",
+		shadow = "影を消す", light = "ライトを切る", fx = "粒・炎・軌跡を止める", decal = "デカール消し",
+		post = "ぼかし系を切る", sky = "雲・大気・星を消す", terrain = "水・草を軽く",
+		gui = "看板・名札(3D表示)を消す", sound = "ループ音(BGM)を止める", pbr = "高画質テクスチャを外す", material = "素材を単純化",
 	}
 	M.onStatus = nil   -- function(text, 0~1) 進行状況をUIに出すための窓口
 
-	local FX_CLASS = { ParticleEmitter = true, Fire = true, Smoke = true, Sparkles = true, Trail = true, Beam = true }
+	local FX_CLASS = { ParticleEmitter = true, Fire = true, Smoke = true, Sparkles = true, Trail = true, Beam = true, Highlight = true }
 	local POST_CLASS = { BlurEffect = true, DepthOfFieldEffect = true, SunRaysEffect = true }   -- ブルームは板のネオンのために残す
 
 	-- 元の値の保管庫 (消えた物はGCされるように弱参照)
 	local function weak() return setmetatable({}, { __mode = "k" }) end
-	local store = { shadow = weak(), light = weak(), fx = weak(), decal = weak(), post = weak(), mat = weak(), refl = weak() }
+	local store = { shadow = weak(), light = weak(), fx = weak(), decal = weak(), post = weak(), mat = weak(), refl = weak(), gui = weak(), sound = weak() }
+	local held = {}    -- 外したSurfaceAppearance → 元の親 (親が無いとGCで消えるので、こちらだけ強参照で持つ)
 	local saves = {}   -- 単発の元の値
 
 	---------------------------------------------------------------
@@ -1155,7 +1950,7 @@ local Opt = (function()
 	local function topExcluded(c)
 		if c == workspace.CurrentCamera or c:IsA("Terrain") then return true end
 		local n = c.Name
-		if n == FOLDER or n == "PalletLightBrown" or n:find("_SpawnedInToys$") then return true end
+		if n == "PalletLightBrown" or n:find("SpawnedInToys$") then return true end
 		if Players:GetPlayerFromCharacter(c) then return true end
 		return false
 	end
@@ -1308,6 +2103,12 @@ local Opt = (function()
 				saves.clouds = { cl, cl.Enabled }
 				setp(cl, "Enabled", false)
 			end
+			local sk = Lighting:FindFirstChildOfClass("Sky")
+			if sk and saves.sky == nil then
+				saves.sky = { sk, sk.StarCount, sk.CelestialBodiesShown }
+				setp(sk, "StarCount", 0)
+				setp(sk, "CelestialBodiesShown", false)
+			end
 		end,
 		revert = function()
 			if saves.atmos then
@@ -1322,6 +2123,11 @@ local Opt = (function()
 				setp(saves.clouds[1], "Enabled", saves.clouds[2])
 				saves.clouds = nil
 			end
+			if saves.sky then
+				setp(saves.sky[1], "StarCount", saves.sky[2])
+				setp(saves.sky[1], "CelestialBodiesShown", saves.sky[3])
+				saves.sky = nil
+			end
 		end,
 	}
 
@@ -1329,13 +2135,13 @@ local Opt = (function()
 		apply = function()
 			local T = workspace.Terrain
 			if saves.terrain == nil then
-				local okD, dec = pcall(function() return T.Decoration end)
-				saves.terrain = { T.WaterWaveSize, T.WaterWaveSpeed, T.WaterReflectance, okD and dec or nil }
+				local okG, gl = pcall(function() return T.GrassLength end)
+				saves.terrain = { T.WaterWaveSize, T.WaterWaveSpeed, T.WaterReflectance, okG and gl or nil }
 			end
 			setp(T, "WaterWaveSize", 0)
 			setp(T, "WaterWaveSpeed", 0)
 			setp(T, "WaterReflectance", 0)
-			setp(T, "Decoration", false)
+			setp(T, "GrassLength", 0.01)   -- 草(地形の飾り)を短くして描く量を減らす
 		end,
 		revert = function()
 			local s = saves.terrain
@@ -1344,8 +2150,48 @@ local Opt = (function()
 			setp(T, "WaterWaveSize", s[1])
 			setp(T, "WaterWaveSpeed", s[2])
 			setp(T, "WaterReflectance", s[3])
-			if s[4] ~= nil then setp(T, "Decoration", s[4]) end
+			if s[4] ~= nil then setp(T, "GrassLength", s[4]) end
 			saves.terrain = nil
+		end,
+	}
+
+	-- 3D空間に出る看板・名札 (BillboardGui / SurfaceGui)
+	ITEMS.gui = {
+		one = function(inst)
+			if (inst:IsA("BillboardGui") or inst:IsA("SurfaceGui")) and inst.Enabled then
+				store.gui[inst] = true
+				inst.Enabled = false
+			end
+		end,
+		apply = function(label) walk(ITEMS.gui.one, label) end,
+		revert = function() restore(store.gui, function(inst) inst.Enabled = true end) end,
+	}
+
+	-- ループして鳴りっぱなしの音 (BGM・環境音)。1回きりの効果音はさわらない
+	ITEMS.sound = {
+		one = function(inst)
+			if inst:IsA("Sound") and inst.Looped and inst.Playing then
+				store.sound[inst] = true
+				inst.Playing = false
+			end
+		end,
+		apply = function(label) walk(ITEMS.sound.one, label) end,
+		revert = function() restore(store.sound, function(inst) inst.Playing = true end) end,
+	}
+
+	-- 高画質(PBR)テクスチャ (SurfaceAppearance) を一時的に外す。OFFで元の親に戻す
+	ITEMS.pbr = {
+		one = function(inst)
+			if inst:IsA("SurfaceAppearance") and inst.Parent then
+				held[inst] = inst.Parent
+				inst.Parent = nil
+			end
+		end,
+		apply = function(label) walk(ITEMS.pbr.one, label) end,
+		revert = function()
+			restore(held, function(inst, par)
+				if par and par.Parent then inst.Parent = par end
+			end)
 		end,
 	}
 
@@ -1448,7 +2294,8 @@ local Opt = (function()
 		while #order > 0 do
 			local k = table.remove(order, 1)
 			queued[k] = nil
-			process(k)
+			local okP, errP = pcall(process, k)
+			if not okP then warn("[PalletStudio] 軽量化: " .. tostring(errP)) end
 			doneCount = doneCount + 1
 			-- 実行中にONとOFFが切り替わっていたら、もう一度行列に並べる
 			if (desired[k] == true) ~= (on[k] == true) and not queued[k] then
@@ -1472,7 +2319,11 @@ local Opt = (function()
 			order[#order + 1] = key
 			totalCount = totalCount + 1
 		end
-		if not running and #order > 0 then task.spawn(worker) end
+		-- 次のフレームから始める (「全部ON」で同じフレームに並べた分を、まとめて1個ずつ順番に処理するため)
+		if not running and #order > 0 then
+			running = true
+			task.defer(worker)
+		end
 	end
 	function M.isWanted(key) return desired[key] == true end
 	function M.isBusy() return running end
@@ -1829,6 +2680,10 @@ corner(win, 22)
 local winStroke = stroke(win, 0.35, WHITE, 1.5)
 local winStrokeGrad = mk("UIGradient", { Rotation = 90, Color = ColorSequence.new(WHITE, Color3.fromRGB(167, 139, 250)) }, winStroke)
 local winScale = mk("UIScale", {}, win)
+-- UIの上でのクリック・タップが、後ろの3D世界(ゲーム側の操作)に抜けないようにする「受け止め板」。
+-- 見えない全面ボタンを一番下に敷く。Active なボタンは入力を飲み込むので、ウィンドウ上の操作は世界に届かない。
+win.Active = true
+local inputSink = mk("TextButton", { Name = "InputSink", AutoButtonColor = false, Text = "", BackgroundTransparency = 1, BorderSizePixel = 0, Size = UDim2.fromScale(1, 1), ZIndex = 0, Active = true }, win)
 
 -- 背景 (グラデーションは子のFrameに付ける)
 local bg = mk("Frame", { Name = "Bg", BackgroundColor3 = WHITE, BorderSizePixel = 0, Size = UDim2.fromScale(1, 1) }, win)
@@ -1862,7 +2717,7 @@ local function blobsOn(on)   -- on = ウィンドウが開いているか
 end
 
 -- 上のバー
-local topbar = mk("Frame", { Name = "TopBar", Position = UDim2.fromOffset(12, 10), Size = UDim2.fromOffset(W - 24, 50) }, win)
+local topbar = mk("Frame", { Name = "TopBar", Active = true, Position = UDim2.fromOffset(12, 10), Size = UDim2.fromOffset(W - 24, 50) }, win)
 Lib.glass(topbar, 0.86, 16)
 local title = text(topbar, "PALLET STUDIO", isMobile and 18 or 26, UDim2.fromOffset(16, isMobile and 10 or 2), UDim2.fromOffset(isMobile and 150 or 260, 30))
 local titleGrad = mk("UIGradient", { Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, WHITE), ColorSequenceKeypoint.new(0.5, CYAN), ColorSequenceKeypoint.new(1, WHITE) }) }, title)
@@ -1886,7 +2741,7 @@ local closeBtn = roundBtn("Close", "✕", -42)
 local side = mk("Frame", { Name = "Side", Position = UDim2.fromOffset(12, 68), Size = UDim2.fromOffset(SIDE_W, H - 68 - 58) }, win)
 Lib.glass(side, 0.88, 16)
 mk("UIPadding", { PaddingTop = UDim.new(0, 8), PaddingBottom = UDim.new(0, 8), PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8) }, side)
-mk("UIListLayout", { Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder }, side)
+mk("UIListLayout", { Padding = UDim.new(0, isMobile and 6 or 5), SortOrder = Enum.SortOrder.LayoutOrder }, side)
 
 -- 右の中身
 local content = mk("Frame", { Name = "Content", Position = UDim2.fromOffset(12 + SIDE_W + 8, 68), Size = UDim2.fromOffset(W - 24 - SIDE_W - 8, H - 68 - 58) }, win)
@@ -1922,6 +2777,9 @@ local chips = {}
 local isOpen = false
 local fitScale = 1
 local fit   -- 開閉のところで定義する(UI設定ページからも呼ぶので先に宣言)
+local homeInfo   -- ホームの表示を今の状態に更新する関数 (ホームページの所で定義。板の一覧が変わるたびに呼ぶ)
+local UIs = {}   -- ページをまたいで触るUI部品 (質感ページのトグル・スライダーなど)
+local gradLive = false   -- グラデーションを適用中か (色タブの設定を変えたら自動で付け直す)
 local dirty = {}
 local resetters = {}   -- 板ごとに、UIを初期状態へ戻す関数のリスト
 local function onResettable(fn) resetters[#resetters + 1] = fn end
@@ -1998,50 +2856,26 @@ end
 local slotOf = setmetatable({}, { __mode = "k" })
 local seenMap = {}
 
--- 自分の板かどうか。本体(SpawnToyServer)は板に OwnerUserId という Attribute を付けて持ち主を記録しているので、
--- まずそれを見る。古い板など Attribute が無い場合だけ、PlayerValue (あれば) で判定し、何も無ければ自分の板として扱う。
-local function isMine(m)
-	local owner = m:GetAttribute("OwnerUserId")
-	if owner ~= nil then return owner == lp.UserId end
-	local pv = m:FindFirstChild("PlayerValue")
-	if not pv or not pv:IsA("ValueBase") then return true end
-	local v = pv.Value
-	if typeof(v) == "Instance" then return v == lp end
-	if typeof(v) == "string" then return v == lp.Name or v == lp.DisplayName or v == tostring(lp.UserId) end
-	if typeof(v) == "number" then return v == lp.UserId end
-	return true
+-- 検出するのは「Workspace/<自分の@ID(ユーザー名)>SpawnedInToys」の直下にある PalletLightBrown (Model) だけ。
+-- 他のフォルダ・他プレイヤーのフォルダ・フォルダの外にある板は見ない。フォルダの自動作成もしない。
+local function myFolder()
+	return workspace:FindFirstChild(toyFolderName())
 end
 
--- サーバー側が自動生成する「<自分のUserId>_SpawnedInToys」フォルダ(Workspace直下)。
--- 中身は本物の板への参照(ObjectValue)で、自分の板だけが入っているので、他人の板は原理的に検出されない。
-local function myFolderName()
-	return tostring(lp.UserId) .. "_SpawnedInToys"
+-- この板は、自分のフォルダの直下にあるか (DescendantAdded などで使う)
+local function isMyBoard(m)
+	if m.Name ~= "PalletLightBrown" or not m:IsA("Model") then return false end
+	local f = myFolder()
+	return f ~= nil and m.Parent == f
 end
 
 local function myPallets()
 	local list = {}
-	local seenModel = {}
-	local pf = workspace:FindFirstChild(myFolderName())
-	if pf then
-		for _, ref in ipairs(pf:GetChildren()) do
-			if ref:IsA("ObjectValue") then
-				local m = ref.Value
-				if m and m.Parent and m:IsA("Model") and m.Name == "PalletLightBrown" and not seenModel[m] then
-					seenModel[m] = true
-					list[#list + 1] = m
-				end
-			end
-		end
-	end
-	-- 保険: 専用フォルダがまだ反映されていない瞬間用に、共有フォルダを OwnerUserId で直接確認
-	if #list == 0 then
-		local f = workspace:FindFirstChild(FOLDER)
-		if f then
-			for _, m in ipairs(f:GetChildren()) do
-				if m.Name == "PalletLightBrown" and m:IsA("Model") and isMine(m) and not seenModel[m] then
-					seenModel[m] = true
-					list[#list + 1] = m
-				end
+	local f = myFolder()
+	if f then
+		for _, m in ipairs(f:GetChildren()) do
+			if m.Name == "PalletLightBrown" and m:IsA("Model") then
+				list[#list + 1] = m
 			end
 		end
 	end
@@ -2122,6 +2956,7 @@ refresh = function()
 	end
 	emptyLbl.Visible = (#list == 0)
 	selVisuals()
+	if homeInfo then pcall(homeInfo) end
 end
 
 -- 板に反映 (サーバーの受け口があればサーバーへ、無い/失敗ならこの画面に直接)
@@ -2172,6 +3007,10 @@ local function send(kind, value, quiet)
 		return
 	end
 	dirty[idx] = (kind ~= "Reset") or nil
+	if kind == "Color" or kind == "HSV" or kind == "RGB" or kind == "Look" or kind == "Preset" or kind == "GradientClear" or kind == "Reset" or (kind == "Rainbow" and value == true) then
+		gradLive = false   -- サーバー側でグラデーションが外れる操作
+		if UIs.refHint then UIs.refHint() end
+	end
 	record(model, kind, value)
 	selVisuals()
 	doApply(model, kind, value, quiet)
@@ -2198,8 +3037,35 @@ local function gridHeight(n, per, ch, py)
 	return rows * ch + (rows - 1) * py
 end
 
+-- 横に並ぶ選択ボタン (1つだけ選ばれる)。選ぶ関数 mark(i) を返す
+local function chipsRow(e, labels, onPick, initial)
+	local r = e:row(isMobile and 34 or 32)
+	mk("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder }, r)
+	local btns, sel = {}, initial
+	local function mark(i)
+		sel = i
+		for j, b in ipairs(btns) do
+			local active = (j == i)
+			Lib.tween(b, { BackgroundColor3 = active and Lib.ACCENT or WHITE, BackgroundTransparency = active and 0.15 or 0.88 }, 0.2)
+		end
+	end
+	for i, nm in ipairs(labels) do
+		local b = mk("TextButton", { AutoButtonColor = false, Text = nm, TextSize = isMobile and 12 or 14, FontFace = FONT, TextColor3 = WHITE, LayoutOrder = i, Size = UDim2.new(1 / #labels, -5, 1, 0) }, r)
+		Lib.glass(b, 0.88, 10)
+		Lib.juice(b)
+		b.MouseButton1Click:Connect(function()
+			mark(i)
+			onPick(i)
+		end)
+		btns[i] = b
+	end
+	mark(initial)
+	Lib.onTheme(function(a) if btns[sel] then btns[sel].BackgroundColor3 = a end end)
+	return mark
+end
+
 local pages = {}
-for i = 1, 9 do pages[i] = newPage() end
+for i = 1, 10 do pages[i] = newPage() end   -- 1〜6 各タブ / 7〜9 その他の中 / 10 ホーム
 -- 7〜9 は「その他」タブの中。上に切り替えバーを置くので、その分だけ下げる
 for k = 7, 9 do
 	pages[k].Position = UDim2.fromOffset(0, 46)
@@ -2261,6 +3127,126 @@ do
 		end
 		send("Color", Color3.fromHex(t))
 	end)
+
+	-- ===== グラデーション: 2つの色を混ぜる (動かない) =====
+	e:title("🌈 グラデーション (2色を混ぜる)")
+	local gA, gB = Color3.fromRGB(239, 68, 68), Color3.fromRGB(59, 130, 246)   -- 赤 → 青
+	local gAxis, gRev, gMid, gStripes, gSmooth, gTopFlip = "X", false, 0.5, 0, true, false
+	local function mixLin(a, b, t)   -- 暗く沈まないよう、光の強さ(リニア)で混ぜる (サーバーと同じ式)
+		local function m(x, y) return (x ^ 2.2 * (1 - t) + y ^ 2.2 * t) ^ (1 / 2.2) end
+		return Color3.new(m(a.R, b.R), m(a.G, b.G), m(a.B, b.B))
+	end
+	-- 見本の帯
+	local prevRow = e:glass(34)
+	local prevBar = mk("Frame", { BackgroundColor3 = WHITE, BorderSizePixel = 0, Position = UDim2.fromOffset(8, 6), Size = UDim2.new(1, -16, 1, -12) }, prevRow)
+	corner(prevBar, 8)
+	local prevGrad = mk("UIGradient", {}, prevBar)
+	local function previewSeq()
+		local keys = {}
+		if gStripes > 1 then
+			for k = 0, gStripes - 1 do
+				local band = gRev and (gStripes - 1 - k) or k
+				local c = (band % 2 == 0) and gA or gB
+				keys[#keys + 1] = ColorSequenceKeypoint.new(k == 0 and 0 or (k / gStripes + 0.002), c)
+				keys[#keys + 1] = ColorSequenceKeypoint.new(k == gStripes - 1 and 1 or ((k + 1) / gStripes - 0.002), c)
+			end
+		else
+			local g = math.log(0.5) / math.log(gMid)
+			for i = 0, 10 do
+				local t = i / 10
+				local tt = gRev and (1 - t) or t
+				keys[#keys + 1] = ColorSequenceKeypoint.new(t, mixLin(gA, gB, tt ^ g))
+			end
+		end
+		return ColorSequence.new(keys)
+	end
+	local function showPreview() prevGrad.Color = previewSeq() end
+	showPreview()
+
+	-- 板へ送る。ドラッグ中は軽い版(パーツごとの色だけ)、離した時/ボタンの時に、なめらかな重ね貼りまで送る
+	local function sendGrad(final)
+		gradLive = true
+		local v = { a = gA, b = gB, axis = gAxis, rev = gRev, mid = gMid, smooth = (gSmooth and final) and true or false, stripes = gStripes, topFlip = gTopFlip }
+		if final then send("Gradient", v) else sendThrottled("Gradient", v, false) end
+		if UIs.texT then UIs.texT:set(false) end   -- グラデーションは木目を外す
+		if UIs.refS and UIs.refHint then UIs.refHint() end
+	end
+	local function changed(final)
+		showPreview()
+		if gradLive then sendGrad(final) end
+	end
+
+	-- 色A / 色B を選ぶ (パレット + 色相スライダー)
+	local pal = {
+		Color3.fromRGB(239, 68, 68), Color3.fromRGB(250, 204, 21), Color3.fromRGB(52, 211, 153), Color3.fromRGB(56, 189, 248),
+		Color3.fromRGB(59, 130, 246), Color3.fromRGB(168, 85, 247), Color3.fromRGB(244, 245, 248), Color3.fromRGB(20, 22, 28),
+	}
+	local palCols = isMobile and 4 or 8
+	local function colorPicker(label, sliderName, setC, hueStart)
+		e:title(label)
+		local prow = e:row(gridHeight(#pal, palCols, 30, 8))
+		grid(prow, 53, 30, 8, 8)
+		for i, col in ipairs(pal) do
+			local sw = mk("TextButton", { AutoButtonColor = false, BorderSizePixel = 0, Text = "", BackgroundColor3 = col, LayoutOrder = i }, prow)
+			corner(sw, 10)
+			stroke(sw, 0.3, WHITE, 1.5)
+			Lib.juice(sw)
+			sw.MouseButton1Click:Connect(function()
+				setC(col)
+				changed(true)
+			end)
+		end
+		return e:slider(sliderName, 0, 1, function(v, r)
+			setC(Color3.fromHSV(v, 0.9, 1))
+			changed(r)
+		end, hueStart, nil, nil, hueSeq())
+	end
+	local hueA = colorPicker("色A (はじまり)", "色A の色相", function(c) gA = c end, 0)
+	local hueB = colorPicker("色B (おわり)", "色B の色相", function(c) gB = c end, 0.61)
+
+	-- 向き・混ざり方
+	e:title("混ぜる向き (板の向きでの 横 / 高さ / 奥行)")
+	local axisMark = chipsRow(e, { "X方向", "Y方向 (高さ)", "Z方向" }, function(i)
+		gAxis = ({ "X", "Y", "Z" })[i]
+		changed(true)
+	end, 1)
+	local revT = e:toggle("向きを反転 (A と B を入れ替え)", function(sv)
+		gRev = sv
+		changed(true)
+	end, false)
+	local midS = e:slider("中間の位置", 0.1, 0.9, function(v, r)
+		gMid = v
+		changed(r)
+	end, 0.5, Color3.fromRGB(99, 102, 241), PINK)
+	e:title("模様")
+	local stripeMark = chipsRow(e, { "なめらか", "2本", "3本", "4本", "6本", "8本" }, function(i)
+		gStripes = ({ 0, 2, 3, 4, 6, 8 })[i]
+		changed(true)
+	end, 1)
+	local smoothT = e:toggle("なめらかに塗る (重ね貼り)", function(sv)
+		gSmooth = sv
+		changed(true)
+	end, true)
+	local topT = e:toggle("上面の向きを反転 (上面だけ逆に見える時)", function(sv)
+		gTopFlip = sv
+		changed(true)
+	end, false)
+	e:button("✨ グラデーションを板に適用", function() sendGrad(true) end, ACCENT)
+	e:button("単色に戻す (グラデーションを外す)", function()
+		send("GradientClear", nil)
+	end)
+	local gnote = e:row(isMobile and 84 or 58)
+	local gnoteLbl = text(gnote, "赤→青のように、板の向きに沿って2色が混ざります (動きません)。適用したあとに色や向きを変えると、すぐ反映されます。レインボーとは同時に使えません。", isMobile and 12 or 13, UDim2.fromOffset(4, 0), UDim2.new(1, -8, 1, 0), nil, SOFT)
+	gnoteLbl.TextWrapped = true
+	onResettable(function()
+		gA, gB = Color3.fromRGB(239, 68, 68), Color3.fromRGB(59, 130, 246)
+		gAxis, gRev, gMid, gStripes, gSmooth, gTopFlip = "X", false, 0.5, 0, true, false
+		hueA:set(0) hueB:set(0.61)
+		axisMark(1) stripeMark(1)
+		revT:set(false) smoothT:set(true) topT:set(false) midS:set(0.5)
+		gradLive = false
+		showPreview()
+	end)
 end
 
 -- 2: 素材 (押すと、その素材らしい色・質感・反射にして、元のテクスチャも外す)
@@ -2275,7 +3261,24 @@ do
 		{"Slate", "⬛ スレート", Color3.fromRGB(75, 82, 95)}, {"Concrete", "🏗 コンクリ", Color3.fromRGB(160, 160, 158)}, {"Brick", "🧱 レンガ", Color3.fromRGB(170, 70, 55)},
 		{"Cobblestone", "🛣 石畳", Color3.fromRGB(130, 125, 120)}, {"Sand", "🏖 砂", Color3.fromRGB(225, 200, 140)}, {"Fabric", "🧵 布", Color3.fromRGB(90, 120, 200)},
 		{"ForceField", "🛡 フォース", Color3.fromRGB(120, 200, 255)},
+		{"Glacier", "🏔 氷河", Color3.fromRGB(190, 230, 245)}, {"Snow", "☃️ 雪", Color3.fromRGB(245, 248, 252)}, {"Mud", "🟤 泥", Color3.fromRGB(95, 70, 50)},
+		{"Rubber", "⚫ ゴム", Color3.fromRGB(40, 40, 46)}, {"Leather", "👜 革", Color3.fromRGB(125, 72, 46)}, {"Plaster", "🧱 しっくい", Color3.fromRGB(232, 225, 212)},
+		{"CeramicTiles", "🚿 タイル", Color3.fromRGB(236, 240, 242)}, {"Carpet", "🟥 カーペット", Color3.fromRGB(150, 60, 72)}, {"Cardboard", "📦 段ボール", Color3.fromRGB(192, 152, 102)},
+		{"Basalt", "🌋 玄武岩", Color3.fromRGB(62, 64, 70)}, {"Pebble", "⚪ 小石", Color3.fromRGB(150, 140, 130)}, {"Limestone", "🦴 石灰岩", Color3.fromRGB(222, 214, 192)},
+		{"Sandstone", "🏜 砂岩", Color3.fromRGB(202, 162, 112)}, {"CorrodedMetal", "🦀 さび金属", Color3.fromRGB(132, 100, 80)}, {"CrackedLava", "🔥 溶岩", Color3.fromRGB(255, 120, 40)},
 	}
+	do   -- この Roblox に無い素材は出さない
+		local have = {}
+		for _, m in ipairs(mats) do
+			if pcall(function() return Enum.Material[m[1]] end) then have[#have + 1] = m end
+		end
+		mats = have
+	end
+	local function pickLook(name)
+		send("Look", name)
+		if UIs.afterLook then UIs.afterLook(true) end
+	end
+	e:button("🎲 ランダムな素材にする", function() pickLook(mats[math.random(#mats)][1]) end, ACCENT)
 	local matCols = isMobile and 2 or 3
 	local matCW = isMobile and 124 or 154
 	local row = e:row(gridHeight(#mats, matCols, 56, 8))
@@ -2289,7 +3292,7 @@ do
 		local matLbl = text(b, m[2], isMobile and 12 or 14, UDim2.fromOffset(56, 0), UDim2.new(1, -58, 1, 0), Enum.TextXAlignment.Left)
 		matLbl.TextWrapped = true
 		Lib.juice(b)
-		b.MouseButton1Click:Connect(function() send("Look", m[1]) end)
+		b.MouseButton1Click:Connect(function() pickLook(m[1]) end)
 	end
 	e:title("素材のあとに色を変えても大丈夫")
 end
@@ -2318,21 +3321,125 @@ do
 		mk("UIGradient", { Rotation = 25, Color = ColorSequence.new(p[3], Color3.new(p[3].R * 0.45, p[3].G * 0.45, p[3].B * 0.45)) }, sw)
 		text(b, p[2], isMobile and 12 or 14, UDim2.fromOffset(0, 54), UDim2.new(1, 0, 0, 24), Enum.TextXAlignment.Center)
 		Lib.juice(b)
-		b.MouseButton1Click:Connect(function() send("Preset", p[1]) end)
+		b.MouseButton1Click:Connect(function()
+			send("Preset", p[1])
+			if UIs.afterLook then UIs.afterLook(false) end
+		end)
 	end
 end
 
 -- 4: 質感
 do
 	local e = Lib.element(pages[4])
-	e:title("質感")
-	local refS = e:slider("反射", 0, 1, function(v, r) sendThrottled("Reflectance", v, r) end, 0)
-	local traS = e:slider("透明度", 0, 0.9, function(v, r) sendThrottled("Transparency", v, r) end, 0)
-	local varS = e:slider("色ムラ", 0, 1, function(v, r) sendThrottled("Variance", v, r) end, 0, Color3.fromRGB(99, 102, 241), PINK)
+	local curRefl = 0
+	local texShown = true
+	local refS, traS, varS, wthS, texT, quickMark, qm
+	local envOrig = nil   -- 「空の映り込み」を強くする前の値 (この画面だけの設定)
+	-- 反射が0なら「マット」、それ以外は何も選ばれていない表示にする
+	qm = function() if quickMark then quickMark(curRefl <= 0 and 1 or 0) end end
+
+	e:title("反射 (空や光が板に映る)")
+	local reflNote = e:row(isMobile and 78 or 54)
+	local reflLbl = text(reflNote, "", isMobile and 12 or 13, UDim2.fromOffset(4, 0), UDim2.new(1, -8, 1, 0), nil, SOFT)
+	reflLbl.TextWrapped = true
+	-- いまの反射が「見える状態か」をここに書く
+	local function updateHint()
+		local t
+		if curRefl <= 0 then
+			t = "いまは反射なし。右へ動かすと、空や光が板に映ります。素材は自動でつるつる系に切り替わり、木目テクスチャは外れます (0に戻すと元に戻る)。"
+		elseif UIs.neonOn then
+			t = "⚠ ネオン発光がONの間は、反射は見えません。光タブでネオンをOFFにしてください。"
+		elseif gradLive then
+			t = "反射 " .. math.floor(curRefl * 100 + 0.5) .. "% ✔ 反射が見えるよう、グラデーションは板ごとの色で表示中です (反射を0に戻すと、なめらかな表示に戻ります)。"
+		else
+			t = "反射 " .. math.floor(curRefl * 100 + 0.5) .. "% ✔ 板が空(スカイボックス)と光を映しています。映るのは空と光だけで、まわりの物は映りません (Robloxの仕様)。"
+		end
+		reflLbl.Text = t
+	end
+	refS = e:slider("反射", 0, 1, function(v, r)
+		curRefl = v
+		qm()
+		if v > 0 and texShown then
+			texShown = false
+			texT:set(false)   -- 反射を出す間は、木目テクスチャを自動で外す (見た目の通りにスイッチも動かす)
+		end
+		updateHint()
+		sendThrottled("Reflectance", v, r)
+	end, 0)
+	local function setRefl(v)
+		curRefl = v
+		refS:set(v)
+		if v > 0 and texShown then
+			texShown = false
+			texT:set(false)
+		end
+		updateHint()
+		send("Reflectance", v)
+	end
+	quickMark = chipsRow(e, { "マット 0%", "ツヤ 35%", "ミラー 100%" }, function(i)
+		setRefl(({ 0, 0.35, 1 })[i])
+	end, 1)
+	local envT = e:toggle("空の映り込みを最大に (この画面だけ)", function(sv)
+		local L = game:GetService("Lighting")
+		if sv then
+			if envOrig == nil then
+				local ok, v = pcall(function() return L.EnvironmentSpecularScale end)
+				envOrig = ok and v or 1
+			end
+			pcall(function() L.EnvironmentSpecularScale = 1 end)
+		elseif envOrig ~= nil then
+			pcall(function() L.EnvironmentSpecularScale = envOrig end)
+			envOrig = nil
+		end
+	end, false)
+
+	e:title("見た目")
+	traS = e:slider("透明度", 0, 0.9, function(v, r) sendThrottled("Transparency", v, r) end, 0)
+	varS = e:slider("色ムラ", 0, 1, function(v, r) sendThrottled("Variance", v, r) end, 0, Color3.fromRGB(99, 102, 241), PINK)
+	wthS = e:slider("経年劣化", 0, 1, function(v, r) sendThrottled("Weather", v, r) end, 0, Color3.fromRGB(120, 100, 70), Color3.fromRGB(60, 50, 40))
 	e:title("テクスチャ")
-	local texT = e:toggle("元の木目テクスチャ", function(s) send("Texture", s) end, true)
+	texT = e:toggle("元の木目テクスチャ", function(sv)
+		texShown = sv
+		send("Texture", sv)
+		if sv and curRefl > 0 then   -- 木目を出すと反射は効かないので、反射は0に戻す (サーバーも同じ)
+			curRefl = 0
+			refS:set(0)
+			qm()
+			updateHint()
+		end
+	end, true)
+
+	-- 素材/プリセットを押したあと: 板の本当の値を読み直してスライダーに合わせる (表示と見た目をずらさない)
+	local function syncFromBoard()
+		local m = selected and seenMap[selected]
+		if not m then return end
+		local refl, tra = 0, 0
+		for _, c in ipairs(m:GetChildren()) do
+			if c:IsA("BasePart") and c.Name ~= "Main" and c.Name ~= "SoundPart" then
+				refl = math.max(refl, c.Reflectance)
+				tra = math.max(tra, c.Transparency)
+			end
+		end
+		curRefl = refl
+		refS:set(refl)
+		traS:set(tra)
+		qm()
+		updateHint()
+	end
+	UIs.texT, UIs.refS, UIs.refHint = texT, refS, updateHint
+	UIs.afterLook = function(texOff)
+		if texOff then
+			texShown = false
+			texT:set(false)
+		end
+		task.delay(0.7, function() pcall(syncFromBoard) end)
+	end
+	updateHint()
 	onResettable(function()
-		refS:set(0) traS:set(0) varS:set(0) texT:set(true)
+		curRefl, texShown = 0, true
+		refS:set(0) traS:set(0) varS:set(0) wthS:set(0) texT:set(true)
+		qm()
+		updateHint()
 	end)
 end
 
@@ -2343,11 +3450,26 @@ do
 	local glowS = e:slider("発光の強さ", 0, 5, function(v, r) sendThrottled("Glow", v, r) end, 0, Color3.fromRGB(120, 80, 20), Color3.fromRGB(255, 240, 120))
 	local rangeS = e:slider("発光の範囲", 4, 30, function(v, r) sendThrottled("GlowRange", v, r) end, 8)
 	local glowHueS = e:slider("発光の色", 0, 1, function(v, r) sendThrottled("GlowHue", v, r) end, 0.58, nil, nil, hueSeq())
+	e:title("光り方")
+	local pulseS = e:slider("明滅の速さ", 0, 4, function(v, r) sendThrottled("Pulse", v, r) end, 0, Color3.fromRGB(99, 102, 241), CYAN)
+	local shapeMark = chipsRow(e, { "全方向", "下を照らす", "上を照らす" }, function(i)
+		send("LightShape", ({ "Point", "Down", "Up" })[i])
+	end, 1)
+	local neonT = e:toggle("ネオン発光 (素材をネオンに)", function(sv)
+		UIs.neonOn = sv
+		send("Neon", sv)
+		if UIs.refHint then UIs.refHint() end
+	end, false)
 	e:title("縁取り")
-	local ot = e:toggle("縁取り", function(s) send("Outline", s) end, false)
+	local ot = e:toggle("縁取り", function(sv) send("Outline", sv) end, false)
 	local outHueS = e:slider("縁取りの色", 0, 1, function(v, r) ot:set(true) sendThrottled("OutlineHue", v, r) end, 0.55, nil, nil, hueSeq())
+	e:title("影")
+	local shadowT = e:toggle("板が影を落とす", function(sv) send("Shadow", sv) end, true)
 	onResettable(function()
 		glowS:set(0) rangeS:set(8) glowHueS:set(0.58) ot:set(false) outHueS:set(0.55)
+		pulseS:set(0) shapeMark(1) neonT:set(false) shadowT:set(true)
+		UIs.neonOn = false
+		if UIs.refHint then UIs.refHint() end
 	end)
 end
 
@@ -2355,16 +3477,23 @@ end
 do
 	local e = Lib.element(pages[6])
 	e:title("レインボー")
-	local rt = e:toggle("レインボー", function(s) send("Rainbow", s) end, false)
+	local rt = e:toggle("レインボー", function(sv) send("Rainbow", sv) end, false)
 	local rbSpeedS = e:slider("速さ", 0.02, 1, function(v, r) rt:set(true) sendThrottled("RainbowSpeed", v, r) end, 0.15)
 	local rbSatS = e:slider("鮮やかさ", 0, 1, function(v, r) sendThrottled("RainbowSat", v, r) end, 0.85, WHITE, PINK)
 	e:title("キラキラ")
-	local st_ = e:toggle("キラキラ", function(s) send("Sparkle", s) end, false)
+	local st_ = e:toggle("キラキラ", function(sv) send("Sparkle", sv) end, false)
 	local spRateS = e:slider("量", 1, 120, function(v, r) st_:set(true) sendThrottled("SparkleRate", v, r) end, 25, Color3.fromRGB(99, 102, 241), CYAN)
 	local spSizeS = e:slider("大きさ", 0.05, 2, function(v, r) st_:set(true) sendThrottled("SparkleSize", v, r) end, 0.35, Color3.fromRGB(99, 102, 241), CYAN)
+	e:title("🔥 炎")
+	local fireT = e:toggle("炎", function(sv) send("Fire", sv) end, false)
+	local fireSizeS = e:slider("炎の大きさ", 2, 30, function(v, r) fireT:set(true) sendThrottled("FireSize", v, r) end, 6, Color3.fromRGB(120, 40, 10), Color3.fromRGB(255, 190, 60))
+	e:title("💨 煙・紙吹雪")
+	local smokeT = e:toggle("煙", function(sv) send("Smoke", sv) end, false)
+	local confT = e:toggle("紙吹雪", function(sv) send("Confetti", sv) end, false)
 	onResettable(function()
 		rt:set(false) rbSpeedS:set(0.15) rbSatS:set(0.85)
 		st_:set(false) spRateS:set(25) spSizeS:set(0.35)
+		fireT:set(false) fireSizeS:set(6) smokeT:set(false) confT:set(false)
 	end)
 end
 
@@ -2424,8 +3553,8 @@ do
 			Opt.set(key, false)
 		end
 	end)
-	local tip = e:row(isMobile and 84 or 56)
-	local tipLbl = text(tip, "ぼかし系はブルーム(光のにじみ)を残すので、板のネオンの光り方は変わりません。素材の単純化は見た目がだいぶ変わります。", isMobile and 12 or 13, UDim2.fromOffset(4, 0), UDim2.new(1, -8, 1, 0), nil, SOFT)
+	local tip = e:row(isMobile and 110 or 72)
+	local tipLbl = text(tip, "ぼかし系はブルーム(光のにじみ)を残すので、板のネオンの光り方は変わりません。「素材を単純化」「高画質テクスチャを外す」「看板・名札を消す」「ループ音を止める」は見た目や音がだいぶ変わります。", isMobile and 12 or 13, UDim2.fromOffset(4, 0), UDim2.new(1, -8, 1, 0), nil, SOFT)
 	tipLbl.TextWrapped = true
 end
 
@@ -2585,7 +3714,9 @@ do
 end
 
 -- ページ切り替え
-local tabs = { {"🎨", "色"}, {"🧱", "素材"}, {"✨", "プリセット"}, {"💎", "質感"}, {"💡", "光"}, {"🌈", "効果"}, {"⚙️", "その他"} }
+-- { アイコン, 名前, ページ番号 } (その他は 0 = 中の3ページを切り替える)
+local tabs = { {"🏠", "ホーム", 10}, {"🎨", "色", 1}, {"🧱", "素材", 2}, {"✨", "プリセット", 3}, {"💎", "質感", 4}, {"💡", "光", 5}, {"🌈", "効果", 6}, {"⚙️", "その他", 0} }
+local OTHER = 8
 local tabBtns = {}
 
 -- 「その他」タブの中: 上の切り替えバーで 視野 / 軽量化 / UI設定 を行き来する
@@ -2593,10 +3724,107 @@ local navBar = mk("Frame", { Name = "SubNav", BackgroundTransparency = 1, Positi
 mk("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder }, navBar)
 local subBtns = {}
 local curTab, curSub = 1, 1
+
+-- 10: ホーム (プレイヤーのアイコンと @ID / 板の検出状況 / FPS・Ping)
+do
+	local e = Lib.element(pages[10])
+	local OK_GREEN, BAD_RED = Color3.fromRGB(52, 211, 153), Color3.fromRGB(251, 113, 133)
+	local CARD_H = isMobile and 96 or 108
+	local card = e:row(CARD_H)
+	Lib.glass(card, 0.82, 18)
+	local AV = isMobile and 68 or 80
+	local avFrame = mk("Frame", { BackgroundColor3 = WHITE, BackgroundTransparency = 0.75, BorderSizePixel = 0, Position = UDim2.fromOffset(14, (CARD_H - AV) / 2), Size = UDim2.fromOffset(AV, AV) }, card)
+	corner(avFrame, AV / 2)
+	local avStroke = stroke(avFrame, 0, ACCENT, 3)
+	Lib.onTheme(function(a) avStroke.Color = a end)
+	-- アイコンが読み込めるまでは、名前の頭文字を出しておく
+	local initial = text(avFrame, string.upper(string.sub(lp.Name, 1, 1)), math.floor(AV * 0.45), UDim2.fromScale(0, 0), UDim2.fromScale(1, 1), Enum.TextXAlignment.Center)
+	local avImg = mk("ImageLabel", { BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), ScaleType = Enum.ScaleType.Crop, ImageTransparency = 1 }, avFrame)
+	corner(avImg, AV / 2)
+	local nameX = 14 + AV + 14
+	local dispLbl = text(card, lp.DisplayName, isMobile and 19 or 23, UDim2.fromOffset(nameX, isMobile and 14 or 18), UDim2.new(1, -nameX - 12, 0, 30))
+	dispLbl.TextTruncate = Enum.TextTruncate.AtEnd
+	local idLbl = text(card, "@" .. lp.Name, isMobile and 15 or 17, UDim2.fromOffset(nameX, isMobile and 44 or 50), UDim2.new(1, -nameX - 12, 0, 22), nil, CYAN)
+	idLbl.TextTruncate = Enum.TextTruncate.AtEnd
+	text(card, "UserId " .. tostring(lp.UserId), 12, UDim2.fromOffset(nameX, isMobile and 68 or 76), UDim2.new(1, -nameX - 12, 0, 18), nil, SOFT)
+	task.spawn(function()
+		for _ = 1, 6 do
+			local ok, img, ready = pcall(function()
+				return Players:GetUserThumbnailAsync(lp.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size150x150)
+			end)
+			if ok and type(img) == "string" and img ~= "" then
+				avImg.Image = img
+				Lib.tween(avImg, { ImageTransparency = 0 }, 0.6)
+				Lib.tween(initial, { TextTransparency = 1 }, 0.4)
+				if ready ~= false then break end
+			end
+			task.wait(1.5)
+		end
+	end)
+
+	-- 1行ぶんの「ラベル … 値」。値のTextLabelを返す
+	local function infoRow(label)
+		local r = e:glass(isMobile and 40 or 36)
+		text(r, label, isMobile and 13 or 14, UDim2.fromOffset(12, 0), UDim2.new(0.38, 0, 1, 0), nil, SOFT)
+		local v = text(r, "-", isMobile and 13 or 14, UDim2.new(0.38, 0, 0, 0), UDim2.new(0.62, -12, 1, 0), Enum.TextXAlignment.Right)
+		v.TextTruncate = Enum.TextTruncate.AtEnd
+		return v
+	end
+	e:title("板の検出")
+	local vFolder = infoRow("見るフォルダ")
+	local vFound = infoRow("フォルダの状態")
+	local vCount = infoRow("見つけた板")
+	local vSel = infoRow("選択中の板")
+	local vSrv = infoRow("サーバー連携")
+	local note = e:row(isMobile and 70 or 50)
+	local noteLbl = text(note, "検出するのは、Workspace の「@ID + SpawnedInToys」フォルダの直下にある PalletLightBrown だけです。他のフォルダや他の人の板は見ません。", isMobile and 12 or 13, UDim2.fromOffset(4, 0), UDim2.new(1, -8, 1, 0), nil, SOFT)
+	noteLbl.TextWrapped = true
+	e:button("🔄 板を探し直す", function()
+		refresh()
+		if homeInfo then homeInfo() end
+		Lib.notif(gui, "探し直しました", 1.2)
+	end)
+	e:title("いまの状態")
+	local vFps = infoRow("FPS")
+	local vPing = infoRow("Ping")
+
+	homeInfo = function()
+		local f = myFolder()
+		vFolder.Text = toyFolderName()
+		vFound.Text = f and "✔ 見つかった" or "✖ まだ無い"
+		vFound.TextColor3 = f and OK_GREEN or BAD_RED
+		local n = 0
+		for _ in pairs(chips) do n = n + 1 end
+		vCount.Text = n .. " 枚"
+		vSel.Text = selected and ("板" .. selected) or "なし"
+		local hasRemote = RS:FindFirstChild("PalletStudioApply_v2") ~= nil
+		vSrv.Text = hasRemote and "✔ つながっている" or "✖ 未接続 (この画面だけ)"
+		vSrv.TextColor3 = hasRemote and OK_GREEN or BAD_RED
+	end
+	homeInfo()
+
+	-- FPS と Ping は、ホームを開いている間だけ0.5秒ごとに更新する
+	local frames = 0
+	RunService.Heartbeat:Connect(function() frames = frames + 1 end)
+	task.spawn(function()
+		local t0 = os.clock()
+		while true do
+			task.wait(0.5)
+			local now = os.clock()
+			local fps = frames / math.max(now - t0, 0.001)
+			frames, t0 = 0, now
+			if isOpen and curTab == 1 then
+				vFps.Text = tostring(math.floor(fps + 0.5))
+				local ok, ping = pcall(function() return lp:GetNetworkPing() end)
+				vPing.Text = (ok and type(ping) == "number") and (tostring(math.floor(ping * 1000 + 0.5)) .. " ms") or "-"
+			end
+		end
+	end)
+end
 local function showSub(k)
 	curSub = k
 	for j = 1, 3 do
-		pages[6 + j].Visible = (curTab == 7 and j == k)
+		pages[6 + j].Visible = (curTab == OTHER and j == k)
 		local active = (j == k)
 		Lib.tween(subBtns[j], { BackgroundColor3 = active and Lib.ACCENT or WHITE, BackgroundTransparency = active and 0.15 or 0.88 }, 0.25)
 	end
@@ -2609,11 +3837,21 @@ for j, nm in ipairs({ "👁 視野", "🚀 軽量化", "🎨 UI設定" }) do
 	subBtns[j] = b
 end
 
+local PAGE_TABS = { 1, 2, 3, 4, 5, 6, 10 }
 local function showTab(i)
+	local changed = (curTab ~= i)
 	curTab = i
-	for j = 1, 6 do pages[j].Visible = (j == i) end
-	navBar.Visible = (i == 7)
+	local want = tabs[i][3]
+	for _, j in ipairs(PAGE_TABS) do pages[j].Visible = (j == want) end
+	navBar.Visible = (i == OTHER)
 	showSub(curSub)
+	if want > 0 and changed then
+		-- ページがふわっと横から入ってくる
+		local pg = pages[want]
+		pg.Position = UDim2.fromOffset(18, 0)
+		Lib.tween(pg, { Position = UDim2.fromOffset(0, 0) }, 0.4)
+	end
+	if i == 1 and homeInfo then pcall(homeInfo) end
 	for j, b in ipairs(tabBtns) do
 		local active = (j == i)
 		Lib.tween(b, { BackgroundColor3 = active and Lib.ACCENT or WHITE, BackgroundTransparency = active and 0.15 or 0.9 }, 0.3)
@@ -2638,7 +3876,7 @@ Lib.onTheme(function(a, b)
 end)
 for i, t in ipairs(tabs) do
 	local tabText = isMobile and t[1] or (t[1] .. "  " .. t[2])
-	local b = mk("TextButton", { Name = "Tab" .. i, AutoButtonColor = false, Text = tabText, TextSize = isMobile and 22 or 17, FontFace = FONT, TextColor3 = WHITE, TextXAlignment = isMobile and Enum.TextXAlignment.Center or Enum.TextXAlignment.Left, LayoutOrder = i, Size = UDim2.new(1, 0, 0, isMobile and 48 or 40) }, side)
+	local b = mk("TextButton", { Name = "Tab" .. i, AutoButtonColor = false, Text = tabText, TextSize = isMobile and 22 or 16, FontFace = FONT, TextColor3 = WHITE, TextXAlignment = isMobile and Enum.TextXAlignment.Center or Enum.TextXAlignment.Left, LayoutOrder = i, Size = UDim2.new(1, 0, 0, isMobile and 48 or 34) }, side)
 	Lib.glass(b, 0.9, 13)
 	if not isMobile then
 		mk("UIPadding", { PaddingLeft = UDim.new(0, 14) }, b)
@@ -2689,7 +3927,7 @@ local function setOpen(open)
 end
 
 Lib.drag(toggle, toggle, function() setOpen(not isOpen) end)
-Lib.drag(topbar, win, nil, winScale)
+Lib.drag(topbar, win)
 closeBtn.MouseButton1Click:Connect(function() setOpen(false) end)
 minBtn.MouseButton1Click:Connect(function() setOpen(false) end)
 resetBtn.MouseButton1Click:Connect(function()
@@ -2725,9 +3963,8 @@ spinTw[2] = TweenService:Create(titleGrad, TweenInfo.new(3, Enum.EasingStyle.Lin
 for _, t in ipairs(spinTw) do t:Play() end
 
 workspace.DescendantAdded:Connect(function(m)
-	if m.Name ~= "PalletLightBrown" or not m:IsA("Model") then return end
-	if m.Parent ~= workspace:FindFirstChild(FOLDER) then return end
-	-- PlayerValue がまだ入っていない瞬間がありうるので、少し待って2回更新し直す
+	if not isMyBoard(m) then return end
+	-- 板の中身が出そろうのを少し待って、一覧を更新し直す
 	if isOpen then
 		task.delay(0.5, refresh)
 		task.delay(1.5, refresh)
@@ -2735,8 +3972,9 @@ workspace.DescendantAdded:Connect(function(m)
 	if permanentOps then
 		task.spawn(function()
 			local t0 = os.clock()
-			repeat task.wait(0.1) until (m:FindFirstChild("PlayerValue") and m:FindFirstChild("Part")) or os.clock() - t0 > 3 or not m.Parent
-			if not m.Parent or not isMine(m) then return end
+			repeat task.wait(0.1) until m:FindFirstChildWhichIsA("BasePart") or os.clock() - t0 > 3 or not m.Parent
+			task.wait(0.2)
+			if not m.Parent or not isMyBoard(m) then return end
 			local copy = {}
 			for k, op in ipairs(permanentOps) do
 				copy[k] = { op[1], op[2] }
@@ -2749,6 +3987,13 @@ workspace.DescendantAdded:Connect(function(m)
 end)
 workspace.DescendantRemoving:Connect(function(m)
 	if isOpen and m.Name == "PalletLightBrown" then task.delay(0.1, refresh) end
+end)
+-- 自分のフォルダ自体が出来た/消えた時も一覧を更新する (フォルダは自動では作らない。ゲーム側が作った物を待つだけ)
+workspace.ChildAdded:Connect(function(c)
+	if isOpen and c.Name == toyFolderName() then task.delay(0.3, refresh) end
+end)
+workspace.ChildRemoved:Connect(function(c)
+	if isOpen and c.Name == toyFolderName() then task.delay(0.1, refresh) end
 end)
 
 showTab(1)
