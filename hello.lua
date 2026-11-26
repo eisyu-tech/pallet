@@ -382,6 +382,8 @@ local TweenService = game:GetService("TweenService")
 
 local lp = Players.LocalPlayer
 local FOLDER = "tntnmziSpawnedInToys"
+-- スマホ(タッチのみ、物理キーボード無し)かどうか。タッチ対応PCはキーボードもあるのでデスクトップ扱い。
+local isMobile = UIS.TouchEnabled and not UIS.KeyboardEnabled
 
 ---------------------------------------------------------------------
 -- UI部品ライブラリ (tween / snap / drag / notif / element)
@@ -506,6 +508,7 @@ local Lib = (function()
 			order += 1
 			return mk("Frame", { BackgroundTransparency = 1, BorderSizePixel = 0, LayoutOrder = order, Size = UDim2.new(1, 0, 0, h) }, parent)
 		end
+		local function sliderRowH(h) return isMobile and (h + 6) or h end
 		local function glassRow(h)
 			local f = newRow(h)
 			M.glass(f, 0.88, 10)
@@ -542,18 +545,20 @@ local Lib = (function()
 
 		function b:toggle(n, cb, state)
 			local s = state or false
-			local f = glassRow(38)
-			rowLabel(f, n, 0.7)
+			local f = glassRow(isMobile and 44 or 38)
+			rowLabel(f, n, 0.6)
+			local SW_W, SW_H, KN = (isMobile and 60 or 52), (isMobile and 32 or 26), (isMobile and 26 or 20)
+			local KN_ON = SW_W - 3 - KN
 			local bg = mk("TextButton", {
 				AutoButtonColor = false, Text = "", BorderSizePixel = 0, AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -12, 0.5, 0),
-				Size = UDim2.fromOffset(52, 26), BackgroundColor3 = Color3.fromRGB(244, 63, 94),
+				Size = UDim2.fromOffset(SW_W, SW_H), BackgroundColor3 = Color3.fromRGB(244, 63, 94),
 			}, f)
-			M.corner(bg, 13)
-			local h = mk("Frame", { BorderSizePixel = 0, BackgroundColor3 = WHITE, Size = UDim2.fromOffset(20, 20), Position = UDim2.fromOffset(3, 3) }, bg)
-			M.corner(h, 10)
+			M.corner(bg, SW_H / 2)
+			local h = mk("Frame", { BorderSizePixel = 0, BackgroundColor3 = WHITE, Size = UDim2.fromOffset(KN, KN), Position = UDim2.fromOffset(3, 3) }, bg)
+			M.corner(h, KN / 2)
 			local function render()
 				M.tween(bg, { BackgroundColor3 = s and Color3.fromRGB(52, 211, 153) or Color3.fromRGB(244, 63, 94) }, 0.25)
-				M.tween(h, { Position = s and UDim2.fromOffset(29, 3) or UDim2.fromOffset(3, 3) }, 0.25)
+				M.tween(h, { Position = s and UDim2.fromOffset(KN_ON, 3) or UDim2.fromOffset(3, 3) }, 0.25)
 			end
 			render()
 			bg.MouseButton1Click:Connect(function()
@@ -568,13 +573,13 @@ local Lib = (function()
 
 		-- スライダー (0.02刻み)。cb(値, 離したか)
 		function b:slider(n, minV, maxV, cb, startV, gA, gB, rainbowTrack)
-			local f = glassRow(44)
+			local f = glassRow(sliderRowH(44))
 			rowLabel(f, n, 0.28)
 			local track = mk("TextButton", {
 				AutoButtonColor = false, Text = "", BorderSizePixel = 0, BackgroundColor3 = WHITE, BackgroundTransparency = 0.75,
-				AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0.3, 0, 0.5, 0), Size = UDim2.new(0.5, 0, 0, 10),
+				AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0.3, 0, 0.5, 0), Size = UDim2.new(0.5, 0, 0, isMobile and 14 or 10),
 			}, f)
-			M.corner(track, 5)
+			M.corner(track, isMobile and 7 or 5)
 			local fill = mk("Frame", { BorderSizePixel = 0, BackgroundColor3 = WHITE, Size = UDim2.fromScale(0, 1) }, track)
 			M.corner(fill, 5)
 			if rainbowTrack then
@@ -584,8 +589,8 @@ local Lib = (function()
 			else
 				mk("UIGradient", { Color = ColorSequence.new(gA or M.ACCENT, gB or M.ACCENT2) }, fill)
 			end
-			local knob = mk("Frame", { BorderSizePixel = 0, BackgroundColor3 = WHITE, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0, 0.5), Size = UDim2.fromOffset(20, 20), ZIndex = 3 }, track)
-			M.corner(knob, 10)
+			local knob = mk("Frame", { BorderSizePixel = 0, BackgroundColor3 = WHITE, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0, 0.5), Size = UDim2.fromOffset(isMobile and 26 or 20, isMobile and 26 or 20), ZIndex = 3 }, track)
+			M.corner(knob, isMobile and 13 or 10)
 			M.stroke(knob, 0.1, M.ACCENT, 2)
 			local num = mk("TextBox", {
 				BorderSizePixel = 0, BackgroundColor3 = WHITE, BackgroundTransparency = 0.8, AnchorPoint = Vector2.new(0, 0.5),
@@ -1005,7 +1010,11 @@ local ACCENT, ACCENT2 = Lib.ACCENT, Lib.ACCENT2
 local PINK = Color3.fromRGB(244, 114, 182)
 local CYAN = Color3.fromRGB(125, 211, 252)
 local SOFT = Color3.fromRGB(221, 214, 254)
-local W, H = 700, 470
+-- スマホはウィンドウを画面に合う縦長サイズに、サイドのタブはアイコンだけの細い列にする
+local W, H = (isMobile and 380 or 700), (isMobile and 600 or 470)
+local SIDE_W = isMobile and 64 or 150
+local RESET_W, PERM_W, SAVE_W = (isMobile and 46 or 110), (isMobile and 46 or 120), (isMobile and 46 or 110)
+local BTN_H = isMobile and 34 or 30
 
 local gui = mk("ScreenGui", { Name = "PalletStudio", IgnoreGuiInset = true, ResetOnSpawn = false, DisplayOrder = 2147483647, ZIndexBehavior = Enum.ZIndexBehavior.Sibling }, lp:WaitForChild("PlayerGui"))
 
@@ -1021,17 +1030,22 @@ local function hueSeq()
 	return ColorSequence.new(k)
 end
 
--- 丸い開閉ボタン (左下・ドラッグ可能)
-local toggle = mk("TextButton", { Name = "Toggle", AutoButtonColor = false, Text = "", BackgroundColor3 = WHITE, BorderSizePixel = 0, AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 190, 1, -24), Size = UDim2.fromOffset(64, 64), ZIndex = 5 }, gui)
-corner(toggle, 32)
+-- 丸い開閉ボタン (ドラッグで移動可能。スマホは標準の移動/ジャンプボタンを避けて右上に出す)
+local TOGGLE_SIZE = isMobile and 72 or 64
+local toggleAnchor = isMobile and Vector2.new(1, 0) or Vector2.new(0, 1)
+local togglePos = isMobile and UDim2.new(1, -16, 0, 16) or UDim2.new(0, 190, 1, -24)
+local toggle = mk("TextButton", { Name = "Toggle", AutoButtonColor = false, Text = "", BackgroundColor3 = WHITE, BorderSizePixel = 0, AnchorPoint = toggleAnchor, Position = togglePos, Size = UDim2.fromOffset(TOGGLE_SIZE, TOGGLE_SIZE), ZIndex = 5 }, gui)
+corner(toggle, TOGGLE_SIZE / 2)
 mk("UIGradient", { Rotation = 45, Color = ColorSequence.new(Color3.fromRGB(99, 102, 241), Color3.fromRGB(217, 70, 239)) }, toggle)
 local ring = stroke(toggle, 0, WHITE, 3)
 local ringGrad = mk("UIGradient", { Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, CYAN), ColorSequenceKeypoint.new(0.5, PINK), ColorSequenceKeypoint.new(1, CYAN) }) }, ring)
-mk("TextLabel", { Name = "Icon", BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), Text = "🎨", TextSize = 32, ZIndex = 6 }, toggle)
+mk("TextLabel", { Name = "Icon", BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), Text = "🎨", TextSize = isMobile and 36 or 32, ZIndex = 6 }, toggle)
 Lib.juice(toggle)
 
 -- ウィンドウ
-local win = mk("CanvasGroup", { Name = "Window", BackgroundTransparency = 1, BorderSizePixel = 0, GroupTransparency = 1, Visible = false, AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -24, 0.5, 0), Size = UDim2.fromOffset(W, H) }, gui)
+local winAnchor = isMobile and Vector2.new(0.5, 0.5) or Vector2.new(1, 0.5)
+local winPos = isMobile and UDim2.new(0.5, 0, 0.5, 0) or UDim2.new(1, -24, 0.5, 0)
+local win = mk("CanvasGroup", { Name = "Window", BackgroundTransparency = 1, BorderSizePixel = 0, GroupTransparency = 1, Visible = false, AnchorPoint = winAnchor, Position = winPos, Size = UDim2.fromOffset(W, H) }, gui)
 corner(win, 22)
 local winStroke = stroke(win, 0.35, WHITE, 1.5)
 mk("UIGradient", { Rotation = 90, Color = ColorSequence.new(WHITE, Color3.fromRGB(167, 139, 250)) }, winStroke)
@@ -1064,10 +1078,12 @@ end
 -- 上のバー
 local topbar = mk("Frame", { Name = "TopBar", Position = UDim2.fromOffset(12, 10), Size = UDim2.fromOffset(W - 24, 50) }, win)
 Lib.glass(topbar, 0.86, 16)
-local title = text(topbar, "PALLET STUDIO", 26, UDim2.fromOffset(16, 2), UDim2.fromOffset(260, 30))
+local title = text(topbar, "PALLET STUDIO", isMobile and 18 or 26, UDim2.fromOffset(16, isMobile and 10 or 2), UDim2.fromOffset(isMobile and 150 or 260, 30))
 local titleGrad = mk("UIGradient", { Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, WHITE), ColorSequenceKeypoint.new(0.5, CYAN), ColorSequenceKeypoint.new(1, WHITE) }) }, title)
-text(topbar, "板をカスタマイズ", 12, UDim2.fromOffset(17, 31), UDim2.fromOffset(200, 16), nil, SOFT)
-local badge = mk("TextLabel", { Name = "Badge", BackgroundTransparency = 0.7, BackgroundColor3 = WHITE, BorderSizePixel = 0, Text = "板を出してね", TextSize = 14, FontFace = FONT, TextColor3 = WHITE, AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -92, 0.5, 0), Size = UDim2.fromOffset(120, 28) }, topbar)
+if not isMobile then
+	text(topbar, "板をカスタマイズ", 12, UDim2.fromOffset(17, 31), UDim2.fromOffset(200, 16), nil, SOFT)
+end
+local badge = mk("TextLabel", { Name = "Badge", BackgroundTransparency = 0.7, BackgroundColor3 = WHITE, BorderSizePixel = 0, Text = "板を出してね", TextSize = isMobile and 12 or 14, FontFace = FONT, TextColor3 = WHITE, AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, isMobile and -84 or -92, 0.5, 0), Size = UDim2.fromOffset(isMobile and 86 or 120, 28) }, topbar)
 corner(badge, 14)
 stroke(badge, 0.5, WHITE, 1)
 
@@ -1080,32 +1096,34 @@ end
 local minBtn = roundBtn("Minimize", "–", -80)
 local closeBtn = roundBtn("Close", "✕", -42)
 
--- 左のページ一覧
-local side = mk("Frame", { Name = "Side", Position = UDim2.fromOffset(12, 68), Size = UDim2.fromOffset(150, H - 68 - 58) }, win)
+-- 左のページ一覧 (スマホはアイコンだけの細い列)
+local side = mk("Frame", { Name = "Side", Position = UDim2.fromOffset(12, 68), Size = UDim2.fromOffset(SIDE_W, H - 68 - 58) }, win)
 Lib.glass(side, 0.88, 16)
 mk("UIPadding", { PaddingTop = UDim.new(0, 8), PaddingBottom = UDim.new(0, 8), PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8) }, side)
 mk("UIListLayout", { Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder }, side)
 
 -- 右の中身
-local content = mk("Frame", { Name = "Content", Position = UDim2.fromOffset(170, 68), Size = UDim2.fromOffset(W - 182, H - 68 - 58) }, win)
+local content = mk("Frame", { Name = "Content", Position = UDim2.fromOffset(12 + SIDE_W + 8, 68), Size = UDim2.fromOffset(W - 24 - SIDE_W - 8, H - 68 - 58) }, win)
 Lib.glass(content, 0.9, 16)
 
 -- 下のバー (板の選択 / 元に戻す / 保存)
 local bottom = mk("Frame", { Name = "Bottom", Position = UDim2.fromOffset(12, H - 50), Size = UDim2.fromOffset(W - 24, 40) }, win)
 Lib.glass(bottom, 0.85, 14)
-local CHIP_W = W - 24 - 16 - 126 - 126 - 120
+-- 保存ボタンが出たときに一番幅を取る状態を基準に、チップ欄の幅を確保しておく
+local RESERVE_W = SAVE_W + 12 + RESET_W + 6 + PERM_W + 12
+local CHIP_W = math.max(80, W - 24 - 16 - RESERVE_W)
 local chipRow = mk("ScrollingFrame", { Name = "Chips", BackgroundTransparency = 1, BorderSizePixel = 0, ScrollingDirection = Enum.ScrollingDirection.X, AutomaticCanvasSize = Enum.AutomaticSize.X, CanvasSize = UDim2.new(0, 0, 0, 0), ScrollBarThickness = 0, Position = UDim2.fromOffset(8, 5), Size = UDim2.fromOffset(CHIP_W, 30) }, bottom)
 mk("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder, VerticalAlignment = Enum.VerticalAlignment.Center }, chipRow)
 local emptyLbl = text(bottom, "板を出してね", 14, UDim2.fromOffset(12, 0), UDim2.fromOffset(CHIP_W, 40), Enum.TextXAlignment.Left, SOFT)
-local resetBtn = mk("TextButton", { Name = "Reset", AutoButtonColor = false, Text = "↺ 元に戻す", TextSize = 15, FontFace = FONT, TextColor3 = WHITE, AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -6, 0.5, 0), Size = UDim2.fromOffset(110, 30) }, bottom)
+local resetBtn = mk("TextButton", { Name = "Reset", AutoButtonColor = false, Text = isMobile and "↺" or "↺ 元に戻す", TextSize = 15, FontFace = FONT, TextColor3 = WHITE, AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -6, 0.5, 0), Size = UDim2.fromOffset(RESET_W, BTN_H) }, bottom)
 Lib.glass(resetBtn, 0.55, 12)
 resetBtn.BackgroundColor3 = Color3.fromRGB(244, 63, 94)
 Lib.juice(resetBtn)
-local permBtn = mk("TextButton", { Name = "Perm", AutoButtonColor = false, Text = "📌 永久保存", TextSize = 15, FontFace = FONT, TextColor3 = WHITE, AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -122, 0.5, 0), Size = UDim2.fromOffset(120, 30) }, bottom)
+local permBtn = mk("TextButton", { Name = "Perm", AutoButtonColor = false, Text = isMobile and "📌" or "📌 永久保存", TextSize = 15, FontFace = FONT, TextColor3 = WHITE, AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -(RESET_W + 12), 0.5, 0), Size = UDim2.fromOffset(PERM_W, BTN_H) }, bottom)
 Lib.glass(permBtn, 0.45, 12)
 permBtn.BackgroundColor3 = Color3.fromRGB(99, 102, 241)
 Lib.juice(permBtn)
-local saveBtn = mk("TextButton", { Name = "Save", AutoButtonColor = false, Text = "💾 保存", TextSize = 16, FontFace = FONT, TextColor3 = WHITE, AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -6, 0.5, 0), Size = UDim2.fromOffset(0, 30), Visible = false, ClipsDescendants = true, ZIndex = 4 }, bottom)
+local saveBtn = mk("TextButton", { Name = "Save", AutoButtonColor = false, Text = isMobile and "💾" or "💾 保存", TextSize = 16, FontFace = FONT, TextColor3 = WHITE, AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -6, 0.5, 0), Size = UDim2.fromOffset(0, BTN_H), Visible = false, ClipsDescendants = true, ZIndex = 4 }, bottom)
 Lib.glass(saveBtn, 0.1, 12)
 saveBtn.BackgroundColor3 = WHITE
 mk("UIGradient", { Rotation = 20, Color = ColorSequence.new(Color3.fromRGB(16, 185, 129), Color3.fromRGB(56, 189, 248)) }, saveBtn)
@@ -1130,17 +1148,17 @@ local function setSave(v)
 	saveShown = v
 	if v then
 		saveBtn.Visible = true
-		saveBtn.Size = UDim2.fromOffset(0, 30)
-		Lib.tween(saveBtn, { Size = UDim2.fromOffset(110, 30) }, 0.5)
+		saveBtn.Size = UDim2.fromOffset(0, BTN_H)
+		Lib.tween(saveBtn, { Size = UDim2.fromOffset(SAVE_W, BTN_H) }, 0.5)
 	else
-		local t = Lib.tween(saveBtn, { Size = UDim2.fromOffset(0, 30) }, 0.3)
+		local t = Lib.tween(saveBtn, { Size = UDim2.fromOffset(0, BTN_H) }, 0.3)
 		t.Completed:Connect(function()
 			if not saveShown then saveBtn.Visible = false end
 		end)
 	end
-	local x = v and -122 or -6
+	local x = v and -(SAVE_W + 12) or -6
 	Lib.tween(resetBtn, { Position = UDim2.new(1, x, 0.5, 0) }, 0.45)
-	Lib.tween(permBtn, { Position = UDim2.new(1, x - 116, 0.5, 0) }, 0.45)
+	Lib.tween(permBtn, { Position = UDim2.new(1, x - (RESET_W + 6), 0.5, 0) }, 0.45)
 end
 
 local slotOf = setmetatable({}, { __mode = "k" })
@@ -1245,7 +1263,7 @@ local function doApply(model, kind, value, quiet)
 end
 
 local function updatePerm()
-	permBtn.Text = permanentOps and "📌 永久保存中" or "📌 永久保存"
+	permBtn.Text = isMobile and "📌" or (permanentOps and "📌 永久保存中" or "📌 永久保存")
 	Lib.tween(permBtn, { BackgroundColor3 = permanentOps and Color3.fromRGB(16, 185, 129) or Color3.fromRGB(99, 102, 241) }, 0.3)
 end
 
@@ -1312,7 +1330,8 @@ do
 		{129, 140, 248}, {168, 85, 247}, {236, 72, 153}, {244, 63, 94}, {120, 72, 40}, {244, 245, 248}, {120, 126, 140}, {20, 22, 28},
 		{255, 183, 205}, {253, 224, 71}, {190, 242, 100}, {110, 231, 183}, {147, 197, 253}, {196, 181, 253}, {251, 146, 60}, {148, 163, 184},
 	}
-	local row = e:row(gridHeight(#colors, 8, 34, 8))
+	local colCols = isMobile and 4 or 8
+	local row = e:row(gridHeight(#colors, colCols, 34, 8))
 	grid(row, 53, 34, 8, 8)
 	for i, c in ipairs(colors) do
 		local col = Color3.fromRGB(c[1], c[2], c[3])
@@ -1371,15 +1390,18 @@ do
 		{"Cobblestone", "🛣 石畳", Color3.fromRGB(130, 125, 120)}, {"Sand", "🏖 砂", Color3.fromRGB(225, 200, 140)}, {"Fabric", "🧵 布", Color3.fromRGB(90, 120, 200)},
 		{"ForceField", "🛡 フォース", Color3.fromRGB(120, 200, 255)},
 	}
-	local row = e:row(gridHeight(#mats, 3, 56, 8))
-	grid(row, 154, 56, 8, 8)
+	local matCols = isMobile and 2 or 3
+	local matCW = isMobile and 124 or 154
+	local row = e:row(gridHeight(#mats, matCols, 56, 8))
+	grid(row, matCW, 56, 8, 8)
 	for i, m in ipairs(mats) do
 		local b = mk("TextButton", { AutoButtonColor = false, Text = "", LayoutOrder = i }, row)
 		Lib.glass(b, 0.84, 14)
 		local sw = mk("Frame", { BackgroundColor3 = WHITE, BorderSizePixel = 0, Position = UDim2.fromOffset(6, 6), Size = UDim2.fromOffset(44, 44) }, b)
 		corner(sw, 10)
 		mk("UIGradient", { Rotation = 35, Color = ColorSequence.new(m[3], Color3.new(m[3].R * 0.5, m[3].G * 0.5, m[3].B * 0.5)) }, sw)
-		text(b, m[2], 14, UDim2.fromOffset(56, 0), UDim2.new(1, -58, 1, 0), Enum.TextXAlignment.Left)
+		local matLbl = text(b, m[2], isMobile and 12 or 14, UDim2.fromOffset(56, 0), UDim2.new(1, -58, 1, 0), Enum.TextXAlignment.Left)
+		matLbl.TextWrapped = true
 		Lib.juice(b)
 		b.MouseButton1Click:Connect(function() send("Look", m[1]) end)
 	end
@@ -1398,15 +1420,17 @@ do
 		{"Forest", "森", Color3.fromRGB(50, 150, 70)}, {"Ghost", "ゴースト", Color3.fromRGB(230, 240, 255)}, {"Sakura", "さくら", Color3.fromRGB(255, 183, 205)},
 		{"Toxic", "トキシック", Color3.fromRGB(170, 255, 0)}, {"Royal", "ロイヤル", Color3.fromRGB(88, 60, 200)}, {"RoseGold", "ローズゴールド", Color3.fromRGB(236, 160, 150)},
 	}
-	local row = e:row(gridHeight(#presets, 3, 84, 8))
-	grid(row, 154, 84, 8, 8)
+	local presetCols = isMobile and 2 or 3
+	local presetCW = isMobile and 124 or 154
+	local row = e:row(gridHeight(#presets, presetCols, 84, 8))
+	grid(row, presetCW, 84, 8, 8)
 	for i, p in ipairs(presets) do
 		local b = mk("TextButton", { AutoButtonColor = false, Text = "", LayoutOrder = i }, row)
 		Lib.glass(b, 0.84, 14)
 		local sw = mk("Frame", { BackgroundColor3 = WHITE, BorderSizePixel = 0, Position = UDim2.fromOffset(6, 6), Size = UDim2.new(1, -12, 0, 44) }, b)
 		corner(sw, 10)
 		mk("UIGradient", { Rotation = 25, Color = ColorSequence.new(p[3], Color3.new(p[3].R * 0.45, p[3].G * 0.45, p[3].B * 0.45)) }, sw)
-		text(b, p[2], 14, UDim2.fromOffset(0, 54), UDim2.new(1, 0, 0, 24), Enum.TextXAlignment.Center)
+		text(b, p[2], isMobile and 12 or 14, UDim2.fromOffset(0, 54), UDim2.new(1, 0, 0, 24), Enum.TextXAlignment.Center)
 		Lib.juice(b)
 		b.MouseButton1Click:Connect(function() send("Preset", p[1]) end)
 	end
@@ -1484,9 +1508,12 @@ local function showTab(i)
 	end
 end
 for i, t in ipairs(tabs) do
-	local b = mk("TextButton", { Name = "Tab" .. i, AutoButtonColor = false, Text = t[1] .. "  " .. t[2], TextSize = 17, FontFace = FONT, TextColor3 = WHITE, TextXAlignment = Enum.TextXAlignment.Left, LayoutOrder = i, Size = UDim2.new(1, 0, 0, 40) }, side)
+	local tabText = isMobile and t[1] or (t[1] .. "  " .. t[2])
+	local b = mk("TextButton", { Name = "Tab" .. i, AutoButtonColor = false, Text = tabText, TextSize = isMobile and 22 or 17, FontFace = FONT, TextColor3 = WHITE, TextXAlignment = isMobile and Enum.TextXAlignment.Center or Enum.TextXAlignment.Left, LayoutOrder = i, Size = UDim2.new(1, 0, 0, isMobile and 48 or 40) }, side)
 	Lib.glass(b, 0.9, 13)
-	mk("UIPadding", { PaddingLeft = UDim.new(0, 14) }, b)
+	if not isMobile then
+		mk("UIPadding", { PaddingLeft = UDim.new(0, 14) }, b)
+	end
 	Lib.juice(b)
 	b.MouseButton1Click:Connect(function() showTab(i) end)
 	tabBtns[i] = b
@@ -1495,8 +1522,14 @@ end
 -- 開閉
 local function fit()
 	local vp = gui.AbsoluteSize
-	fitScale = math.clamp(math.min((vp.X - 48) / W, (vp.Y - 48) / H), 0.5, 1)
+	fitScale = math.clamp(math.min((vp.X - 48) / W, (vp.Y - 48) / H), 0.4, 1)
 end
+gui:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+	if isOpen then
+		fit()
+		Lib.tween(winScale, { Scale = fitScale }, 0.3)
+	end
+end)
 
 local function setOpen(open)
 	if open == isOpen then return end
@@ -1601,7 +1634,8 @@ local function playCredit()
 		return x
 	end
 	local cg = mk("ScreenGui", { Name = "PalletStudioCredit", IgnoreGuiInset = true, ResetOnSpawn = false, DisplayOrder = 2147483646, ZIndexBehavior = Enum.ZIndexBehavior.Sibling }, lp:WaitForChild("PlayerGui"))
-	local pill = mk("CanvasGroup", { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, 70, 1, -28), Size = UDim2.fromOffset(212, 54), BackgroundTransparency = 1, GroupTransparency = 1, BorderSizePixel = 0 }, cg)
+	local creditY = isMobile and -110 or -28
+	local pill = mk("CanvasGroup", { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, 70, 1, creditY), Size = UDim2.fromOffset(212, 54), BackgroundTransparency = 1, GroupTransparency = 1, BorderSizePixel = 0 }, cg)
 	corner(pill, 27)
 	stroke(pill, 0.35, WHITE, 1.5)
 	local sc = mk("UIScale", { Scale = 0.8 }, pill)
@@ -1625,7 +1659,7 @@ local function playCredit()
 	end
 	local shine = mk("Frame", { BackgroundColor3 = WHITE, BackgroundTransparency = 0.78, BorderSizePixel = 0, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(-0.2, 0, 0.5, 0), Size = UDim2.fromOffset(34, 100), Rotation = 20, ZIndex = 5 }, pill)
 
-	tw(pill, 0.9, { Position = UDim2.new(1, -28, 1, -28), GroupTransparency = 0 })
+	tw(pill, 0.9, { Position = UDim2.new(1, -28, 1, creditY), GroupTransparency = 0 })
 	tw(sc, 0.8, { Scale = 1 }, Enum.EasingStyle.Back)
 	TweenService:Create(icon, TweenInfo.new(2.4, Enum.EasingStyle.Linear, Enum.EasingDirection.In, -1), { Rotation = 360 }):Play()
 	for i, lb in ipairs(letters) do
@@ -1640,7 +1674,7 @@ local function playCredit()
 		if shine.Parent then tw(shine, 0.9, { Position = UDim2.new(1.2, 0, 0.5, 0) }, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut) end
 	end)
 	task.wait(3.4)
-	tw(pill, 0.7, { Position = UDim2.new(1, 70, 1, -28), GroupTransparency = 1 }, Enum.EasingStyle.Quint, Enum.EasingDirection.In)
+	tw(pill, 0.7, { Position = UDim2.new(1, 70, 1, creditY), GroupTransparency = 1 }, Enum.EasingStyle.Quint, Enum.EasingDirection.In)
 	tw(sc, 0.7, { Scale = 0.85 }, Enum.EasingStyle.Quint, Enum.EasingDirection.In)
 	task.wait(0.8)
 	cg:Destroy()
