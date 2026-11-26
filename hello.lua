@@ -1,6 +1,8 @@
 -- PalletStudio (LocalScript): StarterPlayer > StarterPlayerScripts に入れる (これ1個だけで動く)
--- 検出: tntnmziSpawnedInToys の中の PalletLightBrown (Model) を直接見つけて「板1, 板2…」と出す。
+-- 検出: Workspace直下に自動生成される「<自分のUserId>_SpawnedInToys」フォルダの中の参照だけを「板1, 板2…」として出す
+--       (他プレイヤーのフォルダ/板は構造的に見えない)。専用フォルダがまだ無い瞬間は、共有フォルダを OwnerUserId で直接確認する保険あり。
 -- 起動時に必ず、サーバー用コードを CodeLoader (ServerScriptService) へ送る。サーバー側が無ければ、この画面だけに直接反映する。
+
 local RS_ = game:GetService("ReplicatedStorage")
 local SERVER_CODE = [=====[
 local Players = game:GetService("Players")
@@ -12,6 +14,73 @@ if not folder then
 	folder.Name = FOLDER_NAME
 	folder.Parent = workspace
 end
+
+-- プレイヤーが参加したら、Workspace直下に「<UserId>_SpawnedInToys」フォルダを自動生成する。
+-- 実体の板(Model)は本体(SpawnToyServer)の管理どおり tntnmziSpawnedInToys から動かさない
+-- (個数制限などSpawnToyServer側の挙動を壊さないため)。代わりに、このフォルダの中には
+-- 本人の板を指す ObjectValue(参照)だけを置く。クライアントはこの参照先だけを「自分の板」として扱うので、
+-- 他プレイヤーのフォルダ/板は構造的に見えない。
+local function playerFolderName(player)
+	return tostring(player.UserId) .. "_SpawnedInToys"
+end
+
+local function getPlayerFolder(player)
+	local name = playerFolderName(player)
+	local f = workspace:FindFirstChild(name)
+	if not f then
+		f = Instance.new("Folder")
+		f.Name = name
+		f.Parent = workspace
+	end
+	return f
+end
+
+local function refKey(model)
+	return "ref_" .. model:GetDebugId()
+end
+
+local function unlinkBoard(model)
+	local owner = model:GetAttribute("OwnerUserId")
+	if not owner then return end
+	local player = Players:GetPlayerByUserId(owner)
+	if not player then return end
+	local pf = workspace:FindFirstChild(playerFolderName(player))
+	if not pf then return end
+	local ref = pf:FindFirstChild(refKey(model))
+	if ref then ref:Destroy() end
+end
+
+local function linkBoard(model)
+	if not model:IsA("Model") or model.Name ~= "PalletLightBrown" then return end
+	local owner = model:GetAttribute("OwnerUserId")
+	if not owner then return end
+	local player = Players:GetPlayerByUserId(owner)
+	if not player then return end
+	local pf = getPlayerFolder(player)
+	local key = refKey(model)
+	if pf:FindFirstChild(key) then return end
+	local ref = Instance.new("ObjectValue")
+	ref.Name = key
+	ref.Value = model
+	ref.Parent = pf
+end
+
+for _, p in ipairs(Players:GetPlayers()) do
+	getPlayerFolder(p)
+end
+Players.PlayerAdded:Connect(getPlayerFolder)
+
+for _, c in ipairs(folder:GetChildren()) do
+	linkBoard(c)
+end
+folder.ChildAdded:Connect(linkBoard)
+folder.ChildRemoved:Connect(unlinkBoard)
+-- OwnerUserId がまだ付いていない瞬間に板が追加されることがあるので、少し待って再試行する
+folder.ChildAdded:Connect(function(model)
+	task.delay(0.5, function()
+		if model.Parent == folder then linkBoard(model) end
+	end)
+end)
 local MATERIAL_SET = {}
 for _, n in ipairs({ "Plastic", "SmoothPlastic", "Wood", "WoodPlanks", "Metal", "DiamondPlate", "Foil", "Neon", "Glass", "Ice", "Marble", "Granite", "Slate", "Concrete", "Brick", "Cobblestone", "Sand", "Fabric", "ForceField" }) do MATERIAL_SET[n] = true end
 
@@ -350,17 +419,31 @@ RunService.Heartbeat:Connect(function()
 		end
 	end
 end)
-
 local remote = ReplicatedStorage:FindFirstChild("PalletStudioApply_v2")
 if not remote then
 	remote = Instance.new("RemoteFunction")
 	remote.Name = "PalletStudioApply_v2"
 	remote.Parent = ReplicatedStorage
 end
+-- 操作してきたプレイヤー本人の板かどうか。SpawnToyServer が板に付けている OwnerUserId Attribute を正とする。
+-- 古い板など Attribute が無い場合だけ PlayerValue (あれば) で判定し、何も無ければ許可する。
+local function isOwnedBy(model, player)
+	local owner = model:GetAttribute("OwnerUserId")
+	if owner ~= nil then return owner == player.UserId end
+	local pv = model:FindFirstChild("PlayerValue")
+	if not pv or not pv:IsA("ValueBase") then return true end
+	local v = pv.Value
+	if typeof(v) == "Instance" then return v == player end
+	if typeof(v) == "string" then return v == player.Name or v == player.DisplayName or v == tostring(player.UserId) end
+	if typeof(v) == "number" then return v == player.UserId end
+	return true
+end
+
 local last = {}
 remote.OnServerInvoke = function(player, kind, target, value)
 	if typeof(kind) ~= "string" or typeof(target) ~= "Instance" then return nil end
 	if not target:IsA("Model") or target.Name ~= "PalletLightBrown" or not target:IsDescendantOf(folder) then return nil end
+	if not isOwnedBy(target, player) then return "他のプレイヤーの板は変更できません" end
 	local now = os.clock()
 	if (last[player] or 0) + 0.03 > now then return nil end
 	last[player] = now
@@ -657,10 +740,6 @@ local Lib = (function()
 
 	return M
 end)()
-
----------------------------------------------------------------------
--- 板の見た目変更 (この画面用。サーバーの受け口が無いときに使う)
----------------------------------------------------------------------
 local MATERIAL_SET = {}
 for _, n in ipairs({ "Plastic", "SmoothPlastic", "Wood", "WoodPlanks", "Metal", "DiamondPlate", "Foil", "Neon", "Glass", "Ice", "Marble", "Granite", "Slate", "Concrete", "Brick", "Cobblestone", "Sand", "Fabric", "ForceField" }) do MATERIAL_SET[n] = true end
 
@@ -999,7 +1078,6 @@ RunService.Heartbeat:Connect(function()
 		end
 	end
 end)
-
 ---------------------------------------------------------------------
 -- UI本体
 ---------------------------------------------------------------------
@@ -1163,12 +1241,52 @@ end
 
 local slotOf = setmetatable({}, { __mode = "k" })
 local seenMap = {}
+
+-- 自分の板かどうか。本体(SpawnToyServer)は板に OwnerUserId という Attribute を付けて持ち主を記録しているので、
+-- まずそれを見る。古い板など Attribute が無い場合だけ、PlayerValue (あれば) で判定し、何も無ければ自分の板として扱う。
+local function isMine(m)
+	local owner = m:GetAttribute("OwnerUserId")
+	if owner ~= nil then return owner == lp.UserId end
+	local pv = m:FindFirstChild("PlayerValue")
+	if not pv or not pv:IsA("ValueBase") then return true end
+	local v = pv.Value
+	if typeof(v) == "Instance" then return v == lp end
+	if typeof(v) == "string" then return v == lp.Name or v == lp.DisplayName or v == tostring(lp.UserId) end
+	if typeof(v) == "number" then return v == lp.UserId end
+	return true
+end
+
+-- サーバー側が自動生成する「<自分のUserId>_SpawnedInToys」フォルダ(Workspace直下)。
+-- 中身は本物の板への参照(ObjectValue)で、自分の板だけが入っているので、他人の板は原理的に検出されない。
+local function myFolderName()
+	return tostring(lp.UserId) .. "_SpawnedInToys"
+end
+
 local function myPallets()
 	local list = {}
-	local f = workspace:FindFirstChild(FOLDER)
-	if f then
-		for _, m in ipairs(f:GetChildren()) do
-			if m.Name == "PalletLightBrown" and m:IsA("Model") then list[#list + 1] = m end
+	local seenModel = {}
+	local pf = workspace:FindFirstChild(myFolderName())
+	if pf then
+		for _, ref in ipairs(pf:GetChildren()) do
+			if ref:IsA("ObjectValue") then
+				local m = ref.Value
+				if m and m.Parent and m:IsA("Model") and m.Name == "PalletLightBrown" and not seenModel[m] then
+					seenModel[m] = true
+					list[#list + 1] = m
+				end
+			end
+		end
+	end
+	-- 保険: 専用フォルダがまだ反映されていない瞬間用に、共有フォルダを OwnerUserId で直接確認
+	if #list == 0 then
+		local f = workspace:FindFirstChild(FOLDER)
+		if f then
+			for _, m in ipairs(f:GetChildren()) do
+				if m.Name == "PalletLightBrown" and m:IsA("Model") and isMine(m) and not seenModel[m] then
+					seenModel[m] = true
+					list[#list + 1] = m
+				end
+			end
 		end
 	end
 	-- 消えた板の番号は空くので、新しい板は一番小さい空き番号をもらう
@@ -1590,20 +1708,14 @@ ringGrad.Rotation = 0
 TweenService:Create(ringGrad, TweenInfo.new(4, Enum.EasingStyle.Linear, Enum.EasingDirection.In, -1), { Rotation = 360 }):Play()
 TweenService:Create(titleGrad, TweenInfo.new(3, Enum.EasingStyle.Linear, Enum.EasingDirection.In, -1), { Rotation = 360 }):Play()
 
-local function isMine(m)
-	local pv = m:FindFirstChild("PlayerValue")
-	if not pv or not pv:IsA("ValueBase") then return true end
-	local v = pv.Value
-	if typeof(v) == "Instance" then return v == lp end
-	if typeof(v) == "string" then return v == lp.Name or v == lp.DisplayName or v == tostring(lp.UserId) end
-	if typeof(v) == "number" then return v == lp.UserId end
-	return false
-end
-
 workspace.DescendantAdded:Connect(function(m)
 	if m.Name ~= "PalletLightBrown" or not m:IsA("Model") then return end
 	if m.Parent ~= workspace:FindFirstChild(FOLDER) then return end
-	if isOpen then task.delay(0.5, refresh) end
+	-- PlayerValue がまだ入っていない瞬間がありうるので、少し待って2回更新し直す
+	if isOpen then
+		task.delay(0.5, refresh)
+		task.delay(1.5, refresh)
+	end
 	if permanentOps then
 		task.spawn(function()
 			local t0 = os.clock()
@@ -1624,7 +1736,6 @@ workspace.DescendantRemoving:Connect(function(m)
 end)
 
 showTab(1)
-
 -- 起動時: 右下に "make by aino" をぬるっと表示して消す
 local function playCredit()
 	local TextService = game:GetService("TextService")
