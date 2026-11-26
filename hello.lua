@@ -5,6 +5,8 @@
 -- タブ: ホーム / 色(単色・2〜3色グラデ・流れるグラデ) / 素材 / プリセット(見た目一式・おまかせ・他の板へコピー) / 質感(反射・ツヤ) / 光(明滅の種類) / 効果(レインボー・炎・煙・雪・桜・ほたる・あわ・火の粉) / その他(視野・軽量化・UI設定)
 -- 反射・ツヤは、素材やテクスチャを変えずに、光の帯と空の映り込みを重ねて出す。明滅・レインボー・グラデの流れは、この画面で毎フレームなめらかに動く。
 -- 📌 永久保存: 押すと保存、もう一度押すと解除。保存中は、これから出す板に自動でまとめて反映する。
+--       板が出た同じ瞬間に、色・素材・反射などの軽い設定が付く。グラデ/ツヤの重ね貼りは、数を絞って1フレームに少しずつ作る(数フレーム=約0.05秒で出来あがる)ので、出現がカクつかない。
+--       ※サーバー側のコードは1回だけ読み込まれるので、更新した時は Studio の Play をやり直して(サーバーを作り直して)ください。
 -- 板を切り替えた時は、スライダー/トグルの表示だけを初期位置へ戻す(板そのものは「元に戻す」ボタンの時だけ戻る)。
 -- 起動時、右下に make by aino の演出が出て、終わると開閉ボタンが現れる。
 
@@ -123,6 +125,7 @@ do
 end
 
 local CollectionService = game:GetService("CollectionService")
+local RunService = game:GetService("RunService")
 local ANIM_TAG = "PalletStudioAnim"   -- 動きのある板に付ける目印 (この画面のアニメ担当が見つける)
 
 local orig = setmetatable({}, { __mode = "k" })
@@ -336,6 +339,8 @@ do
 		{ "Right", Vector3.new(0, 0, -1), Vector3.new(0, 1, 0) },
 		{ "Top", Vector3.new(0, 0, -1), Vector3.new(-1, 0, 0) },
 	}
+	-- 作る順番: 上 → 前後 → 左右。上から見ることが多いので、見える所から先に出来上がる
+	local FORDER = { FACES[5], FACES[1], FACES[2], FACES[3], FACES[4] }
 
 	-- 板全体を軸 ax に沿って 0〜1 に見たとき、各パーツが占める範囲 (ta〜tb)
 	local function axisInfo(model, parts, ax)
@@ -376,52 +381,6 @@ do
 		return nil
 	end
 
-	-- 面ごとに GUI を1つだけ作り、その中に「層(Frame)」を重ねる: G=グラデーション / Sky,Band=ツヤ
-	-- (同じ面に SurfaceGui を何枚も重ねると描画が不安定になるので、1面1枚にまとめる)
-	local function faceGui(p, face)
-		local want = Enum.NormalId[face]
-		for _, c in ipairs(p:GetChildren()) do
-			if c.Name == "SkinFace" and c.Face == want then return c end
-		end
-		local sg = Instance.new("SurfaceGui")
-		sg.Name = "SkinFace"
-		sg.Face = want
-		sg.LightInfluence = 1
-		sg.AlwaysOnTop = false
-		pcall(function() sg.MaxDistance = 250 end)
-		sg.Parent = p
-		return sg
-	end
-	local function layer(sg, name, z)
-		local f = sg:FindFirstChild(name)
-		if f then return f end
-		f = Instance.new("Frame")
-		f.Name = name
-		f.Size = UDim2.fromScale(1, 1)
-		f.BackgroundColor3 = Color3.new(1, 1, 1)
-		f.BorderSizePixel = 0
-		f.ZIndex = z
-		f.Parent = sg
-		return f
-	end
-	local function dropLayer(p, name)
-		for _, c in ipairs(p:GetChildren()) do
-			if c.Name == "SkinFace" then
-				local f = c:FindFirstChild(name)
-				if f then f:Destroy() end
-				if #c:GetChildren() == 0 then c:Destroy() end
-			end
-		end
-	end
-	local function gradOf(f)
-		local g = f:FindFirstChildOfClass("UIGradient")
-		if not g then
-			g = Instance.new("UIGradient")
-			g.Parent = f
-		end
-		return g
-	end
-
 	-- ===== 反射 / ツヤ =====
 	-- 板の素材やテクスチャには一切さわらない。
 	--  (1) Part.Reflectance をそのまま変える (空を映す。プラスチック/つるつる/ガラスで特によく見える)
@@ -447,7 +406,9 @@ do
 	end
 	local function glossK(v) return math.clamp((v - 0.12) / 0.88, 0, 1) ^ 0.85 end
 	SK.glossK = glossK
-	local function bandSeq(style, k, t0, t1)
+
+	-- 光の帯の「点を打つ位置」(0〜1)。帯のふちと真ん中に点を置く。20点を超えたら、間を1つおきに間引く
+	local function bandKeys(style, t0, t1)
 		local us = { 0, 1 }
 		if math.abs(t1 - t0) > 1e-6 then
 			for _, b in ipairs(style.bands) do
@@ -465,111 +426,36 @@ do
 				last = u
 			end
 		end
-		while #keys > 20 do   -- 点が多すぎる時は、間を1つおきに間引く (両端は残す)
+		while #keys > 20 do
 			local nk = {}
 			for i, u in ipairs(keys) do
 				if i == 1 or i == #keys or i % 2 == 1 then nk[#nk + 1] = u end
 			end
 			keys = nk
 		end
-		local out = {}
-		for _, u in ipairs(keys) do
-			local t = t0 + (t1 - t0) * u
-			out[#out + 1] = NumberSequenceKeypoint.new(u, 1 - bandAlpha(style.bands, t) * k)
-		end
-		return NumberSequence.new(out)
-	end
-	local function skySeq(style, k, top)   -- 空の映り込み: 横の面は上が濃く下へ薄く / 上の面は一様
-		local a = style.sky * k
-		if top then
-			return NumberSequence.new({ NumberSequenceKeypoint.new(0, 1 - a * 0.8), NumberSequenceKeypoint.new(1, 1 - a * 0.8) })
-		end
-		return NumberSequence.new({ NumberSequenceKeypoint.new(0, 1 - a), NumberSequenceKeypoint.new(0.55, 1 - a * 0.35), NumberSequenceKeypoint.new(1, 1 - a * 0.1) })
+		return keys
 	end
 
-	function SK.clearGloss(model)
-		local s = st(model)
-		if s.gloss then
-			for _, p in ipairs(partsOf(model)) do
-				dropLayer(p, "Sky")
-				dropLayer(p, "Band")
+	-- ツヤの層は1枚だけ: 「空の映り込み(うすい青白さ)」の上に「白い光の帯」を重ねた結果を、色と透明度の1本ずつにまとめる。
+	-- (同じ見た目を、Frame と UIGradient 各1個で出せるので、2枚重ねるより軽い)
+	local SKY_COL = Color3.fromRGB(205, 228, 255)
+	local function glossSeqs(style, k, t0, t1, top)
+		local sa = style.sky * k * (top and 0.8 or 0.5)   -- 空の映り込みの濃さ (上の面は一様に少し濃く)
+		local cks, nks = {}, {}
+		for _, u in ipairs(bandKeys(style, t0, t1)) do
+			local b = bandAlpha(style.bands, t0 + (t1 - t0) * u) * k   -- 光の帯の濃さ
+			local a = 1 - (1 - b) * (1 - sa)                           -- 2つを重ねた全体の濃さ
+			local col = Color3.new(1, 1, 1)
+			if a > 1e-4 then
+				local wb, ws = b / a, (1 - b) * sa / a                  -- 白と空色の割合 (足すと1)
+				col = Color3.new(wb + ws * SKY_COL.R, wb + ws * SKY_COL.G, wb + ws * SKY_COL.B)
 			end
+			cks[#cks + 1] = ColorSequenceKeypoint.new(u, col)
+			nks[#nks + 1] = NumberSequenceKeypoint.new(u, 1 - a)
 		end
-		s.gloss = nil
+		return ColorSequence.new(cks), NumberSequence.new(nks)
 	end
 
-	-- ツヤの重ね貼りを、いまの反射の強さ(s.refl)に合わせて作る/更新する
-	function SK.gloss(model, parts)
-		local s = st(model)
-		local k = glossK(s.refl or 0)
-		if k <= 0 then
-			SK.clearGloss(model)
-			return
-		end
-		local trMax = 0   -- 板が透けているほど、ツヤの帯も薄くする (透けた板に不透明な白い帯が浮かないように)
-		for _, p in ipairs(parts) do
-			if p.Transparency > trMax then trMax = p.Transparency end
-		end
-		k = k * (1 - 0.6 * trMax)
-		local style = GLOSS_STYLES[s.glossStyle or 1] or GLOSS_STYLES[1]
-		local axisName = s.glossAxis or "X"
-		local flip = (s.grad and s.grad.topFlip) == true
-		local key = tostring(s.glossStyle or 1) .. axisName .. tostring(flip) .. "#" .. #parts
-		local G = s.gloss
-		if G and G.key == key then   -- 作り直さず、濃さだけ更新 (スライダーを動かしている間はこちら)
-			for _, f in ipairs(G.faces) do
-				if f.band.Parent then
-					f.skyG.Transparency = skySeq(style, k, f.top)
-					f.bandG.Transparency = bandSeq(style, k, f.t0, f.t1)
-				end
-			end
-			return
-		end
-		SK.clearGloss(model)
-		local ax = AXIS[axisName] or 1
-		local ex = axisInfo(model, parts, ax)
-		local faces, made = {}, 0
-		for i, p in ipairs(parts) do
-			local e = ex[i]
-			for _, f in ipairs(FACES) do
-				if made >= 150 then break end
-				local t0, t1, vertical = faceWindow(e, f, ax, flip)
-				if not t0 then
-					t0 = (e.ta + e.tb) / 2   -- 軸に沿わない面は、一定の濃さ
-					t1, vertical = t0, false
-				end
-				local top = (f[1] == "Top")
-				local sg = faceGui(p, f[1])
-				local sky = layer(sg, "Sky", 2)
-				sky.BackgroundColor3 = Color3.fromRGB(205, 228, 255)
-				sky.BackgroundTransparency = 0
-				local skyG = gradOf(sky)
-				skyG.Rotation = 90
-				skyG.Transparency = skySeq(style, k, top)
-				local band = layer(sg, "Band", 3)
-				band.BackgroundTransparency = 0
-				local bandG = gradOf(band)
-				bandG.Rotation = vertical and 90 or 0
-				bandG.Transparency = bandSeq(style, k, t0, t1)
-				faces[#faces + 1] = { band = band, skyG = skyG, bandG = bandG, t0 = t0, t1 = t1, top = top }
-				made = made + 1
-			end
-		end
-		s.gloss = { key = key, faces = faces }
-	end
-
-	function SK.reflect(model, parts, v)
-		local s = st(model)
-		v = math.clamp(v, 0, 1)
-		s.refl = v
-		for _, p in ipairs(parts) do
-			remember(p)
-			p.Reflectance = v
-		end
-		SK.gloss(model, parts)
-	end
-
-	-- ===== グラデーション (2色/3色を混ぜる。cfg.flow > 0 なら色が流れる) =====
 	-- t0(左/上) → t1(右/下) の ColorSequence を作る。ストライプの時は境目を急に切り替える
 	local function buildSeq(cfg, t0, t1, tf)
 		local us = {}
@@ -602,103 +488,420 @@ do
 		end
 		return ColorSequence.new(keys)
 	end
-	local function addGradLayer(p, face, seq, vertical, tr)
-		local sg = faceGui(p, face)
-		local old = sg:FindFirstChild("G")
-		if old then old:Destroy() end
-		local f = layer(sg, "G", 1)
-		f.BackgroundTransparency = tr or 0   -- 板の透明度に合わせる (重ね貼りだけ不透明に残らないように)
-		local g = gradOf(f)
-		g.Color = seq
-		g.Rotation = vertical and 90 or 0
+
+	-- ===== 重ね貼り (SurfaceGui) のしくみ =====
+	-- ・色 / 素材 / 反射の数値などの「軽い設定」は、呼ばれたその場(同じフレーム)で反映する。
+	-- ・重ね貼りは数が多くて重いので、Heartbeat で「1フレームに数ミリ秒ぶん」ずつ作る。
+	--   板はそれまでに平均色になっているので、できあがるまでの数フレームも色が付いて見える。板が出る瞬間にカクつかない。
+	-- ・1面につき SurfaceGui は1枚。中の層(Frame)は G=グラデーション(下) と Gloss=ツヤ(上) の最大2枚。
+	-- ・小さな面・小さな部品には重ねない (見た目にほとんど出ないのに、数だけ増えるため)。
+	-- ・SurfaceGui の下絵(CanvasSize)は小さくする。色の帯だけなので十分きれいで、画像のメモリが約30分の1になる。
+	-- ・できた面は作り直さず、中身(Color / Transparency)だけ書き換える → 設定を動かしてもちらつかない。
+	-- ・「いまの設定」から毎回やることを決め直す方式なので、途中で設定が変わっても、リセットしても、必ず最新の見た目に落ち着く。
+	local OVC = { budget = 0.004, maxJobs = 60, areaMin = 0.12, partMin = 0.01, maxFaces = 220, canvas = 128 }
+	SK.OVC = OVC
+	local OV = { list = {}, conn = nil }
+	local FSIG = setmetatable({}, { __mode = "k" })   -- 面ごとに「層の中身を、どの設定で作ったか」を覚える (同じなら書き換えない)
+
+	local function findFace(p, name)
+		local want = Enum.NormalId[name]
+		for _, c in ipairs(p:GetChildren()) do
+			if c.Name == "SkinFace" and c.Face == want then return c end
+		end
+		return nil
+	end
+	local function newFaceGui(name)
+		local sg = Instance.new("SurfaceGui")
+		sg.Name = "SkinFace"
+		sg.Face = Enum.NormalId[name]
+		sg.LightInfluence = 1
+		sg.AlwaysOnTop = false
+		pcall(function() sg.Active = false end)
+		pcall(function() sg.MaxDistance = 250 end)
+		pcall(function() sg.CanvasSize = Vector2.new(OVC.canvas, OVC.canvas) end)
+		return sg
+	end
+	local function makeLayer(name, z)
+		local f = Instance.new("Frame")
+		f.Name = name
+		f.Size = UDim2.fromScale(1, 1)
+		f.BackgroundColor3 = Color3.new(1, 1, 1)
+		f.BorderSizePixel = 0
+		f.ZIndex = z
+		local g = Instance.new("UIGradient")
+		g.Parent = f
+		return f, g
+	end
+
+	-- グラデの重ね貼りの透け具合 = 板の透明度。ただし「木目テクスチャ」をONにしている時は、木目が見えるよう 0.55 以上に透かす
+	local WOOD_SEE = 0.55
+	local function effGTr(s, p)
+		local tr = p.Transparency
+		if s.texUser == true and tr < WOOD_SEE then tr = WOOD_SEE end
+		return tr
+	end
+
+	-- いまの設定から「どの面に、何を作る/更新するか」の作業表を作る
+	local function ovPlan(model, s, ov)
+		local parts = partsOf(model)
+		local plan = {}
+		local g = s.grad
+		if g and g.smooth and g.flow <= 0 then   -- 流れる時は重ね貼りしない (重ねると動きが隠れる)
+			local ex, span = axisInfo(model, parts, AXIS[g.axis])
+			if span > 1e-3 then plan.g = { cfg = g, ax = AXIS[g.axis], ex = ex } end
+		end
+		local k = glossK(s.refl or 0)
+		if k > 0 then
+			local trMax = 0   -- 板が透けているほど、ツヤの帯も薄くする (透けた板に不透明な白い帯が浮かないように)
+			for _, p in ipairs(parts) do
+				if p.Transparency > trMax then trMax = p.Transparency end
+			end
+			local id = GLOSS_STYLES[s.glossStyle or 1] and (s.glossStyle or 1) or 1
+			local ax = AXIS[s.glossAxis or "X"] or 1
+			local ex = axisInfo(model, parts, ax)
+			plan.gl = { k = k * (1 - 0.6 * trMax), id = id, style = GLOSS_STYLES[id], ax = ax, ex = ex, flip = (g and g.topFlip) == true }
+		end
+		-- 部品ごとの面の大きさ。大きな面だけに重ねる
+		local areas, amax = {}, 0
+		for i, p in ipairs(parts) do
+			local z = p.Size
+			local xy, zy, xz = z.X * z.Y, z.Z * z.Y, z.X * z.Z
+			areas[i] = { Front = xy, Back = xy, Left = zy, Right = zy, Top = xz, max = math.max(xy, zy, xz) }
+			if areas[i].max > amax then amax = areas[i].max end
+		end
+		local jobs, wanted, count = {}, {}, 0
+		if plan.g or plan.gl then
+			for _, f in ipairs(FORDER) do
+				for i, p in ipairs(parts) do
+					local a = areas[i]
+					if count < OVC.maxFaces and a.max >= OVC.partMin * amax and a[f[1]] >= OVC.areaMin * a.max then
+						local jg, jgl
+						if plan.g then
+							local t0, t1, vert = faceWindow(plan.g.ex[i], f, plan.g.ax, plan.g.cfg.topFlip)
+							if t0 then jg = { t0 = t0, t1 = t1, vert = vert } end
+						end
+						if plan.gl then
+							local e = plan.gl.ex[i]
+							local t0, t1, vert = faceWindow(e, f, plan.gl.ax, plan.gl.flip)
+							if not t0 then
+								t0 = (e.ta + e.tb) / 2   -- 軸に沿わない面は、一定の濃さ
+								t1, vert = t0, false
+							end
+							jgl = { t0 = t0, t1 = t1, vert = vert }
+						end
+						if jg or jgl then
+							count = count + 1
+							jobs[#jobs + 1] = { p = p, face = f[1], i = i, g = jg, gl = jgl }
+							wanted[p] = wanted[p] or {}
+							wanted[p][f[1]] = true
+						end
+					end
+				end
+			end
+		end
+		-- いらなくなった面は先に片づける (軽い仕事。古い見た目が残らないように)
+		local work = {}
+		for i, p in ipairs(parts) do
+			for _, c in ipairs(p:GetChildren()) do
+				if c.Name == "SkinFace" then
+					local fname = c.Face and c.Face.Name
+					if not (fname and wanted[p] and wanted[p][fname]) then
+						work[#work + 1] = { p = p, face = fname, i = i, sg = c }
+					end
+				end
+			end
+		end
+		for _, j in ipairs(jobs) do work[#work + 1] = j end
+		ov.plan, ov.jobs, ov.i = plan, work, 1
+	end
+
+	-- 1つの面を、作業表のとおりにする (なければ作る / あれば中身だけ書き換える / いらなければ消す)
+	local function ovFace(model, s, plan, job)
+		local p = job.p
+		if p.Parent ~= model then return end
+		local jg, jgl = job.g, job.gl
+		local sg = job.sg or findFace(p, job.face)
+		if not jg and not jgl then
+			if sg then sg:Destroy() end
+			return
+		end
+		local fresh = false
+		if not sg then
+			sg = newFaceGui(job.face)
+			fresh = true
+		end
+		local rec = FSIG[sg]
+		if not rec then rec = {} FSIG[sg] = rec end
+
+		-- G: グラデーション (下の層)
+		local fG = sg:FindFirstChild("G")
+		if jg then
+			local gg
+			if fG then
+				gg = fG:FindFirstChildOfClass("UIGradient")
+			else
+				fG, gg = makeLayer("G", 1)
+				rec.g = nil
+			end
+			if not gg then
+				gg = Instance.new("UIGradient")
+				gg.Parent = fG
+				rec.g = nil
+			end
+			local cfg = plan.g.cfg
+			local sig = string.format("%d|%d|%.3f|%.3f|%.5f|%.5f|%d", cfg.id, job.i, s.variance or 0, s.weather or 0, jg.t0, jg.t1, jg.vert and 1 or 0)
+			if rec.g ~= sig then
+				local i = job.i
+				gg.Color = buildSeq(cfg, jg.t0, jg.t1, function(c) return tint(s, i, c) end)
+				gg.Rotation = jg.vert and 90 or 0
+				rec.g = sig
+			end
+			local tr = effGTr(s, p)   -- 板の透明度に合わせる (重ね貼りだけ不透明に残らないように)
+			if fG.BackgroundTransparency ~= tr then fG.BackgroundTransparency = tr end
+			if fG.Parent ~= sg then fG.Parent = sg end
+		elseif fG then
+			fG:Destroy()
+			rec.g = nil
+		end
+
+		-- Gloss: ツヤ (上の層)
+		local fL = sg:FindFirstChild("Gloss")
+		if jgl then
+			local gl = plan.gl
+			local top = (job.face == "Top")
+			local lg
+			if fL then
+				lg = fL:FindFirstChildOfClass("UIGradient")
+			else
+				fL, lg = makeLayer("Gloss", 2)
+				rec.gl = nil
+			end
+			if not lg then
+				lg = Instance.new("UIGradient")
+				lg.Parent = fL
+				rec.gl = nil
+			end
+			local sig = string.format("%d|%d|%.5f|%.5f|%.5f|%d", gl.id, top and 1 or 0, gl.k, jgl.t0, jgl.t1, jgl.vert and 1 or 0)
+			if rec.gl ~= sig then
+				lg.Color, lg.Transparency = glossSeqs(gl.style, gl.k, jgl.t0, jgl.t1, top)
+				lg.Rotation = jgl.vert and 90 or 0
+				rec.gl = sig
+			end
+			if fL.Parent ~= sg then fL.Parent = sg end
+			s.hasGloss = true
+		elseif fL then
+			fL:Destroy()
+			rec.gl = nil
+		end
+
+		if fresh then sg.Parent = p end   -- 中身を全部つくってから、最後に板へ付ける (1面ぶんが1回でまとまって届く)
+	end
+
+	-- 1フレームぶんの作業。noLimit=true なら時間を気にせず全部終わらせる (テスト・確認用)
+	local function ovStep(noLimit)
+		local list = OV.list
+		local t0, n = os.clock(), 0
+		while #list > 0 do
+			local ov = list[1]
+			local model, s = ov.model, ov.s
+			if stateOf[model] ~= s or not model.Parent then   -- リセットされた / 消えた板の分は、やめる
+				ov.queued, ov.model, ov.plan, ov.jobs = false, nil, nil, nil
+				table.remove(list, 1)
+			else
+				if not ov.jobs then
+					local ok, err = pcall(ovPlan, model, s, ov)
+					if not ok then
+						ov.plan, ov.jobs, ov.i = {}, {}, 1
+						if not ov.warned then ov.warned = true pcall(warn, "PalletStudio plan: " .. tostring(err)) end
+					end
+				end
+				local job = ov.jobs[ov.i]
+				if not job then
+					ov.queued, ov.model, ov.plan, ov.jobs = false, nil, nil, nil
+					table.remove(list, 1)
+				else
+					ov.i = ov.i + 1
+					local ok, err = pcall(ovFace, model, s, ov.plan, job)
+					if not ok and not ov.warned then ov.warned = true pcall(warn, "PalletStudio face: " .. tostring(err)) end
+					n = n + 1
+					if not ov.jobs[ov.i] then   -- いまのが最後の1つだった → その場で終わりにする (次のフレームまで待たない)
+						ov.queued, ov.model, ov.plan, ov.jobs = false, nil, nil, nil
+						table.remove(list, 1)
+					end
+					if not noLimit and (n >= OVC.maxJobs or os.clock() - t0 >= OVC.budget) then break end
+				end
+			end
+		end
+		if #list == 0 and OV.conn then
+			OV.conn:Disconnect()
+			OV.conn = nil
+		end
+	end
+	function SK.ovFlush()   -- 作業待ちを全部、いますぐ終わらせる (テスト・確認用)
+		local guard = 0
+		while #OV.list > 0 and guard < 100000 do
+			guard = guard + 1
+			ovStep(true)
+		end
+	end
+	function SK.ovPending() return #OV.list end
+
+	-- 重ね貼りの中身が変わる設定をした時に呼ぶ: 次のフレームから、最新の設定で作り直し/更新する
+	local function ovTouch(model)
+		local s = st(model)
+		local ov = s.ov
+		if not ov then
+			ov = { s = s, i = 1 }   -- (板そのものは、作業待ちの間だけ持つ。ずっと持つと、消えた板がメモリに残ってしまう)
+			s.ov = ov
+		end
+		ov.jobs = nil
+		ov.i = 1
+		if not ov.queued then
+			ov.queued = true
+			ov.model = model
+			OV.list[#OV.list + 1] = ov
+			if not OV.conn then
+				OV.conn = RunService.Heartbeat:Connect(function()
+					local ok, err = pcall(ovStep, false)
+					if not ok then   -- 想定外のエラーでも、毎フレーム止まり続けないように、先頭の1件を捨てて先へ進む
+						pcall(warn, "PalletStudio overlay: " .. tostring(err))
+						local bad = table.remove(OV.list, 1)
+						if bad then bad.queued, bad.model, bad.plan, bad.jobs = false, nil, nil, nil end
+					end
+				end)
+			end
+		end
+	end
+	-- 消す側の操作の後に呼ぶ: 作りかけの古い作業表を捨てる (消したものを、あとから作ってしまわないように)
+	local function ovInvalidate(model)
+		local ov = st(model).ov
+		if ov and ov.queued then
+			ov.jobs = nil
+			ov.i = 1
+		end
+	end
+
+	-- 重ね貼りの層を、板の全パーツから消す (すぐ消える。消すのは軽い)
+	local function dropLayers(model, names)
+		for _, p in ipairs(partsOf(model)) do
+			for _, c in ipairs(p:GetChildren()) do
+				if c.Name == "SkinFace" then
+					for _, n in ipairs(names) do
+						local f = c:FindFirstChild(n)
+						if f then f:Destroy() end
+					end
+					if #c:GetChildren() == 0 then c:Destroy() end
+				end
+			end
+		end
+	end
+
+	function SK.clearGloss(model)
+		local s = st(model)
+		if s.hasGloss then
+			dropLayers(model, { "Gloss", "Sky", "Band" })   -- 古い版の Sky / Band も片づける
+			s.hasGloss = nil
+		end
+		ovInvalidate(model)
+	end
+
+	-- ツヤの重ね貼りを、いまの反射の強さ(s.refl)に合わせる (作る/更新は次のフレームから少しずつ)
+	function SK.gloss(model, parts)
+		local s = st(model)
+		if glossK(s.refl or 0) <= 0 then
+			SK.clearGloss(model)
+		else
+			ovTouch(model)
+		end
+	end
+
+	function SK.reflect(model, parts, v)
+		local s = st(model)
+		v = math.clamp(v, 0, 1)
+		s.refl = v
+		for _, p in ipairs(parts) do
+			remember(p)
+			p.Reflectance = v
+		end
+		SK.gloss(model, parts)
 	end
 
 	function SK.clearGrad(model)
 		local s = st(model)
-		if not s.grad then return end
+		local old = s.grad
+		if not old then return end
 		s.grad = nil
-		for _, p in ipairs(partsOf(model)) do dropLayer(p, "G") end
+		dropLayers(model, { "G" })
+		if old.topFlip and glossK(s.refl or 0) > 0 then
+			ovTouch(model)   -- 上面の向きの反転がなくなるので、ツヤの向きも元に戻す
+		else
+			ovInvalidate(model)
+		end
 		syncAnim(model)
 	end
 
 	-- 板についている重ね貼りを全部消す (元に戻す時用。古い版の SkinGrad も消す)
 	function SK.dropAll(model)
 		for _, p in ipairs(partsOf(model)) do
-			dropLayer(p, "G")
-			dropLayer(p, "Sky")
-			dropLayer(p, "Band")
 			for _, c in ipairs(p:GetChildren()) do
-				if c.Name == "SkinGrad" then c:Destroy() end
+				if c.Name == "SkinFace" or c.Name == "SkinGrad" then c:Destroy() end
 			end
 		end
+		ovInvalidate(model)
 	end
 
-	function SK.syncGradTr(parts, tr)
-		for _, p in ipairs(parts) do
-			for _, c in ipairs(p:GetChildren()) do
-				if c.Name == "SkinFace" then
-					local fr = c:FindFirstChild("G")
-					if fr then fr.BackgroundTransparency = tr end
-				end
-			end
-		end
-	end
-	-- グラデの重ね貼りの透け具合 = 板の透明度。ただし「木目テクスチャ」をONにしている時は、木目が見えるよう 0.55 以上に透かす
-	local WOOD_SEE = 0.55
 	function SK.refreshGradTr(model, parts)
-		local see = st(model).texUser == true
+		local s = st(model)
 		for _, p in ipairs(parts) do
-			local tr = p.Transparency
-			if see and tr < WOOD_SEE then tr = WOOD_SEE end
+			local tr = effGTr(s, p)
 			for _, c in ipairs(p:GetChildren()) do
 				if c.Name == "SkinFace" then
 					local fr = c:FindFirstChild("G")
-					if fr then fr.BackgroundTransparency = tr end
+					if fr and fr.BackgroundTransparency ~= tr then fr.BackgroundTransparency = tr end
 				end
 			end
 		end
 	end
 
+	-- ===== グラデーション (2色/3色を混ぜる。cfg.flow > 0 なら色が流れる) =====
 	-- v = { a, b, c(なくても可), axis, rev, mid=0.1~0.9, smooth, stripes=0~8, topFlip, flow=0~2 }
+	local gradSerial = 0
 	function SK.gradient(model, parts, v, keepTex)
 		if typeof(v) ~= "table" or typeof(v.a) ~= "Color3" or typeof(v.b) ~= "Color3" or not AXIS[v.axis] then return false end
+		gradSerial = gradSerial + 1
 		local cfg = {
 			a = v.a, b = v.b, c = (typeof(v.c) == "Color3") and v.c or nil, axis = v.axis, rev = v.rev == true,
 			smooth = v.smooth ~= false, topFlip = v.topFlip == true,
 			mid = isNum(v.mid) and math.clamp(v.mid, 0.1, 0.9) or 0.5,
 			stripes = isNum(v.stripes) and math.clamp(math.floor(v.stripes), 0, 8) or 0,
 			flow = isNum(v.flow) and math.clamp(v.flow, 0, 2) or 0,
+			id = gradSerial,
 		}
 		local s = st(model)
 		s.rainbow = nil
-		SK.clearGrad(model)
 		if not keepTex then
 			s.texUser = false
 			setTexture(parts, false)   -- 木目が上に残ると色が見えないので、外す
 		end
 		s.grad = cfg
 		s.base = gradAt(cfg, 0.5)
+		-- 板そのものの色 (軽い設定): まず部品ごとの平均色にして、その場で反映する。重ね貼りができるまでの間も、色が付いて見える
 		local ax = AXIS[cfg.axis]
 		local ex, span = axisInfo(model, parts, ax)
-		local made = 0
 		for i, p in ipairs(parts) do
 			remember(p)
 			local e = ex[i]
-			local function tf(c) return tint(s, i, c) end
 			local tc = (e.ta + e.tb) / 2
-			setCol(p, tf(gradAt(cfg, tc)))   -- 重ね貼りしない面(裏・端)や、流れる時の元の色は、この平均色
+			setCol(p, tint(s, i, gradAt(cfg, tc)))   -- 重ね貼りしない面(裏・端)や、流れる時の元の色は、この平均色
 			p:SetAttribute("PS_T", tc)
-			if cfg.smooth and cfg.flow <= 0 and span > 1e-3 and made < 160 then   -- 流れる時は重ね貼りしない (重ねると動きが隠れる)
-				for _, f in ipairs(FACES) do
-					local t0, t1, vertical = faceWindow(e, f, ax, cfg.topFlip)
-					if t0 then
-						addGradLayer(p, f[1], buildSeq(cfg, t0, t1, tf), vertical, p.Transparency)
-						made = made + 1
-					end
-				end
-			end
 		end
 		syncAnim(model)
+		if cfg.smooth and cfg.flow <= 0 and span > 1e-3 then
+			ovTouch(model)   -- なめらかな重ね貼りは、次のフレームから少しずつ作る / 更新する (すでにあれば、作り直さず色だけ変える)
+		else
+			dropLayers(model, { "G" })   -- 重ね貼りしない設定 (流れる / くっきり): いまある分は、すぐ消す
+			ovInvalidate(model)
+		end
 		if keepTex and s.texUser then SK.refreshGradTr(model, parts) end   -- 木目を見せたままの時は、重ね貼りを透かす
 		SK.gloss(model, parts)   -- 上面の向きを反転した時は、ツヤの向きも合わせる
 		return true
@@ -1819,6 +2022,7 @@ do
 end
 
 local CollectionService = game:GetService("CollectionService")
+local RunService = game:GetService("RunService")
 local ANIM_TAG = "PalletStudioAnim"   -- 動きのある板に付ける目印 (この画面のアニメ担当が見つける)
 
 local orig = setmetatable({}, { __mode = "k" })
@@ -2032,6 +2236,8 @@ do
 		{ "Right", Vector3.new(0, 0, -1), Vector3.new(0, 1, 0) },
 		{ "Top", Vector3.new(0, 0, -1), Vector3.new(-1, 0, 0) },
 	}
+	-- 作る順番: 上 → 前後 → 左右。上から見ることが多いので、見える所から先に出来上がる
+	local FORDER = { FACES[5], FACES[1], FACES[2], FACES[3], FACES[4] }
 
 	-- 板全体を軸 ax に沿って 0〜1 に見たとき、各パーツが占める範囲 (ta〜tb)
 	local function axisInfo(model, parts, ax)
@@ -2072,52 +2278,6 @@ do
 		return nil
 	end
 
-	-- 面ごとに GUI を1つだけ作り、その中に「層(Frame)」を重ねる: G=グラデーション / Sky,Band=ツヤ
-	-- (同じ面に SurfaceGui を何枚も重ねると描画が不安定になるので、1面1枚にまとめる)
-	local function faceGui(p, face)
-		local want = Enum.NormalId[face]
-		for _, c in ipairs(p:GetChildren()) do
-			if c.Name == "SkinFace" and c.Face == want then return c end
-		end
-		local sg = Instance.new("SurfaceGui")
-		sg.Name = "SkinFace"
-		sg.Face = want
-		sg.LightInfluence = 1
-		sg.AlwaysOnTop = false
-		pcall(function() sg.MaxDistance = 250 end)
-		sg.Parent = p
-		return sg
-	end
-	local function layer(sg, name, z)
-		local f = sg:FindFirstChild(name)
-		if f then return f end
-		f = Instance.new("Frame")
-		f.Name = name
-		f.Size = UDim2.fromScale(1, 1)
-		f.BackgroundColor3 = Color3.new(1, 1, 1)
-		f.BorderSizePixel = 0
-		f.ZIndex = z
-		f.Parent = sg
-		return f
-	end
-	local function dropLayer(p, name)
-		for _, c in ipairs(p:GetChildren()) do
-			if c.Name == "SkinFace" then
-				local f = c:FindFirstChild(name)
-				if f then f:Destroy() end
-				if #c:GetChildren() == 0 then c:Destroy() end
-			end
-		end
-	end
-	local function gradOf(f)
-		local g = f:FindFirstChildOfClass("UIGradient")
-		if not g then
-			g = Instance.new("UIGradient")
-			g.Parent = f
-		end
-		return g
-	end
-
 	-- ===== 反射 / ツヤ =====
 	-- 板の素材やテクスチャには一切さわらない。
 	--  (1) Part.Reflectance をそのまま変える (空を映す。プラスチック/つるつる/ガラスで特によく見える)
@@ -2143,7 +2303,9 @@ do
 	end
 	local function glossK(v) return math.clamp((v - 0.12) / 0.88, 0, 1) ^ 0.85 end
 	SK.glossK = glossK
-	local function bandSeq(style, k, t0, t1)
+
+	-- 光の帯の「点を打つ位置」(0〜1)。帯のふちと真ん中に点を置く。20点を超えたら、間を1つおきに間引く
+	local function bandKeys(style, t0, t1)
 		local us = { 0, 1 }
 		if math.abs(t1 - t0) > 1e-6 then
 			for _, b in ipairs(style.bands) do
@@ -2161,111 +2323,36 @@ do
 				last = u
 			end
 		end
-		while #keys > 20 do   -- 点が多すぎる時は、間を1つおきに間引く (両端は残す)
+		while #keys > 20 do
 			local nk = {}
 			for i, u in ipairs(keys) do
 				if i == 1 or i == #keys or i % 2 == 1 then nk[#nk + 1] = u end
 			end
 			keys = nk
 		end
-		local out = {}
-		for _, u in ipairs(keys) do
-			local t = t0 + (t1 - t0) * u
-			out[#out + 1] = NumberSequenceKeypoint.new(u, 1 - bandAlpha(style.bands, t) * k)
-		end
-		return NumberSequence.new(out)
-	end
-	local function skySeq(style, k, top)   -- 空の映り込み: 横の面は上が濃く下へ薄く / 上の面は一様
-		local a = style.sky * k
-		if top then
-			return NumberSequence.new({ NumberSequenceKeypoint.new(0, 1 - a * 0.8), NumberSequenceKeypoint.new(1, 1 - a * 0.8) })
-		end
-		return NumberSequence.new({ NumberSequenceKeypoint.new(0, 1 - a), NumberSequenceKeypoint.new(0.55, 1 - a * 0.35), NumberSequenceKeypoint.new(1, 1 - a * 0.1) })
+		return keys
 	end
 
-	function SK.clearGloss(model)
-		local s = st(model)
-		if s.gloss then
-			for _, p in ipairs(partsOf(model)) do
-				dropLayer(p, "Sky")
-				dropLayer(p, "Band")
+	-- ツヤの層は1枚だけ: 「空の映り込み(うすい青白さ)」の上に「白い光の帯」を重ねた結果を、色と透明度の1本ずつにまとめる。
+	-- (同じ見た目を、Frame と UIGradient 各1個で出せるので、2枚重ねるより軽い)
+	local SKY_COL = Color3.fromRGB(205, 228, 255)
+	local function glossSeqs(style, k, t0, t1, top)
+		local sa = style.sky * k * (top and 0.8 or 0.5)   -- 空の映り込みの濃さ (上の面は一様に少し濃く)
+		local cks, nks = {}, {}
+		for _, u in ipairs(bandKeys(style, t0, t1)) do
+			local b = bandAlpha(style.bands, t0 + (t1 - t0) * u) * k   -- 光の帯の濃さ
+			local a = 1 - (1 - b) * (1 - sa)                           -- 2つを重ねた全体の濃さ
+			local col = Color3.new(1, 1, 1)
+			if a > 1e-4 then
+				local wb, ws = b / a, (1 - b) * sa / a                  -- 白と空色の割合 (足すと1)
+				col = Color3.new(wb + ws * SKY_COL.R, wb + ws * SKY_COL.G, wb + ws * SKY_COL.B)
 			end
+			cks[#cks + 1] = ColorSequenceKeypoint.new(u, col)
+			nks[#nks + 1] = NumberSequenceKeypoint.new(u, 1 - a)
 		end
-		s.gloss = nil
+		return ColorSequence.new(cks), NumberSequence.new(nks)
 	end
 
-	-- ツヤの重ね貼りを、いまの反射の強さ(s.refl)に合わせて作る/更新する
-	function SK.gloss(model, parts)
-		local s = st(model)
-		local k = glossK(s.refl or 0)
-		if k <= 0 then
-			SK.clearGloss(model)
-			return
-		end
-		local trMax = 0   -- 板が透けているほど、ツヤの帯も薄くする (透けた板に不透明な白い帯が浮かないように)
-		for _, p in ipairs(parts) do
-			if p.Transparency > trMax then trMax = p.Transparency end
-		end
-		k = k * (1 - 0.6 * trMax)
-		local style = GLOSS_STYLES[s.glossStyle or 1] or GLOSS_STYLES[1]
-		local axisName = s.glossAxis or "X"
-		local flip = (s.grad and s.grad.topFlip) == true
-		local key = tostring(s.glossStyle or 1) .. axisName .. tostring(flip) .. "#" .. #parts
-		local G = s.gloss
-		if G and G.key == key then   -- 作り直さず、濃さだけ更新 (スライダーを動かしている間はこちら)
-			for _, f in ipairs(G.faces) do
-				if f.band.Parent then
-					f.skyG.Transparency = skySeq(style, k, f.top)
-					f.bandG.Transparency = bandSeq(style, k, f.t0, f.t1)
-				end
-			end
-			return
-		end
-		SK.clearGloss(model)
-		local ax = AXIS[axisName] or 1
-		local ex = axisInfo(model, parts, ax)
-		local faces, made = {}, 0
-		for i, p in ipairs(parts) do
-			local e = ex[i]
-			for _, f in ipairs(FACES) do
-				if made >= 150 then break end
-				local t0, t1, vertical = faceWindow(e, f, ax, flip)
-				if not t0 then
-					t0 = (e.ta + e.tb) / 2   -- 軸に沿わない面は、一定の濃さ
-					t1, vertical = t0, false
-				end
-				local top = (f[1] == "Top")
-				local sg = faceGui(p, f[1])
-				local sky = layer(sg, "Sky", 2)
-				sky.BackgroundColor3 = Color3.fromRGB(205, 228, 255)
-				sky.BackgroundTransparency = 0
-				local skyG = gradOf(sky)
-				skyG.Rotation = 90
-				skyG.Transparency = skySeq(style, k, top)
-				local band = layer(sg, "Band", 3)
-				band.BackgroundTransparency = 0
-				local bandG = gradOf(band)
-				bandG.Rotation = vertical and 90 or 0
-				bandG.Transparency = bandSeq(style, k, t0, t1)
-				faces[#faces + 1] = { band = band, skyG = skyG, bandG = bandG, t0 = t0, t1 = t1, top = top }
-				made = made + 1
-			end
-		end
-		s.gloss = { key = key, faces = faces }
-	end
-
-	function SK.reflect(model, parts, v)
-		local s = st(model)
-		v = math.clamp(v, 0, 1)
-		s.refl = v
-		for _, p in ipairs(parts) do
-			remember(p)
-			p.Reflectance = v
-		end
-		SK.gloss(model, parts)
-	end
-
-	-- ===== グラデーション (2色/3色を混ぜる。cfg.flow > 0 なら色が流れる) =====
 	-- t0(左/上) → t1(右/下) の ColorSequence を作る。ストライプの時は境目を急に切り替える
 	local function buildSeq(cfg, t0, t1, tf)
 		local us = {}
@@ -2298,103 +2385,420 @@ do
 		end
 		return ColorSequence.new(keys)
 	end
-	local function addGradLayer(p, face, seq, vertical, tr)
-		local sg = faceGui(p, face)
-		local old = sg:FindFirstChild("G")
-		if old then old:Destroy() end
-		local f = layer(sg, "G", 1)
-		f.BackgroundTransparency = tr or 0   -- 板の透明度に合わせる (重ね貼りだけ不透明に残らないように)
-		local g = gradOf(f)
-		g.Color = seq
-		g.Rotation = vertical and 90 or 0
+
+	-- ===== 重ね貼り (SurfaceGui) のしくみ =====
+	-- ・色 / 素材 / 反射の数値などの「軽い設定」は、呼ばれたその場(同じフレーム)で反映する。
+	-- ・重ね貼りは数が多くて重いので、Heartbeat で「1フレームに数ミリ秒ぶん」ずつ作る。
+	--   板はそれまでに平均色になっているので、できあがるまでの数フレームも色が付いて見える。板が出る瞬間にカクつかない。
+	-- ・1面につき SurfaceGui は1枚。中の層(Frame)は G=グラデーション(下) と Gloss=ツヤ(上) の最大2枚。
+	-- ・小さな面・小さな部品には重ねない (見た目にほとんど出ないのに、数だけ増えるため)。
+	-- ・SurfaceGui の下絵(CanvasSize)は小さくする。色の帯だけなので十分きれいで、画像のメモリが約30分の1になる。
+	-- ・できた面は作り直さず、中身(Color / Transparency)だけ書き換える → 設定を動かしてもちらつかない。
+	-- ・「いまの設定」から毎回やることを決め直す方式なので、途中で設定が変わっても、リセットしても、必ず最新の見た目に落ち着く。
+	local OVC = { budget = 0.004, maxJobs = 60, areaMin = 0.12, partMin = 0.01, maxFaces = 220, canvas = 128 }
+	SK.OVC = OVC
+	local OV = { list = {}, conn = nil }
+	local FSIG = setmetatable({}, { __mode = "k" })   -- 面ごとに「層の中身を、どの設定で作ったか」を覚える (同じなら書き換えない)
+
+	local function findFace(p, name)
+		local want = Enum.NormalId[name]
+		for _, c in ipairs(p:GetChildren()) do
+			if c.Name == "SkinFace" and c.Face == want then return c end
+		end
+		return nil
+	end
+	local function newFaceGui(name)
+		local sg = Instance.new("SurfaceGui")
+		sg.Name = "SkinFace"
+		sg.Face = Enum.NormalId[name]
+		sg.LightInfluence = 1
+		sg.AlwaysOnTop = false
+		pcall(function() sg.Active = false end)
+		pcall(function() sg.MaxDistance = 250 end)
+		pcall(function() sg.CanvasSize = Vector2.new(OVC.canvas, OVC.canvas) end)
+		return sg
+	end
+	local function makeLayer(name, z)
+		local f = Instance.new("Frame")
+		f.Name = name
+		f.Size = UDim2.fromScale(1, 1)
+		f.BackgroundColor3 = Color3.new(1, 1, 1)
+		f.BorderSizePixel = 0
+		f.ZIndex = z
+		local g = Instance.new("UIGradient")
+		g.Parent = f
+		return f, g
+	end
+
+	-- グラデの重ね貼りの透け具合 = 板の透明度。ただし「木目テクスチャ」をONにしている時は、木目が見えるよう 0.55 以上に透かす
+	local WOOD_SEE = 0.55
+	local function effGTr(s, p)
+		local tr = p.Transparency
+		if s.texUser == true and tr < WOOD_SEE then tr = WOOD_SEE end
+		return tr
+	end
+
+	-- いまの設定から「どの面に、何を作る/更新するか」の作業表を作る
+	local function ovPlan(model, s, ov)
+		local parts = partsOf(model)
+		local plan = {}
+		local g = s.grad
+		if g and g.smooth and g.flow <= 0 then   -- 流れる時は重ね貼りしない (重ねると動きが隠れる)
+			local ex, span = axisInfo(model, parts, AXIS[g.axis])
+			if span > 1e-3 then plan.g = { cfg = g, ax = AXIS[g.axis], ex = ex } end
+		end
+		local k = glossK(s.refl or 0)
+		if k > 0 then
+			local trMax = 0   -- 板が透けているほど、ツヤの帯も薄くする (透けた板に不透明な白い帯が浮かないように)
+			for _, p in ipairs(parts) do
+				if p.Transparency > trMax then trMax = p.Transparency end
+			end
+			local id = GLOSS_STYLES[s.glossStyle or 1] and (s.glossStyle or 1) or 1
+			local ax = AXIS[s.glossAxis or "X"] or 1
+			local ex = axisInfo(model, parts, ax)
+			plan.gl = { k = k * (1 - 0.6 * trMax), id = id, style = GLOSS_STYLES[id], ax = ax, ex = ex, flip = (g and g.topFlip) == true }
+		end
+		-- 部品ごとの面の大きさ。大きな面だけに重ねる
+		local areas, amax = {}, 0
+		for i, p in ipairs(parts) do
+			local z = p.Size
+			local xy, zy, xz = z.X * z.Y, z.Z * z.Y, z.X * z.Z
+			areas[i] = { Front = xy, Back = xy, Left = zy, Right = zy, Top = xz, max = math.max(xy, zy, xz) }
+			if areas[i].max > amax then amax = areas[i].max end
+		end
+		local jobs, wanted, count = {}, {}, 0
+		if plan.g or plan.gl then
+			for _, f in ipairs(FORDER) do
+				for i, p in ipairs(parts) do
+					local a = areas[i]
+					if count < OVC.maxFaces and a.max >= OVC.partMin * amax and a[f[1]] >= OVC.areaMin * a.max then
+						local jg, jgl
+						if plan.g then
+							local t0, t1, vert = faceWindow(plan.g.ex[i], f, plan.g.ax, plan.g.cfg.topFlip)
+							if t0 then jg = { t0 = t0, t1 = t1, vert = vert } end
+						end
+						if plan.gl then
+							local e = plan.gl.ex[i]
+							local t0, t1, vert = faceWindow(e, f, plan.gl.ax, plan.gl.flip)
+							if not t0 then
+								t0 = (e.ta + e.tb) / 2   -- 軸に沿わない面は、一定の濃さ
+								t1, vert = t0, false
+							end
+							jgl = { t0 = t0, t1 = t1, vert = vert }
+						end
+						if jg or jgl then
+							count = count + 1
+							jobs[#jobs + 1] = { p = p, face = f[1], i = i, g = jg, gl = jgl }
+							wanted[p] = wanted[p] or {}
+							wanted[p][f[1]] = true
+						end
+					end
+				end
+			end
+		end
+		-- いらなくなった面は先に片づける (軽い仕事。古い見た目が残らないように)
+		local work = {}
+		for i, p in ipairs(parts) do
+			for _, c in ipairs(p:GetChildren()) do
+				if c.Name == "SkinFace" then
+					local fname = c.Face and c.Face.Name
+					if not (fname and wanted[p] and wanted[p][fname]) then
+						work[#work + 1] = { p = p, face = fname, i = i, sg = c }
+					end
+				end
+			end
+		end
+		for _, j in ipairs(jobs) do work[#work + 1] = j end
+		ov.plan, ov.jobs, ov.i = plan, work, 1
+	end
+
+	-- 1つの面を、作業表のとおりにする (なければ作る / あれば中身だけ書き換える / いらなければ消す)
+	local function ovFace(model, s, plan, job)
+		local p = job.p
+		if p.Parent ~= model then return end
+		local jg, jgl = job.g, job.gl
+		local sg = job.sg or findFace(p, job.face)
+		if not jg and not jgl then
+			if sg then sg:Destroy() end
+			return
+		end
+		local fresh = false
+		if not sg then
+			sg = newFaceGui(job.face)
+			fresh = true
+		end
+		local rec = FSIG[sg]
+		if not rec then rec = {} FSIG[sg] = rec end
+
+		-- G: グラデーション (下の層)
+		local fG = sg:FindFirstChild("G")
+		if jg then
+			local gg
+			if fG then
+				gg = fG:FindFirstChildOfClass("UIGradient")
+			else
+				fG, gg = makeLayer("G", 1)
+				rec.g = nil
+			end
+			if not gg then
+				gg = Instance.new("UIGradient")
+				gg.Parent = fG
+				rec.g = nil
+			end
+			local cfg = plan.g.cfg
+			local sig = string.format("%d|%d|%.3f|%.3f|%.5f|%.5f|%d", cfg.id, job.i, s.variance or 0, s.weather or 0, jg.t0, jg.t1, jg.vert and 1 or 0)
+			if rec.g ~= sig then
+				local i = job.i
+				gg.Color = buildSeq(cfg, jg.t0, jg.t1, function(c) return tint(s, i, c) end)
+				gg.Rotation = jg.vert and 90 or 0
+				rec.g = sig
+			end
+			local tr = effGTr(s, p)   -- 板の透明度に合わせる (重ね貼りだけ不透明に残らないように)
+			if fG.BackgroundTransparency ~= tr then fG.BackgroundTransparency = tr end
+			if fG.Parent ~= sg then fG.Parent = sg end
+		elseif fG then
+			fG:Destroy()
+			rec.g = nil
+		end
+
+		-- Gloss: ツヤ (上の層)
+		local fL = sg:FindFirstChild("Gloss")
+		if jgl then
+			local gl = plan.gl
+			local top = (job.face == "Top")
+			local lg
+			if fL then
+				lg = fL:FindFirstChildOfClass("UIGradient")
+			else
+				fL, lg = makeLayer("Gloss", 2)
+				rec.gl = nil
+			end
+			if not lg then
+				lg = Instance.new("UIGradient")
+				lg.Parent = fL
+				rec.gl = nil
+			end
+			local sig = string.format("%d|%d|%.5f|%.5f|%.5f|%d", gl.id, top and 1 or 0, gl.k, jgl.t0, jgl.t1, jgl.vert and 1 or 0)
+			if rec.gl ~= sig then
+				lg.Color, lg.Transparency = glossSeqs(gl.style, gl.k, jgl.t0, jgl.t1, top)
+				lg.Rotation = jgl.vert and 90 or 0
+				rec.gl = sig
+			end
+			if fL.Parent ~= sg then fL.Parent = sg end
+			s.hasGloss = true
+		elseif fL then
+			fL:Destroy()
+			rec.gl = nil
+		end
+
+		if fresh then sg.Parent = p end   -- 中身を全部つくってから、最後に板へ付ける (1面ぶんが1回でまとまって届く)
+	end
+
+	-- 1フレームぶんの作業。noLimit=true なら時間を気にせず全部終わらせる (テスト・確認用)
+	local function ovStep(noLimit)
+		local list = OV.list
+		local t0, n = os.clock(), 0
+		while #list > 0 do
+			local ov = list[1]
+			local model, s = ov.model, ov.s
+			if stateOf[model] ~= s or not model.Parent then   -- リセットされた / 消えた板の分は、やめる
+				ov.queued, ov.model, ov.plan, ov.jobs = false, nil, nil, nil
+				table.remove(list, 1)
+			else
+				if not ov.jobs then
+					local ok, err = pcall(ovPlan, model, s, ov)
+					if not ok then
+						ov.plan, ov.jobs, ov.i = {}, {}, 1
+						if not ov.warned then ov.warned = true pcall(warn, "PalletStudio plan: " .. tostring(err)) end
+					end
+				end
+				local job = ov.jobs[ov.i]
+				if not job then
+					ov.queued, ov.model, ov.plan, ov.jobs = false, nil, nil, nil
+					table.remove(list, 1)
+				else
+					ov.i = ov.i + 1
+					local ok, err = pcall(ovFace, model, s, ov.plan, job)
+					if not ok and not ov.warned then ov.warned = true pcall(warn, "PalletStudio face: " .. tostring(err)) end
+					n = n + 1
+					if not ov.jobs[ov.i] then   -- いまのが最後の1つだった → その場で終わりにする (次のフレームまで待たない)
+						ov.queued, ov.model, ov.plan, ov.jobs = false, nil, nil, nil
+						table.remove(list, 1)
+					end
+					if not noLimit and (n >= OVC.maxJobs or os.clock() - t0 >= OVC.budget) then break end
+				end
+			end
+		end
+		if #list == 0 and OV.conn then
+			OV.conn:Disconnect()
+			OV.conn = nil
+		end
+	end
+	function SK.ovFlush()   -- 作業待ちを全部、いますぐ終わらせる (テスト・確認用)
+		local guard = 0
+		while #OV.list > 0 and guard < 100000 do
+			guard = guard + 1
+			ovStep(true)
+		end
+	end
+	function SK.ovPending() return #OV.list end
+
+	-- 重ね貼りの中身が変わる設定をした時に呼ぶ: 次のフレームから、最新の設定で作り直し/更新する
+	local function ovTouch(model)
+		local s = st(model)
+		local ov = s.ov
+		if not ov then
+			ov = { s = s, i = 1 }   -- (板そのものは、作業待ちの間だけ持つ。ずっと持つと、消えた板がメモリに残ってしまう)
+			s.ov = ov
+		end
+		ov.jobs = nil
+		ov.i = 1
+		if not ov.queued then
+			ov.queued = true
+			ov.model = model
+			OV.list[#OV.list + 1] = ov
+			if not OV.conn then
+				OV.conn = RunService.Heartbeat:Connect(function()
+					local ok, err = pcall(ovStep, false)
+					if not ok then   -- 想定外のエラーでも、毎フレーム止まり続けないように、先頭の1件を捨てて先へ進む
+						pcall(warn, "PalletStudio overlay: " .. tostring(err))
+						local bad = table.remove(OV.list, 1)
+						if bad then bad.queued, bad.model, bad.plan, bad.jobs = false, nil, nil, nil end
+					end
+				end)
+			end
+		end
+	end
+	-- 消す側の操作の後に呼ぶ: 作りかけの古い作業表を捨てる (消したものを、あとから作ってしまわないように)
+	local function ovInvalidate(model)
+		local ov = st(model).ov
+		if ov and ov.queued then
+			ov.jobs = nil
+			ov.i = 1
+		end
+	end
+
+	-- 重ね貼りの層を、板の全パーツから消す (すぐ消える。消すのは軽い)
+	local function dropLayers(model, names)
+		for _, p in ipairs(partsOf(model)) do
+			for _, c in ipairs(p:GetChildren()) do
+				if c.Name == "SkinFace" then
+					for _, n in ipairs(names) do
+						local f = c:FindFirstChild(n)
+						if f then f:Destroy() end
+					end
+					if #c:GetChildren() == 0 then c:Destroy() end
+				end
+			end
+		end
+	end
+
+	function SK.clearGloss(model)
+		local s = st(model)
+		if s.hasGloss then
+			dropLayers(model, { "Gloss", "Sky", "Band" })   -- 古い版の Sky / Band も片づける
+			s.hasGloss = nil
+		end
+		ovInvalidate(model)
+	end
+
+	-- ツヤの重ね貼りを、いまの反射の強さ(s.refl)に合わせる (作る/更新は次のフレームから少しずつ)
+	function SK.gloss(model, parts)
+		local s = st(model)
+		if glossK(s.refl or 0) <= 0 then
+			SK.clearGloss(model)
+		else
+			ovTouch(model)
+		end
+	end
+
+	function SK.reflect(model, parts, v)
+		local s = st(model)
+		v = math.clamp(v, 0, 1)
+		s.refl = v
+		for _, p in ipairs(parts) do
+			remember(p)
+			p.Reflectance = v
+		end
+		SK.gloss(model, parts)
 	end
 
 	function SK.clearGrad(model)
 		local s = st(model)
-		if not s.grad then return end
+		local old = s.grad
+		if not old then return end
 		s.grad = nil
-		for _, p in ipairs(partsOf(model)) do dropLayer(p, "G") end
+		dropLayers(model, { "G" })
+		if old.topFlip and glossK(s.refl or 0) > 0 then
+			ovTouch(model)   -- 上面の向きの反転がなくなるので、ツヤの向きも元に戻す
+		else
+			ovInvalidate(model)
+		end
 		syncAnim(model)
 	end
 
 	-- 板についている重ね貼りを全部消す (元に戻す時用。古い版の SkinGrad も消す)
 	function SK.dropAll(model)
 		for _, p in ipairs(partsOf(model)) do
-			dropLayer(p, "G")
-			dropLayer(p, "Sky")
-			dropLayer(p, "Band")
 			for _, c in ipairs(p:GetChildren()) do
-				if c.Name == "SkinGrad" then c:Destroy() end
+				if c.Name == "SkinFace" or c.Name == "SkinGrad" then c:Destroy() end
 			end
 		end
+		ovInvalidate(model)
 	end
 
-	function SK.syncGradTr(parts, tr)
-		for _, p in ipairs(parts) do
-			for _, c in ipairs(p:GetChildren()) do
-				if c.Name == "SkinFace" then
-					local fr = c:FindFirstChild("G")
-					if fr then fr.BackgroundTransparency = tr end
-				end
-			end
-		end
-	end
-	-- グラデの重ね貼りの透け具合 = 板の透明度。ただし「木目テクスチャ」をONにしている時は、木目が見えるよう 0.55 以上に透かす
-	local WOOD_SEE = 0.55
 	function SK.refreshGradTr(model, parts)
-		local see = st(model).texUser == true
+		local s = st(model)
 		for _, p in ipairs(parts) do
-			local tr = p.Transparency
-			if see and tr < WOOD_SEE then tr = WOOD_SEE end
+			local tr = effGTr(s, p)
 			for _, c in ipairs(p:GetChildren()) do
 				if c.Name == "SkinFace" then
 					local fr = c:FindFirstChild("G")
-					if fr then fr.BackgroundTransparency = tr end
+					if fr and fr.BackgroundTransparency ~= tr then fr.BackgroundTransparency = tr end
 				end
 			end
 		end
 	end
 
+	-- ===== グラデーション (2色/3色を混ぜる。cfg.flow > 0 なら色が流れる) =====
 	-- v = { a, b, c(なくても可), axis, rev, mid=0.1~0.9, smooth, stripes=0~8, topFlip, flow=0~2 }
+	local gradSerial = 0
 	function SK.gradient(model, parts, v, keepTex)
 		if typeof(v) ~= "table" or typeof(v.a) ~= "Color3" or typeof(v.b) ~= "Color3" or not AXIS[v.axis] then return false end
+		gradSerial = gradSerial + 1
 		local cfg = {
 			a = v.a, b = v.b, c = (typeof(v.c) == "Color3") and v.c or nil, axis = v.axis, rev = v.rev == true,
 			smooth = v.smooth ~= false, topFlip = v.topFlip == true,
 			mid = isNum(v.mid) and math.clamp(v.mid, 0.1, 0.9) or 0.5,
 			stripes = isNum(v.stripes) and math.clamp(math.floor(v.stripes), 0, 8) or 0,
 			flow = isNum(v.flow) and math.clamp(v.flow, 0, 2) or 0,
+			id = gradSerial,
 		}
 		local s = st(model)
 		s.rainbow = nil
-		SK.clearGrad(model)
 		if not keepTex then
 			s.texUser = false
 			setTexture(parts, false)   -- 木目が上に残ると色が見えないので、外す
 		end
 		s.grad = cfg
 		s.base = gradAt(cfg, 0.5)
+		-- 板そのものの色 (軽い設定): まず部品ごとの平均色にして、その場で反映する。重ね貼りができるまでの間も、色が付いて見える
 		local ax = AXIS[cfg.axis]
 		local ex, span = axisInfo(model, parts, ax)
-		local made = 0
 		for i, p in ipairs(parts) do
 			remember(p)
 			local e = ex[i]
-			local function tf(c) return tint(s, i, c) end
 			local tc = (e.ta + e.tb) / 2
-			setCol(p, tf(gradAt(cfg, tc)))   -- 重ね貼りしない面(裏・端)や、流れる時の元の色は、この平均色
+			setCol(p, tint(s, i, gradAt(cfg, tc)))   -- 重ね貼りしない面(裏・端)や、流れる時の元の色は、この平均色
 			p:SetAttribute("PS_T", tc)
-			if cfg.smooth and cfg.flow <= 0 and span > 1e-3 and made < 160 then   -- 流れる時は重ね貼りしない (重ねると動きが隠れる)
-				for _, f in ipairs(FACES) do
-					local t0, t1, vertical = faceWindow(e, f, ax, cfg.topFlip)
-					if t0 then
-						addGradLayer(p, f[1], buildSeq(cfg, t0, t1, tf), vertical, p.Transparency)
-						made = made + 1
-					end
-				end
-			end
 		end
 		syncAnim(model)
+		if cfg.smooth and cfg.flow <= 0 and span > 1e-3 then
+			ovTouch(model)   -- なめらかな重ね貼りは、次のフレームから少しずつ作る / 更新する (すでにあれば、作り直さず色だけ変える)
+		else
+			dropLayers(model, { "G" })   -- 重ね貼りしない設定 (流れる / くっきり): いまある分は、すぐ消す
+			ovInvalidate(model)
+		end
 		if keepTex and s.texUser then SK.refreshGradTr(model, parts) end   -- 木目を見せたままの時は、重ね貼りを透かす
 		SK.gloss(model, parts)   -- 上面の向きを反転した時は、ツヤの向きも合わせる
 		return true

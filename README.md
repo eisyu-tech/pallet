@@ -47,6 +47,7 @@
 | 🚀 **軽量化** | マップの影・ライト・エフェクトなどを1項目ずつ安全にOFF。OFFで元に戻ります |
 | 🎨 **UI を自分好みに** | テーマ色8種、背景アニメ8種(宇宙・雪・桜…)、透明度・大きさを調整できます |
 | 📌 **永久保存** | 作った見た目を覚えておいて、これから出す板に自動で反映 |
+| ⚡ **出現がカクつかない** | 色・素材・反射は板が出た瞬間に付き、重いグラデ/ツヤの重ね貼りは1フレームに数ミリ秒ずつ作ります(約0.05秒で完成)。小さな面には貼らず、作った面は中身だけ書き換えるので軽くてちらつきません |
 | 🔁 **サーバー / ローカル両対応** | サーバー側の受け口があれば全員に、無ければ自分の画面だけに反映 |
 | 📱 **スマホ専用レイアウト** | スマホでは縦長ウィンドウ・アイコンだけのタブ・大きめのスライダーとスイッチに自動で切り替え。画面の回転にも追従します |
 
@@ -244,14 +245,14 @@
 
 ```mermaid
 flowchart LR
-    UI["🎨 UI (LocalScript)"] -->|"操作 (kind, 板, 値)"| Check{"サーバーの受け口<br/>PalletStudioApply_v2<br/>がある?"}
+    UI["🎨 UI (LocalScript)"] -->|"操作 (kind, 板, 値)"| Check{"サーバーの受け口<br/>PalletStudioApply_v3<br/>がある?"}
     Check -->|"ある"| Server["🖥 サーバーで反映<br/>(全員に見える)"]
     Check -->|"ない / 失敗"| Local["💻 この画面だけで反映"]
     Boot["起動時"] -->|"SERVER_CODE"| Loader["ReplicatedStorage.RunServerCode<br/>(CodeLoader)"]
     Loader -.->|"受け口を作る"| Check
 ```
 
-1. **起動時**: スクリプトの中に入っているサーバー用コード (`SERVER_CODE`) を、`ReplicatedStorage.RunServerCode` へ送ります。ServerScriptService の CodeLoader がこれを受け取ると、`PalletStudioApply_v2`(RemoteFunction)ができます。
+1. **起動時**: スクリプトの中に入っているサーバー用コード (`SERVER_CODE`) を、`ReplicatedStorage.RunServerCode` へ送ります。ServerScriptService の CodeLoader がこれを受け取ると、`PalletStudioApply_v3`(RemoteFunction)ができます。
 2. **操作したとき**: 受け口があればサーバーに頼みます。無いときや失敗したときは、同じ処理をこの画面だけで行います。
 3. **サーバー側のチェック**: 対象が、操作した本人の `<@ID>SpawnedInToys` フォルダの直下にある `PalletLightBrown` か、値がちゃんとした数・色か確認します。送りすぎも 0.03 秒の間隔で制限しています。
 4. **元に戻すため**: パーツごとに、最初の色・素材・反射・透明度を覚えています(弱参照なので、板が消えればメモリも空きます)。
@@ -290,7 +291,19 @@ flowchart LR
 <details>
 <summary><b>自分には見えるのに、ほかの人には見えない</b></summary>
 
-サーバーの受け口 (`PalletStudioApply_v2`) が無いので、ローカルだけで反映されています。ServerScriptService に `RunServerCode` を受け取る CodeLoader があるか確認してください。
+サーバーの受け口 (`PalletStudioApply_v3`) が無いので、ローカルだけで反映されています。ServerScriptService に `RunServerCode` を受け取る CodeLoader があるか確認してください。
+</details>
+
+<details>
+<summary><b>スクリプトを更新したのに、見た目が前のまま</b></summary>
+
+サーバー側のコード (`SERVER_CODE`) は、サーバーが起動してから1回だけ読み込まれます。更新したときは Studio の **Play をやり直して**(サーバーを作り直して)ください。
+</details>
+
+<details>
+<summary><b>板を出した直後、グラデやツヤが一瞬遅れて付く</b></summary>
+
+正常です。カクつきを防ぐため、重ね貼りは数フレーム(約0.05秒)かけて「上の面 → 前後 → 左右」の順に作ります。その間も板は平均色になっているので、色が抜けて見えることはありません。
 </details>
 
 <details>
