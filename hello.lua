@@ -61,6 +61,7 @@ local LOOKS = {
 local orig = setmetatable({}, { __mode = "k" })
 local stateOf = setmetatable({}, { __mode = "k" })
 local rainbowSet = {}
+local rainbowParts = setmetatable({}, { __mode = "k" })   -- レインボー対象のパーツ一覧キャッシュ
 
 local function st(model)
 	local s = stateOf[model]
@@ -277,6 +278,7 @@ local function applySkin(model, kind, value)
 		return "発光の色を変えました"
 	elseif kind == "Rainbow" then
 		rainbowSet[model] = (value == true) or nil
+		rainbowParts[model] = nil
 		return value == true and "レインボーON" or "レインボーOFF"
 	elseif kind == "RainbowSpeed" then
 		if not isNum(value) then return "値が不正です" end
@@ -322,25 +324,29 @@ local function applySkin(model, kind, value)
 	return "不明な操作です"
 end
 
-task.spawn(function()
-	while true do
-		if next(rainbowSet) == nil then
-			task.wait(0.5)
-		else
-			task.wait(0.12)
-			for m in pairs(rainbowSet) do
-				if m.Parent then
-					local s = st(m)
-					local col = Color3.fromHSV((os.clock() * (s.rbSpeed or 0.15)) % 1, s.rbSat or 0.85, 1)
-					local parts = partsOf(m)
-					for _, p in ipairs(parts) do p.Color = col end
-					local h = glowHost(m)
-					local l = h and h:FindFirstChild("SkinGlow")
-					if l then l.Color = col end
-				else
-					rainbowSet[m] = nil
-				end
+-- レインボーは毎フレーム更新 (Heartbeat) で滑らかに。パーツ一覧はキャッシュして毎回は数え直さない。
+local RunService = game:GetService("RunService")
+RunService.Heartbeat:Connect(function()
+	if next(rainbowSet) == nil then return end
+	local now = os.clock()
+	for m in pairs(rainbowSet) do
+		if m.Parent then
+			local s = st(m)
+			local col = Color3.fromHSV((now * (s.rbSpeed or 0.15)) % 1, s.rbSat or 0.85, 1)
+			local parts = rainbowParts[m]
+			if not parts then
+				parts = partsOf(m)
+				rainbowParts[m] = parts
 			end
+			for _, p in ipairs(parts) do
+				if p.Parent then p.Color = col end
+			end
+			local h = glowHost(m)
+			local l = h and h:FindFirstChild("SkinGlow")
+			if l then l.Color = col end
+		else
+			rainbowSet[m] = nil
+			rainbowParts[m] = nil
 		end
 	end
 end)
@@ -453,6 +459,7 @@ local Lib = (function()
 	end
 
 	function M.juice(btn)
+		if not btn:IsA("GuiButton") then return end
 		local sc = btn:FindFirstChildOfClass("UIScale") or mk("UIScale", {}, btn)
 		btn.MouseEnter:Connect(function() M.tween(sc, { Scale = 1.04 }, 0.25) end)
 		btn.MouseLeave:Connect(function() M.tween(sc, { Scale = 1 }, 0.25) end)
@@ -527,7 +534,7 @@ local Lib = (function()
 				f.BackgroundTransparency = 0.35
 			end
 			local t = mk("TextButton", { AutoButtonColor = false, BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), Text = n, TextSize = 16, FontFace = M.FONT, TextColor3 = WHITE }, f)
-			M.juice(f)
+			M.juice(t)
 			t.MouseButton1Click:Connect(function()
 				if cb then pcall(cb) end
 			end)
@@ -698,6 +705,7 @@ local LOOKS = {
 local orig = setmetatable({}, { __mode = "k" })
 local stateOf = setmetatable({}, { __mode = "k" })
 local rainbowSet = {}
+local rainbowParts = setmetatable({}, { __mode = "k" })   -- レインボー対象のパーツ一覧キャッシュ
 
 local function st(model)
 	local s = stateOf[model]
@@ -914,6 +922,7 @@ local function applySkin(model, kind, value)
 		return "発光の色を変えました"
 	elseif kind == "Rainbow" then
 		rainbowSet[model] = (value == true) or nil
+		rainbowParts[model] = nil
 		return value == true and "レインボーON" or "レインボーOFF"
 	elseif kind == "RainbowSpeed" then
 		if not isNum(value) then return "値が不正です" end
@@ -959,25 +968,29 @@ local function applySkin(model, kind, value)
 	return "不明な操作です"
 end
 
-task.spawn(function()
-	while true do
-		if next(rainbowSet) == nil then
-			task.wait(0.5)
-		else
-			task.wait(0.12)
-			for m in pairs(rainbowSet) do
-				if m.Parent then
-					local s = st(m)
-					local col = Color3.fromHSV((os.clock() * (s.rbSpeed or 0.15)) % 1, s.rbSat or 0.85, 1)
-					local parts = partsOf(m)
-					for _, p in ipairs(parts) do p.Color = col end
-					local h = glowHost(m)
-					local l = h and h:FindFirstChild("SkinGlow")
-					if l then l.Color = col end
-				else
-					rainbowSet[m] = nil
-				end
+-- レインボーは毎フレーム更新 (Heartbeat) で滑らかに。パーツ一覧はキャッシュして毎回は数え直さない。
+local RunService = game:GetService("RunService")
+RunService.Heartbeat:Connect(function()
+	if next(rainbowSet) == nil then return end
+	local now = os.clock()
+	for m in pairs(rainbowSet) do
+		if m.Parent then
+			local s = st(m)
+			local col = Color3.fromHSV((now * (s.rbSpeed or 0.15)) % 1, s.rbSat or 0.85, 1)
+			local parts = rainbowParts[m]
+			if not parts then
+				parts = partsOf(m)
+				rainbowParts[m] = parts
 			end
+			for _, p in ipairs(parts) do
+				if p.Parent then p.Color = col end
+			end
+			local h = glowHost(m)
+			local l = h and h:FindFirstChild("SkinGlow")
+			if l then l.Color = col end
+		else
+			rainbowSet[m] = nil
+			rainbowParts[m] = nil
 		end
 	end
 end)
@@ -1104,6 +1117,8 @@ local chips = {}
 local isOpen = false
 local fitScale = 1
 local dirty = {}
+local resetters = {}   -- 板ごとに、UIを初期状態へ戻す関数のリスト
+local function onResettable(fn) resetters[#resetters + 1] = fn end
 local recipe = setmetatable({}, { __mode = "k" })   -- 板ごとの操作ログ
 local permanentOps = nil                             -- 永久保存した設定 (これから出す板に自動で反映)
 local flashUntil = 0
@@ -1309,15 +1324,22 @@ do
 	end
 	e:title("色を調整 (HSV)")
 	local hsv = { 0.58, 0.7, 1 }
-	e:slider("色相", 0, 1, function(v, r) hsv[1] = v sendThrottled("HSV", { hsv[1], hsv[2], hsv[3] }, r) end, hsv[1], nil, nil, hueSeq())
-	e:slider("彩度", 0, 1, function(v, r) hsv[2] = v sendThrottled("HSV", { hsv[1], hsv[2], hsv[3] }, r) end, hsv[2], WHITE, Color3.fromRGB(99, 102, 241))
-	e:slider("明度", 0, 1, function(v, r) hsv[3] = v sendThrottled("HSV", { hsv[1], hsv[2], hsv[3] }, r) end, hsv[3], Color3.fromRGB(20, 20, 30), WHITE)
+	local hsvDefault = { hsv[1], hsv[2], hsv[3] }
+	local hS = e:slider("色相", 0, 1, function(v, r) hsv[1] = v sendThrottled("HSV", { hsv[1], hsv[2], hsv[3] }, r) end, hsv[1], nil, nil, hueSeq())
+	local sS = e:slider("彩度", 0, 1, function(v, r) hsv[2] = v sendThrottled("HSV", { hsv[1], hsv[2], hsv[3] }, r) end, hsv[2], WHITE, Color3.fromRGB(99, 102, 241))
+	local vS = e:slider("明度", 0, 1, function(v, r) hsv[3] = v sendThrottled("HSV", { hsv[1], hsv[2], hsv[3] }, r) end, hsv[3], Color3.fromRGB(20, 20, 30), WHITE)
 	e:title("色を調整 (RGB)")
 	local rgb = { 1, 1, 1 }
 	local function rgbSend(r) sendThrottled("RGB", { rgb[1], rgb[2], rgb[3] }, r) end
-	e:slider("赤 R", 0, 1, function(v, r) rgb[1] = v rgbSend(r) end, 1, Color3.fromRGB(60, 10, 10), Color3.fromRGB(255, 70, 70))
-	e:slider("緑 G", 0, 1, function(v, r) rgb[2] = v rgbSend(r) end, 1, Color3.fromRGB(10, 50, 20), Color3.fromRGB(70, 255, 110))
-	e:slider("青 B", 0, 1, function(v, r) rgb[3] = v rgbSend(r) end, 1, Color3.fromRGB(10, 20, 60), Color3.fromRGB(70, 140, 255))
+	local rS = e:slider("赤 R", 0, 1, function(v, r) rgb[1] = v rgbSend(r) end, 1, Color3.fromRGB(60, 10, 10), Color3.fromRGB(255, 70, 70))
+	local gS = e:slider("緑 G", 0, 1, function(v, r) rgb[2] = v rgbSend(r) end, 1, Color3.fromRGB(10, 50, 20), Color3.fromRGB(70, 255, 110))
+	local bS = e:slider("青 B", 0, 1, function(v, r) rgb[3] = v rgbSend(r) end, 1, Color3.fromRGB(10, 20, 60), Color3.fromRGB(70, 140, 255))
+	onResettable(function()
+		hsv[1], hsv[2], hsv[3] = hsvDefault[1], hsvDefault[2], hsvDefault[3]
+		hS:set(hsvDefault[1]) sS:set(hsvDefault[2]) vS:set(hsvDefault[3])
+		rgb[1], rgb[2], rgb[3] = 1, 1, 1
+		rS:set(1) gS:set(1) bS:set(1)
+	end)
 	e:title("16進数")
 	local hr = e:row(40)
 	local box = mk("TextBox", { PlaceholderText = "#RRGGBB", PlaceholderColor3 = SOFT, Text = "", TextSize = 15, FontFace = FONT, TextColor3 = WHITE, ClearTextOnFocus = false, Size = UDim2.new(1, -100, 1, 0) }, hr)
@@ -1394,23 +1416,29 @@ end
 do
 	local e = Lib.element(pages[4])
 	e:title("質感")
-	e:slider("反射", 0, 1, function(v, r) sendThrottled("Reflectance", v, r) end, 0)
-	e:slider("透明度", 0, 0.9, function(v, r) sendThrottled("Transparency", v, r) end, 0)
-	e:slider("色ムラ", 0, 1, function(v, r) sendThrottled("Variance", v, r) end, 0, Color3.fromRGB(99, 102, 241), PINK)
+	local refS = e:slider("反射", 0, 1, function(v, r) sendThrottled("Reflectance", v, r) end, 0)
+	local traS = e:slider("透明度", 0, 0.9, function(v, r) sendThrottled("Transparency", v, r) end, 0)
+	local varS = e:slider("色ムラ", 0, 1, function(v, r) sendThrottled("Variance", v, r) end, 0, Color3.fromRGB(99, 102, 241), PINK)
 	e:title("テクスチャ")
-	e:toggle("元の木目テクスチャ", function(s) send("Texture", s) end, true)
+	local texT = e:toggle("元の木目テクスチャ", function(s) send("Texture", s) end, true)
+	onResettable(function()
+		refS:set(0) traS:set(0) varS:set(0) texT:set(true)
+	end)
 end
 
 -- 5: 光
 do
 	local e = Lib.element(pages[5])
 	e:title("発光")
-	e:slider("発光の強さ", 0, 5, function(v, r) sendThrottled("Glow", v, r) end, 0, Color3.fromRGB(120, 80, 20), Color3.fromRGB(255, 240, 120))
-	e:slider("発光の範囲", 4, 30, function(v, r) sendThrottled("GlowRange", v, r) end, 8)
-	e:slider("発光の色", 0, 1, function(v, r) sendThrottled("GlowHue", v, r) end, 0.58, nil, nil, hueSeq())
+	local glowS = e:slider("発光の強さ", 0, 5, function(v, r) sendThrottled("Glow", v, r) end, 0, Color3.fromRGB(120, 80, 20), Color3.fromRGB(255, 240, 120))
+	local rangeS = e:slider("発光の範囲", 4, 30, function(v, r) sendThrottled("GlowRange", v, r) end, 8)
+	local glowHueS = e:slider("発光の色", 0, 1, function(v, r) sendThrottled("GlowHue", v, r) end, 0.58, nil, nil, hueSeq())
 	e:title("縁取り")
 	local ot = e:toggle("縁取り", function(s) send("Outline", s) end, false)
-	e:slider("縁取りの色", 0, 1, function(v, r) ot:set(true) sendThrottled("OutlineHue", v, r) end, 0.55, nil, nil, hueSeq())
+	local outHueS = e:slider("縁取りの色", 0, 1, function(v, r) ot:set(true) sendThrottled("OutlineHue", v, r) end, 0.55, nil, nil, hueSeq())
+	onResettable(function()
+		glowS:set(0) rangeS:set(8) glowHueS:set(0.58) ot:set(false) outHueS:set(0.55)
+	end)
 end
 
 -- 6: 効果
@@ -1418,12 +1446,16 @@ do
 	local e = Lib.element(pages[6])
 	e:title("レインボー")
 	local rt = e:toggle("レインボー", function(s) send("Rainbow", s) end, false)
-	e:slider("速さ", 0.02, 1, function(v, r) rt:set(true) sendThrottled("RainbowSpeed", v, r) end, 0.15)
-	e:slider("鮮やかさ", 0, 1, function(v, r) sendThrottled("RainbowSat", v, r) end, 0.85, WHITE, PINK)
+	local rbSpeedS = e:slider("速さ", 0.02, 1, function(v, r) rt:set(true) sendThrottled("RainbowSpeed", v, r) end, 0.15)
+	local rbSatS = e:slider("鮮やかさ", 0, 1, function(v, r) sendThrottled("RainbowSat", v, r) end, 0.85, WHITE, PINK)
 	e:title("キラキラ")
 	local st_ = e:toggle("キラキラ", function(s) send("Sparkle", s) end, false)
-	e:slider("量", 1, 120, function(v, r) st_:set(true) sendThrottled("SparkleRate", v, r) end, 25, Color3.fromRGB(99, 102, 241), CYAN)
-	e:slider("大きさ", 0.05, 2, function(v, r) st_:set(true) sendThrottled("SparkleSize", v, r) end, 0.35, Color3.fromRGB(99, 102, 241), CYAN)
+	local spRateS = e:slider("量", 1, 120, function(v, r) st_:set(true) sendThrottled("SparkleRate", v, r) end, 25, Color3.fromRGB(99, 102, 241), CYAN)
+	local spSizeS = e:slider("大きさ", 0.05, 2, function(v, r) st_:set(true) sendThrottled("SparkleSize", v, r) end, 0.35, Color3.fromRGB(99, 102, 241), CYAN)
+	onResettable(function()
+		rt:set(false) rbSpeedS:set(0.15) rbSatS:set(0.85)
+		st_:set(false) spRateS:set(25) spSizeS:set(0.35)
+	end)
 end
 
 -- 7: その他
@@ -1494,7 +1526,10 @@ Lib.drag(toggle, toggle, function() setOpen(not isOpen) end)
 Lib.drag(topbar, win, nil, winScale)
 closeBtn.MouseButton1Click:Connect(function() setOpen(false) end)
 minBtn.MouseButton1Click:Connect(function() setOpen(false) end)
-resetBtn.MouseButton1Click:Connect(function() send("Reset", nil) end)
+resetBtn.MouseButton1Click:Connect(function()
+	send("Reset", nil)
+	for _, fn in ipairs(resetters) do pcall(fn) end
+end)
 saveBtn.MouseButton1Click:Connect(function()
 	local idx = selected
 	if not idx then return end
