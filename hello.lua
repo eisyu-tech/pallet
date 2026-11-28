@@ -2,7 +2,7 @@
 -- 検出: Workspace の「<自分の@ID(ユーザー名)>SpawnedInToys」フォルダの直下にある PalletLightBrown だけを「板1, 板2…」として出す。
 --       他のフォルダ・他プレイヤーのフォルダの板は見ない。フォルダの自動作成はしない (サーバー側も同じ条件の板しか受け付けない)。
 -- 起動時に必ず、サーバー用コードを CodeLoader (ServerScriptService) へ送る。サーバー側が無ければ、この画面だけに直接反映する。
--- タブ: ホーム / 色(単色・2〜3色グラデ・流れるグラデ) / 素材(分類・色と光はそのまま・ツートン) / プリセット(見た目一式・おまかせ・他の板へコピー) / 質感(質感セット12種・ツヤ8種・映り込む空6種・光が走る・角の輝き・経年劣化5種) / 光(光のレシピ12種・色の動き・明滅10種・深さ/波・夜だけ・スポット幅・オーラ) / 効果(レインボー・炎・煙・雪・桜・ほたる・あわ・火の粉) / その他(視野・軽量化・UI設定)
+-- タブ: ホーム / 色(単色・2〜3色グラデ・流れるグラデ) / 素材(152種・名前検索・お気に入り・最近・ツートン16種) / プリセット(105種・入れ方3種・色違い・前へ/次へ・ランダム・全部の板に同時に反映・他の板へコピー) / 質感(質感セット38種・ツヤ20種・映り込む空14種・光が走る・角の輝き・経年劣化12種) / 光(光のレシピ45種・色の動き7種・明滅18種・深さ/波・夜だけ・時刻・スポット幅・縁取り・オーラ・影) / 効果(効果18種・効果のレシピ18種・炎/煙/紙吹雪の色・全体の量/大きさ/速さ/色・レインボー) / その他(視野・軽量化・UI設定)
 -- 反射・ツヤは、素材やテクスチャを変えずに、光の帯と空の映り込みを重ねて出す。明滅・色の動き・光の走り・レインボー・グラデの流れは、この画面で毎フレームなめらかに動く(この画面を入れていない人には、止まった見た目で出る)。
 -- 📌 永久保存: 押すと保存、もう一度押すと解除。保存中は、これから出す板に自動でまとめて反映する。
 --       板が出た同じ瞬間に、色・素材・反射などの軽い設定が付く。グラデ/ツヤの重ね貼りは、数を絞って1フレームに少しずつ作る(数フレーム=約0.05秒で出来あがる)ので、出現がカクつかない。
@@ -11,26 +11,7 @@
 -- ホーム: 「ヘルプ」= 別の窓が開いて、各ページ→各機能の説明を読める(閉じると元の画面にもどる) / 「プレビュー」= 左に小さな窓が開いて、ふつうの見た目の板の3Dモデルが回る。
 --   本体で色や素材を変えると、プレビューの板だけが変わる(本物の板・サーバーには送らない)。ドラッグで360度まわせる(さわっている間と10秒は自動回転を止める)。
 --   プレビューを閉じると、本体のスライダー/ボタンは初期の位置にもどる。「💾 メイン保存」で、左の「その他」の下に「プリセットN」が出て、押すと一瞬でその見た目になる。
--- ☁ GitHub保存: 設定だけ(永久保存の板の見た目・プリセット・UI設定・軽量化の選択)を、プレイヤーごとに自分の GitHub へ自動で保存して、次に起動した時にそのまま反映する。
---   保存先は「<フォルダ>/<プレイヤーのID>.json」(1人1ファイル・読める文字のJSON)。画面側(LocalScript)は Roblox の決まりで通信できないので、通信は、このファイルに入っているサーバー側のコードが受け持つ(新しいスクリプトは増えない)。
---   トークンはサーバー側だけが読む(画面側へは来ない)。下の GITHUB の repo が空の間は、何もしない。使い方は下の「GitHub保存の設定」を見てね。
 -- 起動時、右下に make by aino の演出が出て、終わると開閉ボタンが現れる。
-
-
--- ===== GitHub保存の設定 (ここだけ書きかえる) =====
---  ① GitHub で、保存用のリポジトリを作る (Private がおすすめ。「Add a README file」にチェックを入れて作ると簡単)
---  ② GitHub の Settings > Developer settings > Personal access tokens > Fine-grained tokens で、そのリポジトリだけを選び、
---     Repository permissions の「Contents」を「Read and write」にしたトークンを作る (他の権限はいらない)
---  ③ Studio の Home > Game Settings > Security > 「Allow HTTP Requests」をON
---  ④ ServerStorage に StringValue を1個作り、名前を PalletStudioGitHubToken、Value に ②のトークンを貼る (Studioで試す時)
---     ※本番のサーバーでは、Creator Hub の Secrets に「PalletStudioGitHub」という名前でトークンを入れると、そちらを先に使う
---  ⑤ 下の repo を「ユーザー名/リポジトリ名」にする → Studio の Play をやり直す
---  ※トークンは人に見せない・このファイルには書かない。CodeLoader は「最初に送ってきたコード」を動かす作りなので、公開ゲームではトークンを使わない方が安全。
-local GITHUB = {
-	repo = "",   -- 例: "aino/pallet-saves"  (空のままなら、この機能は動かない)
-	branch = "", -- 空なら、リポジトリの標準のブランチ
-	folder = "PalletStudio", -- この中に「プレイヤーのID.json」を作る
-}
 
 local RS_ = game:GetService("ReplicatedStorage")
 local SERVER_CODE = [=====[
@@ -40,7 +21,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local function hasMat(n) return (pcall(function() return Enum.Material[n] end)) end
 local MATERIAL_SET = {}
 for _, n in ipairs({ "Plastic", "SmoothPlastic", "Wood", "WoodPlanks", "Metal", "DiamondPlate", "Foil", "Neon", "Glass", "Ice", "Marble", "Granite", "Slate", "Concrete", "Brick", "Cobblestone", "Sand", "Fabric", "ForceField",
-	"Glacier", "Snow", "Mud", "Rubber", "Leather", "Plaster", "CeramicTiles", "Carpet", "Cardboard", "Basalt", "Pebble", "Limestone", "Sandstone", "CorrodedMetal", "CrackedLava" }) do
+	"Glacier", "Snow", "Mud", "Rubber", "Leather", "Plaster", "CeramicTiles", "Carpet", "Cardboard", "Basalt", "Pebble", "Limestone", "Sandstone", "CorrodedMetal", "CrackedLava",
+	"Grass", "LeafyGrass", "Ground", "Asphalt", "Pavement", "Rock", "Salt", "ClayRoofTiles", "RoofShingles" }) do
 	if hasMat(n) then MATERIAL_SET[n] = true end
 end
 
@@ -65,51 +47,77 @@ local PRESETS = {
 	RoseGold = { Color = Color3.fromRGB(236, 160, 150), Material = "Metal", Reflectance = 0.4, Transparency = 0, Glow = 0, Range = 10 },
 }
 
-local LOOKS = {
-	Plastic = { Color3.fromRGB(70, 130, 230), "Plastic", 0, 0, 0 },
-	SmoothPlastic = { Color3.fromRGB(245, 245, 250), "SmoothPlastic", 0.05, 0, 0 },
-	Wood = { Color3.fromRGB(150, 100, 60), "Wood", 0, 0, 0 },
-	WoodPlanks = { Color3.fromRGB(190, 140, 85), "WoodPlanks", 0, 0, 0 },
-	Metal = { Color3.fromRGB(150, 158, 170), "Metal", 0.32, 0, 0 },
-	DiamondPlate = { Color3.fromRGB(120, 125, 135), "DiamondPlate", 0.2, 0, 0 },
-	Foil = { Color3.fromRGB(215, 220, 230), "Foil", 0.5, 0, 0 },
-	Neon = { Color3.fromRGB(60, 255, 200), "Neon", 0, 0, 1.5 },
-	Glass = { Color3.fromRGB(190, 225, 240), "Glass", 0.1, 0.45, 0 },
-	Ice = { Color3.fromRGB(170, 220, 255), "Ice", 0.15, 0.25, 0 },
-	Marble = { Color3.fromRGB(236, 236, 240), "Marble", 0.12, 0, 0 },
-	Granite = { Color3.fromRGB(125, 120, 118), "Granite", 0, 0, 0 },
-	Slate = { Color3.fromRGB(75, 82, 95), "Slate", 0, 0, 0 },
-	Concrete = { Color3.fromRGB(160, 160, 158), "Concrete", 0, 0, 0 },
-	Brick = { Color3.fromRGB(170, 70, 55), "Brick", 0, 0, 0 },
-	Cobblestone = { Color3.fromRGB(130, 125, 120), "Cobblestone", 0, 0, 0 },
-	Sand = { Color3.fromRGB(225, 200, 140), "Sand", 0, 0, 0 },
-	Fabric = { Color3.fromRGB(90, 120, 200), "Fabric", 0, 0, 0 },
-	ForceField = { Color3.fromRGB(120, 200, 255), "ForceField", 0, 0.2, 1 },
-}
--- 追加の素材 (存在するものだけ)。{ 色, 素材名, 反射, 透明度, 発光 }
-for n, lk in pairs({
-	Glacier = { Color3.fromRGB(190, 230, 245), "Glacier", 0.1, 0, 0 },
-	Snow = { Color3.fromRGB(245, 248, 252), "Snow", 0, 0, 0 },
-	Mud = { Color3.fromRGB(95, 70, 50), "Mud", 0, 0, 0 },
-	Rubber = { Color3.fromRGB(40, 40, 46), "Rubber", 0, 0, 0 },
-	Leather = { Color3.fromRGB(125, 72, 46), "Leather", 0, 0, 0 },
-	Plaster = { Color3.fromRGB(232, 225, 212), "Plaster", 0, 0, 0 },
-	CeramicTiles = { Color3.fromRGB(236, 240, 242), "CeramicTiles", 0.08, 0, 0 },
-	Carpet = { Color3.fromRGB(150, 60, 72), "Carpet", 0, 0, 0 },
-	Cardboard = { Color3.fromRGB(192, 152, 102), "Cardboard", 0, 0, 0 },
-	Basalt = { Color3.fromRGB(62, 64, 70), "Basalt", 0, 0, 0 },
-	Pebble = { Color3.fromRGB(150, 140, 130), "Pebble", 0, 0, 0 },
-	Limestone = { Color3.fromRGB(222, 214, 192), "Limestone", 0, 0, 0 },
-	Sandstone = { Color3.fromRGB(202, 162, 112), "Sandstone", 0, 0, 0 },
-	CorrodedMetal = { Color3.fromRGB(132, 100, 80), "CorrodedMetal", 0, 0, 0 },
-	CrackedLava = { Color3.fromRGB(255, 120, 40), "CrackedLava", 0, 0, 0.8 },
-}) do
-	if hasMat(n) then LOOKS[n] = lk end
+-- ===== 素材 (LOOKS) =====
+-- LOOKS[名前] = { 色, 素材名, 反射, 透明度, 発光 }。名前が素材名と同じものは、その素材そのもの。
+-- 名前が素材名と違うもの (Gold・Ruby・Oak など) は、色と質感をあわせた「素材ライブラリ」。
+local LOOKS = {}
+do
+	local function look(id, mat, r, g, b, refl, tr, glow)
+		if hasMat(mat) then LOOKS[id] = { Color3.fromRGB(r, g, b), mat, refl or 0, tr or 0, glow or 0 } end
+	end
+	for _, e in ipairs({
+		-- 基本の素材 (Roblox の素材そのもの)
+		{ "Plastic", "Plastic", 70, 130, 230 }, { "SmoothPlastic", "SmoothPlastic", 245, 245, 250, 0.05 }, { "Wood", "Wood", 150, 100, 60 }, { "WoodPlanks", "WoodPlanks", 190, 140, 85 },
+		{ "Metal", "Metal", 150, 158, 170, 0.32 }, { "DiamondPlate", "DiamondPlate", 120, 125, 135, 0.2 }, { "Foil", "Foil", 215, 220, 230, 0.5 }, { "Neon", "Neon", 60, 255, 200, 0, 0, 1.5 },
+		{ "Glass", "Glass", 190, 225, 240, 0.1, 0.45 }, { "Ice", "Ice", 170, 220, 255, 0.15, 0.25 }, { "Marble", "Marble", 236, 236, 240, 0.12 }, { "Granite", "Granite", 125, 120, 118 },
+		{ "Slate", "Slate", 75, 82, 95 }, { "Concrete", "Concrete", 160, 160, 158 }, { "Brick", "Brick", 170, 70, 55 }, { "Cobblestone", "Cobblestone", 130, 125, 120 },
+		{ "Sand", "Sand", 225, 200, 140 }, { "Fabric", "Fabric", 90, 120, 200 }, { "ForceField", "ForceField", 120, 200, 255, 0, 0.2, 1 },
+		{ "Glacier", "Glacier", 190, 230, 245, 0.1 }, { "Snow", "Snow", 245, 248, 252 }, { "Mud", "Mud", 95, 70, 50 }, { "Rubber", "Rubber", 40, 40, 46 }, { "Leather", "Leather", 125, 72, 46 },
+		{ "Plaster", "Plaster", 232, 225, 212 }, { "CeramicTiles", "CeramicTiles", 236, 240, 242, 0.08 }, { "Carpet", "Carpet", 150, 60, 72 }, { "Cardboard", "Cardboard", 192, 152, 102 },
+		{ "Basalt", "Basalt", 62, 64, 70 }, { "Pebble", "Pebble", 150, 140, 130 }, { "Limestone", "Limestone", 222, 214, 192 }, { "Sandstone", "Sandstone", 202, 162, 112 },
+		{ "CorrodedMetal", "CorrodedMetal", 132, 100, 80 }, { "CrackedLava", "CrackedLava", 255, 120, 40, 0, 0, 0.8 },
+		{ "Grass", "Grass", 82, 140, 62 }, { "LeafyGrass", "LeafyGrass", 72, 150, 72 }, { "Ground", "Ground", 122, 96, 70 }, { "Asphalt", "Asphalt", 62, 64, 68 },
+		{ "Pavement", "Pavement", 128, 128, 130 }, { "Rock", "Rock", 112, 106, 100 }, { "Salt", "Salt", 240, 238, 232 }, { "ClayRoofTiles", "ClayRoofTiles", 176, 84, 52 },
+		{ "RoofShingles", "RoofShingles", 92, 82, 78 },
+		-- 金属
+		{ "Gold", "Metal", 255, 200, 70, 0.45 }, { "Silver", "Metal", 214, 218, 226, 0.5 }, { "Bronze", "Metal", 176, 122, 62, 0.35 }, { "Copper", "Metal", 200, 112, 72, 0.4 },
+		{ "Brass", "Metal", 204, 172, 82, 0.38 }, { "Platinum", "Foil", 232, 235, 242, 0.55 }, { "Titanium", "Metal", 128, 140, 156, 0.4 }, { "Gunmetal", "Metal", 62, 68, 80, 0.35 },
+		{ "Iron", "DiamondPlate", 98, 100, 108, 0.25 }, { "RoseGold", "Metal", 236, 160, 150, 0.42 }, { "BlackChrome", "Foil", 28, 30, 36, 0.75 }, { "Mirror", "Foil", 244, 247, 252, 0.92 },
+		{ "Stainless", "Metal", 202, 206, 212, 0.5 }, { "Mithril", "Metal", 160, 232, 238, 0.5, 0, 0.5 }, { "Orichalcum", "Metal", 255, 140, 90, 0.45, 0, 0.5 },
+		-- 宝石・ガラス
+		{ "Ruby", "Glass", 224, 30, 64, 0.2, 0.35 }, { "Sapphire", "Glass", 30, 72, 226, 0.2, 0.35 }, { "Emerald", "Glass", 30, 196, 112, 0.2, 0.35 }, { "Amethyst", "Glass", 154, 72, 226, 0.2, 0.35 },
+		{ "Topaz", "Glass", 255, 192, 52, 0.2, 0.35 }, { "Aquamarine", "Glass", 112, 224, 234, 0.2, 0.4 }, { "Diamond", "Glass", 226, 246, 255, 0.4, 0.25 }, { "Amber", "Glass", 255, 172, 44, 0.15, 0.3 },
+		{ "Jade", "Marble", 104, 194, 144, 0.18, 0.08 }, { "Obsidian", "Glass", 26, 22, 32, 0.32 }, { "Pearl", "SmoothPlastic", 246, 240, 236, 0.3 }, { "Crystal", "Glass", 214, 236, 255, 0.3, 0.3, 0.3 },
+		{ "BlueGlass", "Glass", 120, 170, 232, 0.15, 0.4 }, { "SmokeGlass", "Glass", 62, 66, 72, 0.1, 0.45 }, { "FrostGlass", "SmoothPlastic", 236, 246, 250, 0, 0.4 }, { "Opal", "SmoothPlastic", 236, 238, 250, 0.35 },
+		-- 木
+		{ "Oak", "Wood", 172, 128, 78 }, { "Cherry", "Wood", 152, 72, 52, 0.05 }, { "Walnut", "Wood", 96, 66, 46 }, { "Birch", "WoodPlanks", 236, 216, 176 }, { "Bamboo", "WoodPlanks", 192, 202, 112 },
+		{ "Ebony", "Wood", 36, 30, 28, 0.06 }, { "Pine", "WoodPlanks", 218, 172, 106 }, { "Mahogany", "Wood", 122, 52, 42, 0.05 }, { "Driftwood", "Wood", 172, 162, 146 }, { "Charred", "Wood", 46, 40, 36 },
+		-- 石・土
+		{ "BlackMarble", "Marble", 30, 30, 36, 0.22 }, { "PinkMarble", "Marble", 236, 202, 208, 0.15 }, { "GreenMarble", "Marble", 72, 122, 102, 0.15 }, { "Quartz", "Marble", 242, 238, 238, 0.22 },
+		{ "Lapis", "Marble", 42, 72, 164, 0.2 }, { "WhiteBrick", "Brick", 226, 220, 212 }, { "MossyStone", "Cobblestone", 110, 128, 96 }, { "Gravel", "Pebble", 152, 150, 142 },
+		{ "RedSand", "Sand", 208, 122, 82 }, { "Clay", "Mud", 192, 122, 88 }, { "Coal", "Basalt", 30, 30, 34, 0.08 }, { "Terracotta", "ClayRoofTiles", 206, 112, 76 },
+		-- 自然
+		{ "Moss", "LeafyGrass", 74, 128, 56 }, { "Autumn", "LeafyGrass", 196, 112, 42 }, { "Water", "Glass", 92, 172, 232, 0.25, 0.5 }, { "DeepSea", "Glass", 20, 62, 142, 0.2, 0.35 },
+		{ "Swamp", "Mud", 72, 92, 52 }, { "Cloud", "SmoothPlastic", 248, 250, 255, 0.1, 0.2 }, { "BlueIce", "Ice", 132, 192, 255, 0.2, 0.25 }, { "Frost", "Glacier", 226, 242, 252, 0.12, 0.05 },
+		{ "SakuraPetal", "SmoothPlastic", 255, 208, 222, 0.05 }, { "Lawn", "Grass", 96, 172, 70 },
+		-- 日用品
+		{ "Ceramic", "SmoothPlastic", 246, 242, 232, 0.25 }, { "Porcelain", "CeramicTiles", 250, 250, 253, 0.15 }, { "RedLacquer", "SmoothPlastic", 132, 26, 32, 0.5 }, { "BlackLacquer", "SmoothPlastic", 24, 20, 22, 0.55 },
+		{ "Paper", "Plaster", 248, 246, 240 }, { "Cork", "Cardboard", 206, 164, 114 }, { "Chalkboard", "Slate", 38, 62, 52 }, { "Carbon", "DiamondPlate", 28, 30, 36, 0.28 }, { "Milk", "SmoothPlastic", 252, 250, 246, 0.2 },
+		-- 布・革
+		{ "Denim", "Fabric", 70, 100, 162 }, { "Velvet", "Carpet", 94, 26, 84 }, { "Silk", "Fabric", 236, 222, 240, 0.15 }, { "Wool", "Carpet", 232, 202, 182 }, { "Canvas", "Fabric", 226, 216, 192 },
+		{ "BlackLeather", "Leather", 30, 28, 30, 0.1 }, { "WhiteLeather", "Leather", 242, 240, 234, 0.1 }, { "RedLeather", "Leather", 150, 36, 40, 0.1 }, { "Linen", "Fabric", 220, 208, 184 },
+		-- ポップ
+		{ "Candy", "SmoothPlastic", 255, 150, 205, 0.3 }, { "Jelly", "SmoothPlastic", 255, 120, 160, 0.2, 0.35 }, { "Gummy", "SmoothPlastic", 120, 222, 92, 0.15, 0.3 }, { "Slime", "SmoothPlastic", 112, 232, 92, 0.25, 0.3, 0.3 },
+		{ "Chocolate", "SmoothPlastic", 82, 46, 32, 0.1 }, { "Marshmallow", "Plaster", 255, 246, 250 }, { "Cheese", "SmoothPlastic", 255, 206, 72, 0.05 }, { "Bubblegum", "SmoothPlastic", 255, 122, 190, 0.2 },
+		{ "Balloon", "SmoothPlastic", 238, 70, 70, 0.35 }, { "Lemon", "SmoothPlastic", 255, 236, 80, 0.15 }, { "Mint", "SmoothPlastic", 150, 240, 200, 0.1 }, { "Grape", "SmoothPlastic", 130, 70, 190, 0.25, 0.15 },
+		{ "Peach", "SmoothPlastic", 255, 190, 160, 0.1 },
+		-- 光る
+		{ "NeonPink", "Neon", 255, 70, 190, 0, 0, 1.8 }, { "NeonBlue", "Neon", 56, 189, 248, 0, 0, 1.8 }, { "NeonGreen", "Neon", 60, 255, 130, 0, 0, 1.8 }, { "NeonOrange", "Neon", 255, 140, 40, 0, 0, 1.8 },
+		{ "NeonPurple", "Neon", 170, 90, 255, 0, 0, 1.8 }, { "NeonRed", "Neon", 255, 50, 60, 0, 0, 1.8 }, { "NeonYellow", "Neon", 255, 240, 70, 0, 0, 1.8 }, { "NeonWhite", "Neon", 245, 250, 255, 0, 0, 1.6 },
+		{ "Plasma", "Neon", 176, 124, 255, 0, 0, 2.4 }, { "Magma", "CrackedLava", 255, 64, 22, 0, 0, 1.6 }, { "Radioactive", "Neon", 170, 255, 0, 0, 0, 2 }, { "Hologram", "ForceField", 100, 220, 255, 0, 0.3, 1 },
+		{ "Aura", "ForceField", 255, 200, 255, 0, 0.25, 1 }, { "Moonlight", "ForceField", 220, 235, 255, 0, 0.2, 1.2 }, { "Sunbeam", "Neon", 255, 220, 120, 0, 0, 2 },
+	}) do
+		look(table.unpack(e))
+	end
 end
 
--- 追加プリセット (見た目一式)。Full = 今ついている光・動き・効果を先に消してから反映する
--- Grad = グラデーション / GlossStyle = ツヤの種類(1やわらか 2くっきり 3ガラス 4メタル) / Pulse = {速さ, 型, 板も明滅}
--- Rainbow = {速さ, 鮮やかさ, 波の幅} / Fx = 出す効果の名前 / FireSize / FireColor / Sparkle / OutlineHue / GlowColor
+-- ===== プリセット (見た目一式) =====
+-- Full = 今ついている光・動き・効果を先に消してから反映する
+-- 色・素材: Color / Material / Transparency / Reflectance / GlossStyle(1〜20) / Sky(映り込む空 1〜14) / Sheen・SheenCol(光の走り) / Edge・EdgeCol(角の輝き)
+--   Grad = {a, c, b, axis, flow, stripes} / Rainbow = {速さ, 鮮やかさ, 波} / Wk = {経年の種類, 量} / Var = 色ムラ
+-- 光: Glow / Range / GlowColor / GCol2 (2つ目の色) / GMode / GSpeed / Night / Shape / Spot / Pulse = {速さ, 型, 板も, 深さ, 波}
+--   OutlineHue / OutlineCol / OFill / OThru (縁取り)
+-- 効果: Fx = 出す効果の名前 / Sparkle = {量, 大きさ} / FireSize / FireColor / SmokeCol / ConfCol / FxMul / FxSize / FxSpeed / FxTint
 do
 	local function C(r, g, b) return Color3.fromRGB(r, g, b) end
 	local function add(name, t)
@@ -118,8 +126,14 @@ do
 		t.Range = t.Range or 12
 		t.Transparency = t.Transparency or 0
 		t.Glow = t.Glow or 0
+		t.Reflectance = t.Reflectance or 0
 		PRESETS[name] = t
 	end
+	local function basic(name, mat, r, g, b, refl, tr, glow)
+		if not hasMat(mat) then mat = "SmoothPlastic" end
+		PRESETS[name] = { Color = C(r, g, b), Material = mat, Reflectance = refl or 0, Transparency = tr or 0, Glow = glow or 0, Range = 12 }
+	end
+	-- はじめの12種
 	add("Aurora", { Color = C(60, 230, 180), Material = "SmoothPlastic", Reflectance = 0.55, GlossStyle = 2, Glow = 1.2,
 		Grad = { a = C(40, 235, 160), c = C(70, 130, 255), b = C(190, 80, 255), axis = "X", flow = 0.12 }, Pulse = { 0.25, "Sine" } })
 	add("Galaxy", { Color = C(60, 40, 140), Material = "SmoothPlastic", Reflectance = 0.3, GlossStyle = 3, Glow = 1,
@@ -144,6 +158,108 @@ do
 		Grad = { a = C(255, 110, 40), c = C(255, 90, 150), b = C(110, 60, 200), axis = "Y" } })
 	add("Ocean", { Color = C(20, 130, 200), Material = "SmoothPlastic", Reflectance = 0.7, GlossStyle = 3, Glow = 0.6, GlowColor = C(80, 200, 255),
 		Grad = { a = C(10, 40, 120), c = C(20, 130, 200), b = C(90, 230, 230), axis = "X", flow = 0.1 }, Fx = { "bubbles" } })
+
+	-- 幻想
+	add("Fairy", { Color = C(150, 230, 140), Material = "SmoothPlastic", Reflectance = 0.5, GlossStyle = 6, Sky = 9, Glow = 1.3, GlowColor = C(190, 255, 160), GCol2 = C(255, 240, 150), GMode = "Blend", GSpeed = 0.25,
+		Grad = { a = C(120, 230, 140), b = C(255, 240, 170), axis = "Y" }, Sparkle = { 26, 0.3 }, Fx = { "firefly", "magic" }, Pulse = { 0.4, "Drift" } })
+	add("MagicCircle", { Color = C(110, 60, 200), Material = "Glass", Reflectance = 0.6, Transparency = 0.25, GlossStyle = 15, Glow = 1.8, GlowColor = C(190, 120, 255), GCol2 = C(90, 200, 255), GMode = "Blend", GSpeed = 0.3,
+		Pulse = { 0.7, "Breath" }, Fx = { "magic", "halo" }, OutlineCol = C(200, 140, 255), OFill = 0.15, Edge = 0.6, EdgeCol = 4 })
+	add("Dragon", { Color = C(36, 70, 48), Material = "Metal", Reflectance = 0.5, GlossStyle = 14, Sky = 13, Glow = 1.2, GlowColor = C(255, 110, 40), Var = 0.25,
+		Fx = { "embers", "smoke" }, FireSize = 4, Pulse = { 0.5, "Fire" }, SmokeCol = 2 })
+	add("CrystalCave", { Color = C(140, 90, 230), Material = "Glass", Reflectance = 0.7, Transparency = 0.2, GlossStyle = 20, Sky = 11, Glow = 1.4, GlowColor = C(190, 140, 255),
+		Sparkle = { 36, 0.35 }, Sheen = 0.5, SheenCol = 8, Edge = 0.7, EdgeCol = 4 })
+	add("Phoenix", { Color = C(255, 120, 30), Material = "Neon", Glow = 2.6, Range = 18, Grad = { a = C(255, 60, 20), c = C(255, 160, 30), b = C(255, 240, 120), axis = "Y", flow = 0.25 },
+		Fx = { "fire", "embers" }, FireSize = 7, Pulse = { 0.9, "Fire" }, Sparkle = { 20, 0.3 } })
+	add("Unicorn", { Color = C(255, 220, 245), Material = "SmoothPlastic", Reflectance = 0.7, GlossStyle = 15, Glow = 0.6, GlowColor = C(255, 210, 245), Sheen = 0.5, SheenCol = 3, Edge = 0.4, EdgeCol = 6,
+		Grad = { a = C(255, 190, 230), c = C(200, 200, 255), b = C(190, 255, 235), axis = "X", flow = 0.06 }, Sparkle = { 34, 0.3 } })
+	add("Celestial", { Color = C(245, 240, 225), Material = "Marble", Reflectance = 0.5, GlossStyle = 16, Sky = 8, Glow = 1.6, GlowColor = C(255, 235, 170), Fx = { "halo", "stardust" },
+		Pulse = { 0.3, "Breath" }, Sheen = 0.4, SheenCol = 2, Edge = 0.5, EdgeCol = 2 })
+	-- 自然
+	add("Meadow", { Color = C(110, 190, 80), Material = "Grass", Sky = 1, Var = 0.2, Fx = { "leaves" }, FxTint = C(120, 210, 80), FxMul = 0.7 })
+	add("Autumn", { Color = C(235, 130, 40), Material = "Wood", Var = 0.3, Sky = 2, Grad = { a = C(255, 200, 60), c = C(235, 110, 30), b = C(160, 50, 25), axis = "Y" }, Fx = { "leaves" } })
+	add("MossyRuins", { Color = C(110, 130, 100), Material = "Cobblestone", Wk = { 3, 0.8 }, Var = 0.35, Fx = { "mist" }, FxTint = C(200, 230, 200), FxMul = 0.7 })
+	add("Desert", { Color = C(222, 184, 120), Material = "Sand", Sky = 10, Wk = { 6, 0.5 }, Fx = { "mist" }, FxTint = C(235, 205, 150), FxMul = 0.5 })
+	add("Rainforest", { Color = C(50, 140, 70), Material = "LeafyGrass", Reflectance = 0.1, GlossStyle = 5, Sky = 9, Glow = 0.5, GlowColor = C(150, 255, 170), Fx = { "droplets", "mist" }, FxTint = C(190, 255, 200) })
+	add("Volcano", { Color = C(50, 40, 40), Material = "Basalt", Grad = { a = C(40, 30, 30), c = C(160, 50, 20), b = C(255, 110, 20), axis = "Y" }, Glow = 2, GlowColor = C(255, 110, 30),
+		Fx = { "fire", "embers", "smoke" }, FireSize = 4, Pulse = { 0.6, "Fire" }, Wk = { 10, 0.4 }, SmokeCol = 2 })
+	-- 炎・光
+	add("Campfire", { Color = C(90, 60, 40), Material = "Wood", Glow = 2.4, Range = 18, GlowColor = C(255, 150, 60), GCol2 = C(255, 200, 90), GMode = "Blend", GSpeed = 0.5, Pulse = { 1.4, "Fire" },
+		Fx = { "fire", "embers", "smoke" }, FireSize = 5, Wk = { 5, 0.5 } })
+	add("Torch", { Color = C(110, 70, 45), Material = "Wood", Glow = 2.2, GlowColor = C(255, 160, 60), Pulse = { 1.2, "Flicker" }, Fx = { "fire" }, FireSize = 4 })
+	add("Sun", { Color = C(255, 220, 90), Material = "Neon", Glow = 3.2, Range = 24, GlowColor = C(255, 230, 140), Pulse = { 0.25, "Breath" }, Fx = { "halo" }, Sparkle = { 40, 0.4 } })
+	add("Thunder", { Color = C(170, 200, 255), Material = "Neon", Glow = 3.5, Range = 26, GlowColor = C(190, 210, 255), Pulse = { 1.1, "Lightning", true }, Fx = { "electric" }, Sparkle = { 30, 0.3 }, OutlineCol = C(200, 220, 255) })
+	add("Furnace", { Color = C(120, 70, 50), Material = "Metal", Reflectance = 0.2, Wk = { 5, 0.6 }, Grad = { a = C(60, 40, 40), b = C(255, 100, 30), axis = "Y" }, Glow = 2.6, GlowColor = C(255, 120, 40),
+		Pulse = { 0.7, "Fire", true }, Fx = { "embers" } })
+	add("NeonTube", { Color = C(255, 60, 190), Material = "Neon", Glow = 3, Range = 16, GlowColor = C(255, 80, 200), Pulse = { 0.9, "Neon" }, OutlineCol = C(255, 120, 220), OFill = 0.35, Fx = { "halo" } })
+	-- 水・氷
+	add("DeepSea", { Color = C(10, 90, 150), Material = "Glass", Transparency = 0.25, Reflectance = 0.6, GlossStyle = 10, Sky = 12, Glow = 1, GlowColor = C(80, 220, 255),
+		Grad = { a = C(5, 20, 70), c = C(10, 90, 150), b = C(60, 210, 230), axis = "Y", flow = 0.08 }, Pulse = { 0.3, "Drift" }, Fx = { "bubbles", "droplets" } })
+	add("GlacierBlue", { Color = C(170, 225, 245), Material = "Glacier", Reflectance = 0.5, GlossStyle = 3, Sky = 14, Wk = { 8, 0.6 }, Glow = 0.8, GlowColor = C(200, 240, 255), Fx = { "snow", "mist" } })
+	add("RainyDay", { Color = C(70, 86, 104), Material = "Slate", Reflectance = 0.55, GlossStyle = 5, Sky = 8, Fx = { "rain", "mist" }, FxTint = C(170, 200, 230) })
+	add("Coral", { Color = C(255, 140, 120), Material = "SmoothPlastic", Reflectance = 0.4, GlossStyle = 6, Sky = 12, Grad = { a = C(255, 120, 140), c = C(255, 170, 90), b = C(255, 230, 150), axis = "X" },
+		Fx = { "bubbles" }, Sparkle = { 16, 0.25 }, Glow = 0.5, GlowColor = C(255, 170, 140) })
+	add("Waterfall", { Color = C(170, 225, 255), Material = "Glass", Transparency = 0.15, Reflectance = 0.6, GlossStyle = 10, Grad = { a = C(255, 255, 255), c = C(170, 225, 255), b = C(60, 150, 220), axis = "Y", flow = 0.35 },
+		Fx = { "mist", "droplets" } })
+	-- SF
+	add("DigitalRain", { Color = C(6, 20, 10), Material = "Metal", Reflectance = 0.4, GlossStyle = 4, Glow = 2, GlowColor = C(60, 255, 120), Pulse = { 2.5, "Glitch" }, Fx = { "rain" }, FxTint = C(60, 255, 120), OutlineCol = C(60, 255, 120) })
+	add("Spaceship", { Color = C(150, 165, 185), Material = "Metal", Reflectance = 0.6, GlossStyle = 4, Sky = 11, Glow = 1.4, GlowColor = C(110, 190, 255), OutlineCol = C(110, 190, 255), OFill = 0.1, Sheen = 0.35, Edge = 0.6, EdgeCol = 3, Pulse = { 0.4, "Sine" } })
+	add("PlasmaBall", { Color = C(130, 60, 230), Material = "Neon", Glow = 3, Range = 20, GlowColor = C(170, 110, 255), GCol2 = C(90, 200, 255), GMode = "Blend", GSpeed = 0.6, Pulse = { 1.6, "Neon" }, Fx = { "electric" } })
+	add("LaserRed", { Color = C(255, 30, 40), Material = "Neon", Glow = 3, Range = 16, GlowColor = C(255, 50, 50), Pulse = { 2, "Strobe" }, Fx = { "halo" } })
+	add("Stealth", { Color = C(18, 20, 24), Material = "SmoothPlastic", Reflectance = 0.2, GlossStyle = 2, Edge = 0.8, Glow = 0.5, GlowColor = C(0, 255, 200), Night = true, Pulse = { 0.2, "Drift" }, OutlineCol = C(0, 255, 200) })
+	add("Android", { Color = C(240, 244, 248), Material = "CeramicTiles", Reflectance = 0.4, GlossStyle = 7, Glow = 1.2, GlowColor = C(0, 230, 255), OutlineCol = C(0, 230, 255), OFill = 0.08, Pulse = { 0.6, "Beat" }, Edge = 0.5, EdgeCol = 3 })
+	-- ポップ
+	add("Bubblegum", { Color = C(255, 120, 190), Material = "SmoothPlastic", Reflectance = 0.85, GlossStyle = 1, Grad = { a = C(255, 110, 190), b = C(255, 200, 230), axis = "Y" }, Sparkle = { 20, 0.3 }, Fx = { "bubbles" }, FxTint = C(255, 170, 220) })
+	add("RainbowPop", { Color = C(255, 150, 200), Material = "SmoothPlastic", Reflectance = 0.8, GlossStyle = 1, Rainbow = { 0.18, 0.85, 0.6 }, Fx = { "confetti" }, Sparkle = { 30, 0.3 } })
+	add("LemonSoda", { Color = C(255, 240, 90), Material = "SmoothPlastic", Transparency = 0.3, Reflectance = 0.5, GlossStyle = 5, Glow = 0.6, GlowColor = C(255, 245, 120), Fx = { "bubbles" }, FxTint = C(255, 250, 150) })
+	add("PuruJelly", { Color = C(255, 100, 170), Material = "SmoothPlastic", Transparency = 0.3, Reflectance = 0.6, GlossStyle = 12, Glow = 0.8, GlowColor = C(255, 120, 190), Pulse = { 0.9, "Wobble", true, 0.5 }, Sparkle = { 10, 0.25 } })
+	add("CottonCandy", { Color = C(255, 190, 230), Material = "Fabric", Reflectance = 0.1, Grad = { a = C(255, 170, 220), c = C(255, 255, 255), b = C(150, 200, 255), axis = "X", flow = 0.08 }, Fx = { "mist" }, FxTint = C(255, 200, 240), Sparkle = { 18, 0.3 } })
+	add("Party", { Color = C(255, 90, 200), Material = "SmoothPlastic", Reflectance = 0.6, GlossStyle = 1, Glow = 2.6, GlowColor = C(255, 90, 200), GMode = "Rand", GSpeed = 0.8, Pulse = { 2, "Beat", true, 0.6 }, Fx = { "confetti" }, Sparkle = { 40, 0.35 } })
+	-- 豪華
+	add("GoldKing", { Color = C(255, 200, 60), Material = "Metal", Reflectance = 0.95, GlossStyle = 11, Glow = 0.6, GlowColor = C(255, 210, 100), Sheen = 0.5, SheenCol = 2, Edge = 0.7, EdgeCol = 2, Sparkle = { 20, 0.3 } })
+	add("DiamondKing", { Color = C(225, 245, 255), Material = "Glass", Transparency = 0.15, Reflectance = 0.9, GlossStyle = 8, Sky = 14, Glow = 0.8, GlowColor = C(220, 240, 255), Sheen = 0.6, SheenCol = 3, Edge = 0.9, EdgeCol = 6, Sparkle = { 50, 0.35 } })
+	add("RubyRed", { Color = C(230, 20, 60), Material = "Glass", Transparency = 0.2, Reflectance = 0.6, GlossStyle = 8, Glow = 1.4, GlowColor = C(255, 40, 80), Sparkle = { 26, 0.3 }, Sheen = 0.4, SheenCol = 7, Edge = 0.6 })
+	add("EmeraldGreen", { Color = C(20, 190, 100), Material = "Glass", Transparency = 0.2, Reflectance = 0.6, GlossStyle = 8, Glow = 1.4, GlowColor = C(60, 255, 140), Sparkle = { 26, 0.3 }, Sheen = 0.4, SheenCol = 6, Edge = 0.6, EdgeCol = 5 })
+	add("PlatinumMirror", { Color = C(230, 234, 240), Material = "Foil", Reflectance = 1, GlossStyle = 13, Edge = 0.8, Sheen = 0.3, SheenCol = 4 })
+	add("BlackGold", { Color = C(40, 34, 20), Material = "Metal", Reflectance = 0.7, GlossStyle = 11, Grad = { a = C(15, 14, 18), c = C(60, 48, 20), b = C(255, 200, 60), axis = "X" }, Sheen = 0.5, SheenCol = 2, Edge = 0.8, EdgeCol = 2 })
+	-- 夜・ダーク
+	add("Moonlight", { Color = C(190, 205, 235), Material = "SmoothPlastic", Reflectance = 0.5, GlossStyle = 6, Sky = 3, Glow = 1.3, GlowColor = C(190, 215, 255), Night = true, Fx = { "halo", "mist" }, FxTint = C(190, 210, 255), Pulse = { 0.2, "Breath" } })
+	add("Ghost2", { Color = C(225, 250, 240), Material = "ForceField", Transparency = 0.3, Glow = 1.4, GlowColor = C(160, 255, 210), Fx = { "mist", "firefly" }, FxTint = C(170, 255, 220), Pulse = { 0.35, "Drift" } })
+	add("DarkKnight", { Color = C(24, 26, 34), Material = "Metal", Reflectance = 0.6, GlossStyle = 4, Sky = 3, Glow = 1.2, GlowColor = C(150, 90, 255), OutlineCol = C(150, 90, 255), OFill = 0.1, Edge = 0.8, EdgeCol = 3 })
+	add("Haunted", { Color = C(60, 30, 80), Material = "Slate", Wk = { 10, 0.6 }, Var = 0.3, Glow = 1.5, GlowColor = C(120, 255, 120), Pulse = { 0.8, "Neon" }, Fx = { "mist", "firefly" }, FxTint = C(130, 255, 150) })
+	add("Shadow", { Color = C(12, 10, 16), Material = "SmoothPlastic", Reflectance = 0.3, GlossStyle = 11, Sky = 3, Glow = 1, GlowColor = C(255, 40, 80), Pulse = { 0.25, "Breath" }, Fx = { "mist" }, FxTint = C(90, 40, 110) })
+	-- 季節・イベント
+	add("Christmas", { Color = C(200, 30, 40), Material = "SmoothPlastic", Reflectance = 0.6, GlossStyle = 1, Grad = { a = C(200, 30, 40), c = C(255, 255, 255), b = C(30, 140, 70), axis = "X", stripes = 6 },
+		Glow = 1, GlowColor = C(255, 230, 170), Fx = { "snow" }, Sparkle = { 30, 0.3 } })
+	add("Halloween", { Color = C(255, 120, 20), Material = "SmoothPlastic", Reflectance = 0.3, Grad = { a = C(255, 120, 20), b = C(90, 30, 140), axis = "Y" }, Glow = 2, GlowColor = C(255, 130, 30),
+		Pulse = { 0.9, "Flicker" }, Fx = { "mist", "firefly" }, FxTint = C(255, 150, 50) })
+	add("Festival", { Color = C(210, 40, 40), Material = "Fabric", Glow = 2.2, GlowColor = C(255, 170, 80), Pulse = { 1, "Flicker" }, Sparkle = { 22, 0.3 }, Fx = { "embers" } })
+	add("NewYear", { Color = C(190, 20, 30), Material = "Metal", Reflectance = 0.5, GlossStyle = 11, Grad = { a = C(190, 20, 30), b = C(255, 200, 60), axis = "Y" }, Sheen = 0.4, SheenCol = 2, Fx = { "confetti" }, ConfCol = 2, Sparkle = { 30, 0.3 } })
+	add("Valentine", { Color = C(255, 100, 150), Material = "SmoothPlastic", Reflectance = 0.6, GlossStyle = 7, Glow = 1.4, GlowColor = C(255, 90, 150), Pulse = { 1.1, "Beat", true }, Sparkle = { 26, 0.3 }, Fx = { "sakura" }, FxTint = C(255, 120, 170) })
+
+	-- 基本のプリセット (追加)
+	basic("Copper", "Metal", 200, 112, 72, 0.4)
+	basic("Bronze", "Metal", 176, 122, 62, 0.35)
+	basic("Steel", "Metal", 130, 140, 156, 0.45)
+	basic("Pearl", "SmoothPlastic", 246, 240, 236, 0.35)
+	basic("Emerald", "Glass", 30, 190, 110, 0.2, 0.3)
+	basic("Ruby", "Glass", 224, 30, 64, 0.2, 0.3)
+	basic("Sapphire", "Glass", 40, 80, 230, 0.2, 0.3)
+	basic("Amethyst", "Glass", 154, 72, 226, 0.2, 0.3)
+	basic("Topaz", "Glass", 255, 192, 52, 0.2, 0.3)
+	basic("Mint", "SmoothPlastic", 150, 240, 200, 0.1)
+	basic("Peach", "SmoothPlastic", 255, 190, 160, 0.1)
+	basic("Lavender", "SmoothPlastic", 190, 170, 240, 0.1)
+	basic("Cocoa", "SmoothPlastic", 110, 70, 50, 0.05)
+	basic("Midnight", "SmoothPlastic", 20, 24, 60, 0.2, 0, 0.3)
+	basic("Coral2", "SmoothPlastic", 255, 120, 120, 0.1)
+	basic("Lemon", "SmoothPlastic", 255, 236, 80, 0.1)
+	basic("SkyBlue", "SmoothPlastic", 130, 200, 255, 0.1)
+	basic("NeonPurple", "Neon", 170, 90, 255, 0, 0, 2)
+	basic("NeonOrange", "Neon", 255, 140, 40, 0, 0, 2)
+	basic("NeonRed", "Neon", 255, 50, 60, 0, 0, 2)
+	basic("NeonYellow", "Neon", 255, 240, 70, 0, 0, 2)
+	basic("NeonWhite", "Neon", 245, 250, 255, 0, 0, 1.8)
+	basic("Sunflower", "Neon", 255, 210, 40, 0, 0, 1.5)
 end
 
 local CollectionService = game:GetService("CollectionService")
@@ -235,6 +351,13 @@ local WEATHER_KINDS = {
 	{ Color3.fromRGB(66, 112, 40), 0.8, -1, 0.08 },    -- 3 こけ (下ほど濃い)
 	{ Color3.fromRGB(246, 250, 255), 0.95, 1, 0 },     -- 4 雪 (上ほど濃い)
 	{ Color3.fromRGB(24, 18, 14), 0.9, 0, 0 },         -- 5 焦げ
+	{ Color3.fromRGB(200, 175, 130), 0.75, -1, 0.04 }, -- 6 砂ぼこり (下ほど濃い)
+	{ Color3.fromRGB(70, 160, 140), 0.8, 0, 0.05 },    -- 7 緑青 (銅のさび)
+	{ Color3.fromRGB(215, 235, 250), 0.85, 1, 0 },     -- 8 霜 (上ほど濃い)
+	{ Color3.fromRGB(92, 68, 46), 0.85, -1, 0.1 },     -- 9 泥はね (下ほど濃い)
+	{ Color3.fromRGB(34, 30, 28), 0.8, 1, 0.1 },       -- 10 すす (上ほど濃い)
+	{ Color3.fromRGB(200, 196, 190), 0.7, 0, 0 },      -- 11 色あせ
+	{ Color3.fromRGB(255, 215, 110), 0.6, 1, 0 },      -- 12 金粉 (上ほど濃い)
 }
 local WEATHER_N = #WEATHER_KINDS
 
@@ -282,7 +405,7 @@ end
 -- 動かすのは各自の画面側 (なめらかに動くように)。サーバーは設定を書くだけで、毎フレーム更新はしない。
 local ANIM_ATTRS = { "PS_Rb", "PS_RbSpeed", "PS_RbSat", "PS_RbSpread", "PS_Pulse", "PS_PulseStyle", "PS_PulseBody", "PS_Flow",
 	"PS_GA", "PS_GB", "PS_GC", "PS_GRev", "PS_GMid", "PS_GStripes", "PS_GlowB", "PS_GlowCol",
-	"PS_PulseDepth", "PS_PulseWave", "PS_GMode", "PS_GlowCol2", "PS_GSpeed", "PS_Night", "PS_Sheen", "PS_FId" }
+	"PS_PulseDepth", "PS_PulseWave", "PS_GMode", "PS_GlowCol2", "PS_GlowCol3", "PS_GSpeed", "PS_Night", "PS_Sheen", "PS_FId" }
 local function syncAnim(model)
 	local s = st(model)
 	local g = s.grad
@@ -310,6 +433,7 @@ local function syncAnim(model)
 	model:SetAttribute("PS_PulseWave", s.pwave or 0)
 	model:SetAttribute("PS_GMode", gm)
 	model:SetAttribute("PS_GlowCol2", s.gcol2)
+	model:SetAttribute("PS_GlowCol3", s.gcol3)
 	model:SetAttribute("PS_GSpeed", s.gspeed or 0.3)
 	model:SetAttribute("PS_Night", s.night == true)
 	model:SetAttribute("PS_Sheen", s.sheen or 0)
@@ -347,6 +471,7 @@ local function setGlow(model, color, brightness, range)
 		l.Shadows = false
 		l.Parent = h
 	end
+	pcall(function() l.Shadows = (s.lshadow == true) end)   -- 光が影を作る (重いので、初期はOFF)
 	if cls == "SpotLight" then
 		l.Face = (shape == "Up") and Enum.NormalId.Top or Enum.NormalId.Bottom
 		l.Angle = s.spot or 120
@@ -374,6 +499,7 @@ local function setOutline(model, on, color)
 		o.Parent = model
 	end
 	if color then o.OutlineColor = color end
+	pcall(function() o.DepthMode = st(model).othru and Enum.HighlightDepthMode.AlwaysOnTop or Enum.HighlightDepthMode.Occluded end)   -- 壁の向こうでも見える縁取り
 	local f = st(model).ofill or 0   -- 縁取りの内側を光らせる量 (オーラ)
 	o.FillColor = o.OutlineColor
 	o.FillTransparency = f > 0 and (1 - 0.7 * f) or 1
@@ -744,6 +870,23 @@ do
 		{ bands = { { 0.30, 0.012, 1 }, { 0.345, 0.05, 0.34 }, { 0.72, 0.015, 0.92 } }, sky = 0.12 },                                               -- 7 ニス (細くて鋭い光 + うすい映り込み)
 		{ bands = { { 0.14, 0.07, 0.95 }, { 0.32, 0.045, 0.7 }, { 0.5, 0.09, 0.95 }, { 0.68, 0.045, 0.7 }, { 0.86, 0.07, 0.95 } }, sky = 0.22, irid = 0.9 }, -- 8 ダイヤ (虹色にきらめく面)
 	}
+	-- 9〜20: 細い帯をたくさん並べる型は thin = true (帯1本につき点を3つだけ使う。20点の上限の中で、帯を6本まで置ける)
+	for _, st_ in ipairs({
+		{ bands = { { 0.08, 0.04, 0.4 }, { 0.2, 0.04, 0.35 }, { 0.34, 0.04, 0.45 }, { 0.5, 0.04, 0.35 }, { 0.66, 0.04, 0.45 }, { 0.82, 0.04, 0.35 } }, sky = 0.2, thin = true },    -- 9 ブラッシュ (ヘアライン)
+		{ bands = { { 0.18, 0.12, 0.5 }, { 0.5, 0.2, 0.36 }, { 0.82, 0.12, 0.55 } }, sky = 0.58 },                                                                           -- 10 水面 (やわらかな波)
+		{ bands = { { 0.28, 0.02, 1 }, { 0.3, 0.2, 0.3 } }, sky = 0.15 },                                                                                                    -- 11 漆 (するどい1本 + 広いつや)
+		{ bands = { { 0.35, 0.3, 0.55 }, { 0.78, 0.14, 0.3 } }, sky = 0.36 },                                                                                                -- 12 琥珀 (あめ色の、とろんとしたツヤ)
+		{ bands = { { 0.2, 0.05, 1 }, { 0.8, 0.05, 1 } }, sky = 0.1 },                                                                                                       -- 13 蛍光灯 (2本の長い光)
+		{ bands = { { 0.07, 0.016, 0.9 }, { 0.2, 0.014, 0.8 }, { 0.36, 0.018, 0.95 }, { 0.52, 0.014, 0.75 }, { 0.68, 0.016, 0.9 }, { 0.86, 0.016, 0.85 } }, sky = 0.26, irid = 0.6, thin = true }, -- 14 スパークル (小さな光がちらばる)
+		{ bands = { { 0.2, 0.2, 0.55 }, { 0.62, 0.22, 0.5 } }, sky = 0.35, irid = 3.2 },                                                                                     -- 15 マジョーラ (角度で色がかわる)
+		{ bands = { { 0.5, 0.45, 0.4 } }, sky = 0.3 },                                                                                                                       -- 16 サテン (広くてやさしい光沢)
+		{ bands = { { 0.125, 0.07, 0.75 }, { 0.375, 0.07, 0.75 }, { 0.625, 0.07, 0.75 }, { 0.875, 0.07, 0.75 } }, sky = 0.2, thin = true },                                    -- 17 しま (はっきりした縞)
+		{ bands = { { 0.4, 0.018, 1 }, { 0.47, 0.018, 1 } }, sky = 0.18 },                                                                                                   -- 18 ダブルライン (細い2本)
+		{ bands = { { 0.5, 0.3, 0.9 } }, sky = 0.4 },                                                                                                                        -- 19 ドーム (まるいツヤ)
+		{ bands = { { 0.12, 0.012, 0.9 }, { 0.27, 0.01, 0.7 }, { 0.41, 0.013, 0.95 }, { 0.54, 0.01, 0.6 }, { 0.68, 0.012, 0.9 }, { 0.82, 0.01, 0.7 }, { 0.94, 0.013, 0.85 } }, sky = 0.3, irid = 0.3, thin = true }, -- 20 ひび氷
+	}) do
+		GLOSS_STYLES[#GLOSS_STYLES + 1] = st_
+	end
 	SK.GLOSS_STYLES = #GLOSS_STYLES
 	-- 映り込む空 (環境)。sky=空の色 / hi=光の帯の色 / a=映り込みの濃さの倍率
 	local SKIES = {
@@ -754,6 +897,18 @@ do
 		{ sky = Color3.fromRGB(86, 236, 192), hi = Color3.fromRGB(218, 255, 240), a = 1.15 },     -- 5 オーロラ
 		{ sky = Color3.new(1, 1, 1), hi = Color3.new(1, 1, 1), a = 0.7 },                         -- 6 スタジオ (白)
 	}
+	for _, sk_ in ipairs({
+		{ sky = Color3.fromRGB(250, 214, 190), hi = Color3.fromRGB(255, 245, 225), a = 1.05 },    -- 7 朝焼け
+		{ sky = Color3.fromRGB(190, 198, 210), hi = Color3.fromRGB(240, 244, 250), a = 0.85 },    -- 8 くもり
+		{ sky = Color3.fromRGB(120, 190, 130), hi = Color3.fromRGB(230, 255, 225), a = 1 },       -- 9 森
+		{ sky = Color3.fromRGB(255, 214, 140), hi = Color3.fromRGB(255, 246, 210), a = 1.1 },     -- 10 砂漠
+		{ sky = Color3.fromRGB(40, 30, 90), hi = Color3.fromRGB(200, 190, 255), a = 1.4 },        -- 11 宇宙
+		{ sky = Color3.fromRGB(80, 200, 230), hi = Color3.fromRGB(225, 250, 255), a = 1.1 },      -- 12 海
+		{ sky = Color3.fromRGB(255, 90, 40), hi = Color3.fromRGB(255, 200, 120), a = 1.2 },       -- 13 火山
+		{ sky = Color3.fromRGB(225, 240, 255), hi = Color3.fromRGB(255, 255, 255), a = 0.95 },    -- 14 雪原
+	}) do
+		SKIES[#SKIES + 1] = sk_
+	end
 	SK.SKIES = #SKIES
 	local function bandAlpha(bands, t)
 		local a = 0
@@ -775,7 +930,7 @@ do
 		local us = { 0, 1 }
 		if math.abs(t1 - t0) > 1e-6 then
 			for _, b in ipairs(style.bands) do
-				for _, d in ipairs({ -1, -0.5, 0, 0.5, 1 }) do
+				for _, d in ipairs(style.thin and { -1, 0, 1 } or { -1, -0.5, 0, 0.5, 1 }) do
 					local u = (b[1] + d * b[2] - t0) / (t1 - t0)
 					if u > 0.003 and u < 0.997 then us[#us + 1] = u end
 				end
@@ -830,6 +985,7 @@ do
 	-- 帯は真ん中だけ不透明で、ふちはなめらかに消える。動かすのは各自の画面(アニメ担当)で、ここでは「画面の外」に置いておく
 	local SHEEN_TILT = 24
 	local SHEEN_HIDE = -1.3
+	SK.SHEEN_COLS = 8
 	local function sheenSeqs(id)
 		local nks = NumberSequence.new({
 			NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.33, 1), NumberSequenceKeypoint.new(0.44, 0.55),
@@ -846,15 +1002,29 @@ do
 				ColorSequenceKeypoint.new(0.58, Color3.fromRGB(255, 236, 120)), ColorSequenceKeypoint.new(0.67, Color3.fromRGB(150, 255, 170)),
 				ColorSequenceKeypoint.new(1, Color3.new(1, 1, 1)),
 			})
+		elseif id >= 4 and id <= 8 then   -- 4 青 / 5 ピンク / 6 緑 / 7 赤 / 8 紫
+			local sc = ({ Color3.fromRGB(150, 205, 255), Color3.fromRGB(255, 170, 215), Color3.fromRGB(160, 255, 190), Color3.fromRGB(255, 130, 130), Color3.fromRGB(205, 160, 255) })[id - 3]
+			cs = ColorSequence.new(sc)
 		else
 			cs = ColorSequence.new(Color3.new(1, 1, 1))
 		end
 		return cs, nks
 	end
-	local EDGE_COL = ColorSequence.new({
-		ColorSequenceKeypoint.new(0, Color3.new(1, 1, 1)), ColorSequenceKeypoint.new(0.4, Color3.fromRGB(236, 241, 255)),
-		ColorSequenceKeypoint.new(0.6, Color3.fromRGB(150, 154, 170)), ColorSequenceKeypoint.new(1, Color3.fromRGB(34, 36, 48)),
-	})
+	local function edgeCol(a, b, c, d)
+		return ColorSequence.new({ ColorSequenceKeypoint.new(0, a), ColorSequenceKeypoint.new(0.4, b), ColorSequenceKeypoint.new(0.6, c), ColorSequenceKeypoint.new(1, d) })
+	end
+	local EDGE_COLS = {
+		edgeCol(Color3.new(1, 1, 1), Color3.fromRGB(236, 241, 255), Color3.fromRGB(150, 154, 170), Color3.fromRGB(34, 36, 48)),     -- 1 白 (ふつう)
+		edgeCol(Color3.fromRGB(255, 244, 190), Color3.fromRGB(255, 214, 110), Color3.fromRGB(176, 124, 40), Color3.fromRGB(50, 32, 8)),  -- 2 金
+		edgeCol(Color3.fromRGB(215, 240, 255), Color3.fromRGB(120, 190, 255), Color3.fromRGB(50, 100, 200), Color3.fromRGB(10, 20, 60)),  -- 3 青
+		edgeCol(Color3.fromRGB(255, 225, 240), Color3.fromRGB(255, 140, 200), Color3.fromRGB(190, 60, 130), Color3.fromRGB(50, 10, 40)),  -- 4 ピンク
+		edgeCol(Color3.fromRGB(225, 255, 235), Color3.fromRGB(110, 235, 160), Color3.fromRGB(40, 150, 90), Color3.fromRGB(8, 40, 24)),   -- 5 緑
+		ColorSequence.new({
+			ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 120, 120)), ColorSequenceKeypoint.new(0.25, Color3.fromRGB(255, 230, 110)), ColorSequenceKeypoint.new(0.5, Color3.fromRGB(110, 255, 170)),
+			ColorSequenceKeypoint.new(0.75, Color3.fromRGB(110, 170, 255)), ColorSequenceKeypoint.new(1, Color3.fromRGB(220, 120, 255)),
+		}),                                                                                                                              -- 6 虹
+	}
+	SK.EDGE_COLS = #EDGE_COLS
 
 	-- t0(左/上) → t1(右/下) の ColorSequence を作る。ストライプの時は境目を急に切り替える
 	local function buildSeq(cfg, t0, t1, tf)
@@ -1004,8 +1174,8 @@ do
 			local sid = SKIES[s.sky or 1] and (s.sky or 1) or 1
 			plan.gl = { k = k * (1 - 0.6 * trMax), id = id, style = GLOSS_STYLES[id], ax = ax, ex = ex, flip = (g and g.topFlip) == true, sky = sid, env = SKIES[sid] }
 		end
-		if (s.sheen or 0) > 0 then plan.sh = { col = (s.sheenCol == 2 or s.sheenCol == 3) and s.sheenCol or 1 } end   -- 光が走る帯
-		if (s.edge or 0) > 0 then plan.ed = { k = math.clamp(s.edge, 0, 1) } end                                      -- 角のハイライト
+		if (s.sheen or 0) > 0 then plan.sh = { col = math.clamp(math.floor(s.sheenCol or 1), 1, SK.SHEEN_COLS) } end    -- 光が走る帯
+		if (s.edge or 0) > 0 then plan.ed = { k = math.clamp(s.edge, 0, 1), col = math.clamp(math.floor(s.edgeCol or 1), 1, SK.EDGE_COLS) } end   -- 角のハイライト
 		-- 部品ごとの面の大きさ。大きな面だけに重ねる
 		local areas, amax = {}, 0
 		for i, p in ipairs(parts) do
@@ -1229,12 +1399,13 @@ do
 				es.Parent = fE
 				eg = Instance.new("UIGradient")
 				eg.Rotation = 45
-				eg.Color = EDGE_COL
 				eg.Parent = es
 				rec.ed = nil
 			end
-			local sig = string.format("%.3f|%s", k, cvs)
+			local sig = string.format("%.3f|%s|%d", k, cvs, plan.ed.col)
 			if rec.ed ~= sig then
+				eg = eg or es:FindFirstChildOfClass("UIGradient")
+				if eg then eg.Color = EDGE_COLS[plan.ed.col] or EDGE_COLS[1] end
 				local inset = 2 + 1.5 * k
 				fE.Position = UDim2.fromOffset(inset, inset)
 				fE.Size = UDim2.new(1, -2 * inset, 1, -2 * inset)
@@ -1543,7 +1714,8 @@ do
 
 	-- ツートン: 板の一部を選ぶ。mode = Top 上の段 / Bottom 下の段 / Half1 前半 / Half2 後半 / Stripe しましま / Outer 外側 / Random ランダム
 	-- 戻り値: { [パーツ] = true }。パーツが2つ以上あれば、必ず「一部だけ」(すべて・ゼロにならない)。不正な mode は nil
-	local TWO_MODE = { Top = true, Bottom = true, Half1 = true, Half2 = true, Stripe = true, Outer = true, Random = true }
+	local TWO_MODE = { Top = true, Bottom = true, Half1 = true, Half2 = true, Stripe = true, Outer = true, Random = true,
+		Ends = true, Center = true, Third1 = true, Third2 = true, Third3 = true, Every3 = true, Diag = true, Inner = true, Checker = true }
 	function SK.groupParts(model, parts, mode)
 		if not TWO_MODE[mode] then return nil end
 		local n = #parts
@@ -1584,6 +1756,56 @@ do
 				score[i] = sel[i] and 1 or 0
 			end
 			direct = true
+		elseif mode == "Ends" or mode == "Center" then   -- 両はし / まんなか (長い方向)
+			for i = 1, n do
+				local d = math.abs(cen(long[i]) - 0.5)
+				sel[i] = (mode == "Ends") and d >= 0.3 or (mode == "Center" and d <= 0.2)
+				score[i] = (mode == "Ends") and d or -d
+			end
+			direct = true
+		elseif mode == "Third1" or mode == "Third2" or mode == "Third3" then   -- 前1/3 / 中1/3 / 後ろ1/3
+			local k = (mode == "Third1") and 1 or (mode == "Third2" and 2 or 3)
+			for i = 1, n do
+				local t = cen(long[i])
+				sel[i] = math.min(2, math.floor(t * 3)) + 1 == k
+				score[i] = -math.abs(t - (k * 2 - 1) / 6)
+			end
+			direct = true
+		elseif mode == "Every3" then   -- 3本に1本
+			local order = {}
+			for i = 1, n do order[i] = i end
+			table.sort(order, function(a, b)
+				local ca, cb = cen(long[a]), cen(long[b])
+				if ca ~= cb then return ca < cb end
+				return a < b
+			end)
+			for r, i in ipairs(order) do
+				sel[i] = (r % 3 == 0)
+				score[i] = sel[i] and 1 or 0
+			end
+			direct = true
+		elseif mode == "Diag" then   -- ななめ半分
+			local other = (long == exX) and exZ or exX
+			for i = 1, n do
+				local a, b = cen(long[i]), cen(other[i])
+				sel[i] = (a + b) >= 1
+				score[i] = a + b
+			end
+			direct = true
+		elseif mode == "Checker" then   -- ちどりがけ (市松)
+			local other = (long == exX) and exZ or exX
+			for i = 1, n do
+				local a, b = cen(long[i]), cen(other[i])
+				sel[i] = (math.floor(a * 4 - 1e-6) + math.floor(b * 2 - 1e-6)) % 2 == 0
+				score[i] = sel[i] and 1 or 0
+			end
+			direct = true
+		elseif mode == "Inner" then   -- まんなかの半分 (Outer の反対)
+			for i = 1, n do
+				local dx = (spX > 1e-3) and math.abs(cen(exX[i]) - 0.5) or 0
+				local dz = (spZ > 1e-3) and math.abs(cen(exZ[i]) - 0.5) or 0
+				score[i] = -math.max(dx, dz) + i * 1e-6
+			end
 		elseif mode == "Outer" then
 			for i = 1, n do
 				local dx = (spX > 1e-3) and math.abs(cen(exX[i]) - 0.5) or 0
@@ -1692,12 +1914,14 @@ do
 end
 
 ---------------------------------------------------------------------
--- 効果 (炎・煙・キラキラ・紙吹雪・雪・桜・ほたる・あわ・火の粉) — すべて ParticleEmitter
+-- 効果 (炎・煙・キラキラ・紙吹雪・雪・桜・ほたる・あわ・火の粉・電気・星くず・落ち葉・しずく・魔法・もや・後光・雨・軌跡)
+-- 軌跡 (trail) だけは Trail。あとは ParticleEmitter。
 -- Acceleration は「世界の上下」で効くので、板がどんな向きでも、炎や煙は必ず上へ昇る。
 -- 板の大きいパーツ(最大3つ)に付けるので、小さな音用パーツの向きに引っ張られない。
+-- 全部の効果に効く設定: 量 fxMul / 大きさ fxSize / 速さ fxSpeed / 色 fxTint
 ---------------------------------------------------------------------
 local FX = {}
-local FX_NAMES = { "fire", "smoke", "sparkle", "confetti", "snow", "sakura", "firefly", "bubbles", "embers" }
+local FX_NAMES = { "fire", "smoke", "sparkle", "confetti", "snow", "sakura", "firefly", "bubbles", "embers", "electric", "stardust", "leaves", "droplets", "magic", "mist", "halo", "rain", "trail" }
 local FX_TEX = {
 	fire = "rbxasset://textures/particles/fire_main.dds",
 	smoke = "rbxasset://textures/particles/smoke_main.dds",
@@ -1705,33 +1929,73 @@ local FX_TEX = {
 }
 -- 炎の色: { 芯, 中, 外, 消える頃 }
 local FIRE_COLORS = {
-	{ Color3.fromRGB(255, 240, 170), Color3.fromRGB(255, 150, 40), Color3.fromRGB(225, 60, 20), Color3.fromRGB(50, 20, 15) },
-	{ Color3.fromRGB(200, 235, 255), Color3.fromRGB(70, 150, 255), Color3.fromRGB(30, 70, 220), Color3.fromRGB(10, 15, 50) },
-	{ Color3.fromRGB(220, 255, 200), Color3.fromRGB(80, 255, 120), Color3.fromRGB(20, 170, 70), Color3.fromRGB(5, 40, 20) },
-	{ Color3.fromRGB(240, 215, 255), Color3.fromRGB(180, 100, 255), Color3.fromRGB(110, 40, 200), Color3.fromRGB(25, 10, 50) },
-	{ Color3.fromRGB(255, 225, 240), Color3.fromRGB(255, 110, 190), Color3.fromRGB(210, 40, 130), Color3.fromRGB(50, 10, 35) },
+	{ Color3.fromRGB(255, 240, 170), Color3.fromRGB(255, 150, 40), Color3.fromRGB(225, 60, 20), Color3.fromRGB(50, 20, 15) },      -- 1 通常
+	{ Color3.fromRGB(200, 235, 255), Color3.fromRGB(70, 150, 255), Color3.fromRGB(30, 70, 220), Color3.fromRGB(10, 15, 50) },      -- 2 青
+	{ Color3.fromRGB(220, 255, 200), Color3.fromRGB(80, 255, 120), Color3.fromRGB(20, 170, 70), Color3.fromRGB(5, 40, 20) },       -- 3 緑
+	{ Color3.fromRGB(240, 215, 255), Color3.fromRGB(180, 100, 255), Color3.fromRGB(110, 40, 200), Color3.fromRGB(25, 10, 50) },    -- 4 紫
+	{ Color3.fromRGB(255, 225, 240), Color3.fromRGB(255, 110, 190), Color3.fromRGB(210, 40, 130), Color3.fromRGB(50, 10, 35) },    -- 5 ピンク
+	{ Color3.fromRGB(255, 250, 200), Color3.fromRGB(255, 215, 90), Color3.fromRGB(230, 160, 30), Color3.fromRGB(60, 40, 10) },     -- 6 金
+	{ Color3.fromRGB(255, 255, 255), Color3.fromRGB(235, 240, 255), Color3.fromRGB(190, 200, 225), Color3.fromRGB(40, 45, 60) },   -- 7 白
+	{ Color3.fromRGB(255, 170, 150), Color3.fromRGB(230, 40, 30), Color3.fromRGB(120, 10, 20), Color3.fromRGB(15, 0, 5) },         -- 8 地獄 (赤黒)
+	{ Color3.fromRGB(210, 190, 255), Color3.fromRGB(110, 70, 170), Color3.fromRGB(45, 20, 80), Color3.fromRGB(8, 4, 16) },         -- 9 闇 (黒紫)
+	{ Color3.fromRGB(255, 120, 120), Color3.fromRGB(255, 230, 90), Color3.fromRGB(90, 230, 255), Color3.fromRGB(200, 100, 255) },  -- 10 虹
 }
-local function seqN(list)
+-- 煙の色: { はじめ, おわり }
+local SMOKE_COLORS = {
+	{ Color3.fromRGB(120, 120, 126), Color3.fromRGB(205, 205, 212) },   -- 1 グレー
+	{ Color3.fromRGB(20, 20, 24), Color3.fromRGB(80, 80, 88) },         -- 2 黒
+	{ Color3.fromRGB(235, 235, 240), Color3.fromRGB(255, 255, 255) },   -- 3 白
+	{ Color3.fromRGB(90, 50, 140), Color3.fromRGB(190, 140, 230) },     -- 4 紫
+	{ Color3.fromRGB(230, 120, 170), Color3.fromRGB(255, 200, 225) },   -- 5 ピンク
+	{ Color3.fromRGB(70, 110, 190), Color3.fromRGB(170, 200, 245) },    -- 6 青
+	{ Color3.fromRGB(60, 130, 70), Color3.fromRGB(160, 220, 150) },     -- 7 緑
+}
+-- 紙吹雪の色 (ぜんぶ { 色, ... })
+local CONF_COLORS = {
+	false,   -- 1 にじ色 (下で作る)
+	{ Color3.fromRGB(255, 215, 90), Color3.fromRGB(235, 235, 245), Color3.fromRGB(255, 240, 190), Color3.fromRGB(200, 205, 220) },       -- 2 金と銀
+	{ Color3.fromRGB(255, 190, 215), Color3.fromRGB(190, 225, 255), Color3.fromRGB(255, 245, 190), Color3.fromRGB(205, 255, 220) },      -- 3 パステル
+	{ Color3.fromRGB(230, 40, 50), Color3.fromRGB(40, 170, 80), Color3.fromRGB(255, 255, 255), Color3.fromRGB(255, 205, 70) },          -- 4 赤と緑
+	{ Color3.fromRGB(235, 245, 255), Color3.fromRGB(150, 200, 255), Color3.fromRGB(255, 255, 255), Color3.fromRGB(190, 220, 250) },      -- 5 雪の色
+	{ Color3.fromRGB(255, 120, 170), Color3.fromRGB(255, 190, 215), Color3.fromRGB(255, 80, 130), Color3.fromRGB(255, 225, 235) },      -- 6 ピンク
+}
+local function lumOf(c) return 0.3 * c.R + 0.59 * c.G + 0.11 * c.B end
+-- 効果の色 (fxTint) を選んでいる時は、その色に変える (明るさは元の色のまま)
+local function tc(s, c)
+	local t = s.fxTint
+	if not t then return c end
+	local l = lumOf(c)
+	return Color3.new(t.R * l, t.G * l, t.B * l)
+end
+-- zs = 大きさの倍率 (大きさの並びにだけ使う)
+local function seqN(list, zs)
 	local k = {}
-	for _, a in ipairs(list) do k[#k + 1] = NumberSequenceKeypoint.new(a[1], a[2]) end
+	for _, a in ipairs(list) do k[#k + 1] = NumberSequenceKeypoint.new(a[1], a[2] * (zs or 1)) end
 	return NumberSequence.new(k)
 end
-local function seqC(list)
+local function seqC(list, s)
 	local k = {}
-	for _, a in ipairs(list) do k[#k + 1] = ColorSequenceKeypoint.new(a[1], a[2]) end
+	for _, a in ipairs(list) do k[#k + 1] = ColorSequenceKeypoint.new(a[1], s and tc(s, a[2]) or a[2]) end
 	return ColorSequence.new(k)
 end
+local function oneC(s, c) return seqC({ { 0, c }, { 1, c } }, s) end
 local function trySet(o, k, v) pcall(function() o[k] = v end) end
 local function mul(s) return s.fxMul or 1 end
+local function zoom(s) return s.fxSize or 1 end
+local function bigSide(p)
+	if not p then return 4 end
+	local z = p.Size
+	return math.max(z.X, z.Y, z.Z)
+end
 
 FX.fire = function(e, s, n)
 	local sc = (s.fireSize or 6) / 6
 	local pal = FIRE_COLORS[s.fireColor or 1] or FIRE_COLORS[1]
 	e.Texture = FX_TEX.fire
-	e.Color = seqC({ { 0, pal[1] }, { 0.25, pal[2] }, { 0.65, pal[3] }, { 1, pal[4] } })
+	e.Color = seqC({ { 0, pal[1] }, { 0.25, pal[2] }, { 0.65, pal[3] }, { 1, pal[4] } }, (s.fireColor or 1) == 1 and s or nil)
 	e.LightEmission = 1
 	trySet(e, "LightInfluence", 0)
-	e.Size = seqN({ { 0, 0.5 * sc }, { 0.2, 1.6 * sc }, { 1, 0.1 * sc } })
+	e.Size = seqN({ { 0, 0.5 * sc }, { 0.2, 1.6 * sc }, { 1, 0.1 * sc } }, zoom(s))
 	e.Transparency = seqN({ { 0, 1 }, { 0.12, 0.25 }, { 0.7, 0.55 }, { 1, 1 } })
 	e.Lifetime = NumberRange.new(0.7, 1.3)
 	e.Speed = NumberRange.new(0, 0.8)
@@ -1742,11 +2006,12 @@ FX.fire = function(e, s, n)
 end
 FX.smoke = function(e, s, n)
 	local sc = (s.fireSize or 6) / 6
+	local pal = SMOKE_COLORS[s.smokeColor or 1] or SMOKE_COLORS[1]
 	e.Texture = FX_TEX.smoke
-	e.Color = seqC({ { 0, Color3.fromRGB(120, 120, 126) }, { 1, Color3.fromRGB(205, 205, 212) } })
+	e.Color = seqC({ { 0, pal[1] }, { 1, pal[2] } }, (s.smokeColor or 1) == 1 and s or nil)
 	e.LightEmission = 0
 	trySet(e, "LightInfluence", 0.6)
-	e.Size = seqN({ { 0, 0.8 * sc }, { 1, 3.2 * sc } })
+	e.Size = seqN({ { 0, 0.8 * sc }, { 1, 3.2 * sc } }, zoom(s))
 	e.Transparency = seqN({ { 0, 1 }, { 0.15, 0.55 }, { 0.7, 0.8 }, { 1, 1 } })
 	e.Lifetime = NumberRange.new(2.2, 3.8)
 	e.Speed = NumberRange.new(0, 0.6)
@@ -1757,9 +2022,9 @@ FX.smoke = function(e, s, n)
 end
 FX.embers = function(e, s, n)
 	e.Texture = FX_TEX.spark
-	e.Color = seqC({ { 0, Color3.fromRGB(255, 220, 140) }, { 0.5, Color3.fromRGB(255, 120, 30) }, { 1, Color3.fromRGB(120, 30, 10) } })
+	e.Color = seqC({ { 0, Color3.fromRGB(255, 220, 140) }, { 0.5, Color3.fromRGB(255, 120, 30) }, { 1, Color3.fromRGB(120, 30, 10) } }, s)
 	e.LightEmission = 1
-	e.Size = seqN({ { 0, 0.28 }, { 0.3, 0.2 }, { 1, 0 } })
+	e.Size = seqN({ { 0, 0.28 }, { 0.3, 0.2 }, { 1, 0 } }, zoom(s))
 	e.Transparency = seqN({ { 0, 0.1 }, { 0.8, 0.3 }, { 1, 1 } })
 	e.Lifetime = NumberRange.new(1.4, 3)
 	e.Speed = NumberRange.new(0.5, 2.5)
@@ -1775,8 +2040,8 @@ FX.sparkle = function(e, s, n)
 	e.Acceleration = Vector3.new(0, 0.6, 0)
 	e.Transparency = seqN({ { 0, 0 }, { 1, 1 } })
 	e.LightEmission = 1
-	e.Color = ColorSequence.new(Color3.new(1, 1, 1))
-	e.Size = seqN({ { 0, s.sparkSize or 0.35 }, { 1, 0 } })
+	e.Color = oneC(s, Color3.new(1, 1, 1))
+	e.Size = seqN({ { 0, s.sparkSize or 0.35 }, { 1, 0 } }, zoom(s))
 	e.Rate = (s.sparkRate or 25) * mul(s) / n
 end
 FX.confetti = function(e, s, n)
@@ -1789,17 +2054,22 @@ FX.confetti = function(e, s, n)
 	e.Rotation = NumberRange.new(0, 360)
 	e.RotSpeed = NumberRange.new(-240, 240)
 	e.LightEmission = 0.2
-	e.Size = NumberSequence.new(0.35)
+	e.Size = seqN({ { 0, 0.35 }, { 1, 0.35 } }, zoom(s))
 	e.Transparency = seqN({ { 0, 0 }, { 0.8, 0 }, { 1, 1 } })
 	local keys = {}
-	for i = 0, 6 do keys[#keys + 1] = { i / 6, Color3.fromHSV(i / 6, 0.85, 1) } end
-	e.Color = seqC(keys)
+	local pal = CONF_COLORS[s.confColor or 1]
+	if pal then
+		for i = 0, 6 do keys[#keys + 1] = { i / 6, pal[i % #pal + 1] } end
+	else
+		for i = 0, 6 do keys[#keys + 1] = { i / 6, Color3.fromHSV(i / 6, 0.85, 1) } end
+	end
+	e.Color = seqC(keys, s)
 end
 FX.snow = function(e, s, n)
 	e.Texture = FX_TEX.spark
-	e.Color = ColorSequence.new(Color3.new(1, 1, 1))
+	e.Color = oneC(s, Color3.new(1, 1, 1))
 	e.LightEmission = 0.5
-	e.Size = seqN({ { 0, 0.22 }, { 1, 0.16 } })
+	e.Size = seqN({ { 0, 0.22 }, { 1, 0.16 } }, zoom(s))
 	e.Transparency = seqN({ { 0, 1 }, { 0.1, 0.1 }, { 0.85, 0.2 }, { 1, 1 } })
 	e.Lifetime = NumberRange.new(3, 5)
 	e.Speed = NumberRange.new(1, 3)
@@ -1810,9 +2080,9 @@ FX.snow = function(e, s, n)
 end
 FX.sakura = function(e, s, n)
 	e.Texture = FX_TEX.spark
-	e.Color = ColorSequence.new(Color3.fromRGB(255, 170, 200))
+	e.Color = oneC(s, Color3.fromRGB(255, 170, 200))
 	e.LightEmission = 0.1
-	e.Size = seqN({ { 0, 0.4 }, { 1, 0.3 } })
+	e.Size = seqN({ { 0, 0.4 }, { 1, 0.3 } }, zoom(s))
 	e.Transparency = seqN({ { 0, 1 }, { 0.1, 0.1 }, { 0.85, 0.2 }, { 1, 1 } })
 	e.Lifetime = NumberRange.new(3, 5)
 	e.Speed = NumberRange.new(1, 3)
@@ -1824,9 +2094,9 @@ FX.sakura = function(e, s, n)
 end
 FX.firefly = function(e, s, n)
 	e.Texture = FX_TEX.spark
-	e.Color = ColorSequence.new(Color3.fromRGB(210, 255, 120))
+	e.Color = oneC(s, Color3.fromRGB(210, 255, 120))
 	e.LightEmission = 1
-	e.Size = seqN({ { 0, 0 }, { 0.2, 0.4 }, { 0.8, 0.4 }, { 1, 0 } })
+	e.Size = seqN({ { 0, 0 }, { 0.2, 0.4 }, { 0.8, 0.4 }, { 1, 0 } }, zoom(s))
 	e.Transparency = seqN({ { 0, 1 }, { 0.2, 0.15 }, { 0.8, 0.15 }, { 1, 1 } })
 	e.Lifetime = NumberRange.new(3, 5)
 	e.Speed = NumberRange.new(0.4, 1.2)
@@ -1836,15 +2106,178 @@ FX.firefly = function(e, s, n)
 end
 FX.bubbles = function(e, s, n)
 	e.Texture = FX_TEX.smoke
-	e.Color = ColorSequence.new(Color3.fromRGB(190, 235, 255))
+	e.Color = oneC(s, Color3.fromRGB(190, 235, 255))
 	e.LightEmission = 0.3
-	e.Size = seqN({ { 0, 0.2 }, { 1, 0.6 } })
+	e.Size = seqN({ { 0, 0.2 }, { 1, 0.6 } }, zoom(s))
 	e.Transparency = seqN({ { 0, 0.55 }, { 0.8, 0.65 }, { 1, 1 } })
 	e.Lifetime = NumberRange.new(2, 3.5)
 	e.Speed = NumberRange.new(0.3, 1.2)
 	e.Acceleration = Vector3.new(0, 1.8, 0)
 	trySet(e, "Drag", 0.6)
 	e.Rate = 7 * mul(s) / n
+end
+-- ⚡ 電気: 青白い火花が、パチパチと四方へ飛ぶ
+FX.electric = function(e, s, n)
+	e.Texture = FX_TEX.spark
+	e.Color = seqC({ { 0, Color3.fromRGB(255, 255, 255) }, { 0.4, Color3.fromRGB(150, 205, 255) }, { 1, Color3.fromRGB(70, 110, 255) } }, s)
+	e.LightEmission = 1
+	e.Size = seqN({ { 0, 0.5 }, { 0.5, 0.28 }, { 1, 0 } }, zoom(s))
+	e.Transparency = seqN({ { 0, 0 }, { 0.7, 0.2 }, { 1, 1 } })
+	e.Lifetime = NumberRange.new(0.12, 0.34)
+	e.Speed = NumberRange.new(7, 16)
+	e.SpreadAngle = Vector2.new(180, 180)
+	e.Acceleration = Vector3.new(0, 0, 0)
+	e.Rotation = NumberRange.new(0, 360)
+	e.RotSpeed = NumberRange.new(-400, 400)
+	e.Rate = 34 * mul(s) / n
+end
+-- 🌠 星くず: カラフルな小さな星が、ふわふわ昇る
+FX.stardust = function(e, s, n)
+	e.Texture = FX_TEX.spark
+	local keys = {}
+	for i = 0, 5 do keys[#keys + 1] = { i / 5, Color3.fromHSV((i * 0.17) % 1, 0.5, 1) } end
+	e.Color = seqC(keys, s)
+	e.LightEmission = 1
+	e.Size = seqN({ { 0, 0 }, { 0.2, 0.42 }, { 1, 0.08 } }, zoom(s))
+	e.Transparency = seqN({ { 0, 1 }, { 0.15, 0.1 }, { 0.8, 0.25 }, { 1, 1 } })
+	e.Lifetime = NumberRange.new(2, 3.6)
+	e.Speed = NumberRange.new(0.6, 2.4)
+	e.Acceleration = Vector3.new(0, 0.5, 0)
+	trySet(e, "Drag", 0.6)
+	e.Rotation = NumberRange.new(0, 360)
+	e.RotSpeed = NumberRange.new(-120, 120)
+	e.Rate = 14 * mul(s) / n
+end
+-- 🍂 落ち葉: 黄色からこげ茶へ、くるくる回りながら落ちる
+FX.leaves = function(e, s, n)
+	e.Texture = FX_TEX.spark
+	e.Color = seqC({ { 0, Color3.fromRGB(255, 205, 70) }, { 0.5, Color3.fromRGB(230, 120, 35) }, { 1, Color3.fromRGB(140, 70, 25) } }, s)
+	e.LightEmission = 0
+	e.Size = seqN({ { 0, 0.55 }, { 1, 0.45 } }, zoom(s))
+	e.Transparency = seqN({ { 0, 1 }, { 0.1, 0.05 }, { 0.85, 0.1 }, { 1, 1 } })
+	e.Lifetime = NumberRange.new(3.5, 5.5)
+	e.Speed = NumberRange.new(1, 3)
+	e.Acceleration = Vector3.new(0, -1.8, 0)
+	trySet(e, "Drag", 0.7)
+	e.Rotation = NumberRange.new(0, 360)
+	e.RotSpeed = NumberRange.new(-180, 180)
+	e.Rate = 9 * mul(s) / n
+end
+-- 💧 しずく: 水しぶきが跳ねて、また落ちる
+FX.droplets = function(e, s, n)
+	e.Texture = FX_TEX.spark
+	e.Color = seqC({ { 0, Color3.fromRGB(215, 240, 255) }, { 1, Color3.fromRGB(110, 175, 255) } }, s)
+	e.LightEmission = 0.4
+	e.Size = seqN({ { 0, 0.2 }, { 1, 0.1 } }, zoom(s))
+	e.Transparency = seqN({ { 0, 0.1 }, { 0.8, 0.3 }, { 1, 1 } })
+	e.Lifetime = NumberRange.new(0.8, 1.4)
+	e.Speed = NumberRange.new(3, 8)
+	e.SpreadAngle = Vector2.new(50, 50)
+	e.EmissionDirection = Enum.NormalId.Top
+	e.Acceleration = Vector3.new(0, -26, 0)
+	e.Rate = 22 * mul(s) / n
+end
+-- 🔮 魔法: 紫からピンク・白へ、きらめきながら昇る
+FX.magic = function(e, s, n)
+	e.Texture = FX_TEX.spark
+	e.Color = seqC({ { 0, Color3.fromRGB(130, 70, 255) }, { 0.5, Color3.fromRGB(255, 110, 230) }, { 1, Color3.fromRGB(255, 255, 255) } }, s)
+	e.LightEmission = 1
+	e.Size = seqN({ { 0, 0.2 }, { 0.3, 0.55 }, { 1, 0 } }, zoom(s))
+	e.Transparency = seqN({ { 0, 1 }, { 0.15, 0.1 }, { 0.8, 0.3 }, { 1, 1 } })
+	e.Lifetime = NumberRange.new(1.6, 2.8)
+	e.Speed = NumberRange.new(0.5, 1.8)
+	e.Acceleration = Vector3.new(0, 1.8, 0)
+	trySet(e, "Drag", 0.5)
+	e.Rotation = NumberRange.new(0, 360)
+	e.RotSpeed = NumberRange.new(-200, 200)
+	e.Rate = 18 * mul(s) / n
+end
+-- 🌫 もや: 板のまわりを、うすい霧がただよう
+FX.mist = function(e, s, n, p)
+	local d = bigSide(p)
+	e.Texture = FX_TEX.smoke
+	e.Color = seqC({ { 0, Color3.fromRGB(215, 225, 235) }, { 1, Color3.fromRGB(240, 245, 250) } }, s)
+	e.LightEmission = 0
+	trySet(e, "LightInfluence", 0.8)
+	e.Size = seqN({ { 0, 0.5 * d }, { 1, 1.1 * d } }, zoom(s))
+	e.Transparency = seqN({ { 0, 1 }, { 0.25, 0.74 }, { 0.7, 0.84 }, { 1, 1 } })
+	e.Lifetime = NumberRange.new(3.5, 5.5)
+	e.Speed = NumberRange.new(0.2, 0.8)
+	e.Acceleration = Vector3.new(0, 0.3, 0)
+	e.Rotation = NumberRange.new(0, 360)
+	e.RotSpeed = NumberRange.new(-15, 15)
+	e.Rate = 3.5 * mul(s) / n
+end
+-- 🔆 後光: 板のまわりに、大きくてやわらかい光のかたまり (板についてくる)
+FX.halo = function(e, s, n, p)
+	local d = bigSide(p)
+	e.Texture = FX_TEX.smoke
+	local base = s.glowColor or Color3.fromRGB(255, 235, 190)
+	e.Color = seqC({ { 0, base }, { 1, base } }, s and s.fxTint and s or nil)
+	e.LightEmission = 1
+	trySet(e, "LightInfluence", 0)
+	e.Size = seqN({ { 0, 1.1 * d }, { 1, 1.8 * d } }, zoom(s))
+	e.Transparency = seqN({ { 0, 1 }, { 0.2, 0.8 }, { 0.8, 0.88 }, { 1, 1 } })
+	e.Lifetime = NumberRange.new(2.2, 3)
+	e.Speed = NumberRange.new(0, 0)
+	e.Acceleration = Vector3.new(0, 0, 0)
+	trySet(e, "LockedToPart", true)
+	e.Rate = 2.4 * mul(s) / n
+end
+-- 🌧 雨: 板の上から、斜めにならず真下へ降りそそぐ (板の上にならんだ見えない点から出す)
+FX.rain = function(e, s, n, p)
+	local d = bigSide(p)
+	e.Texture = FX_TEX.spark
+	e.Color = seqC({ { 0, Color3.fromRGB(230, 242, 255) }, { 1, Color3.fromRGB(150, 190, 255) } }, s)
+	e.LightEmission = 0.5
+	e.Size = seqN({ { 0, 0.16 }, { 1, 0.12 } }, zoom(s))
+	e.Transparency = seqN({ { 0, 0.3 }, { 0.8, 0.45 }, { 1, 1 } })
+	local h = math.clamp(d * 0.6, 5, 14)
+	e.Lifetime = NumberRange.new(h / 34 + 0.05, h / 34 + 0.25)
+	e.Speed = NumberRange.new(26, 34)
+	local ang = math.clamp(math.deg(math.atan((d * 0.5) / h)) + 6, 12, 55)
+	e.SpreadAngle = Vector2.new(ang, ang)
+	e.Acceleration = Vector3.new(0, -24, 0)
+	e.Rate = 60 * mul(s) / n
+end
+
+-- 軌跡 (トレイル): 板が動くと、うしろに光の帯がのびる (止まっていると見えない)
+local function trailOn(model, s, hosts)
+	local p = hosts[1]
+	if not p then return end
+	local tr = p:FindFirstChild("SkinFx_trail")
+	local a0, a1 = p:FindFirstChild("SkinFxAtt_trail0"), p:FindFirstChild("SkinFxAtt_trail1")
+	if not a0 then
+		a0 = Instance.new("Attachment")
+		a0.Name = "SkinFxAtt_trail0"
+		a0.Parent = p
+	end
+	if not a1 then
+		a1 = Instance.new("Attachment")
+		a1.Name = "SkinFxAtt_trail1"
+		a1.Parent = p
+	end
+	local z = p.Size
+	local ax = Vector3.new(0, 1, 0)   -- いちばん長い辺の向きに、帯の幅をとる
+	local len = z.Y
+	if z.X >= len and z.X >= z.Z then ax, len = Vector3.new(1, 0, 0), z.X elseif z.Z >= len then ax, len = Vector3.new(0, 0, 1), z.Z end
+	pcall(function()
+		a0.Position = ax * (len * 0.45)
+		a1.Position = ax * (-len * 0.45)
+	end)
+	if not tr then
+		tr = Instance.new("Trail")
+		tr.Name = "SkinFx_trail"
+		tr.Attachment0, tr.Attachment1 = a0, a1
+		tr.Parent = p
+	end
+	trySet(tr, "Lifetime", 0.9 * (1 + 0.5 * ((s.fxMul or 1) - 1)))
+	trySet(tr, "MinLength", 0.05)
+	trySet(tr, "FaceCamera", true)
+	trySet(tr, "LightEmission", 0.6)
+	trySet(tr, "Color", seqC({ { 0, Color3.fromRGB(90, 220, 255) }, { 0.5, Color3.fromRGB(190, 110, 255) }, { 1, Color3.fromRGB(255, 110, 200) } }, s))
+	trySet(tr, "Transparency", seqN({ { 0, 0.15 }, { 1, 1 } }))
+	trySet(tr, "WidthScale", seqN({ { 0, 1 }, { 1, 0.1 } }, zoom(s)))
 end
 
 local function fxHosts(model, n)
@@ -1859,6 +2292,36 @@ local function fxHosts(model, n)
 	return out
 end
 
+-- 板の上の見えない点から、真下へ向けて出すための場所 (雨用)。板が傾いていても、世界の真下へ向く面を選ぶ
+local function downFace(a)
+	local ok, v = pcall(function() return a.WorldCFrame:VectorToObjectSpace(Vector3.new(0, -1, 0)) end)
+	if not ok or not v then return Enum.NormalId.Bottom end
+	local ax, ay, az = math.abs(v.X), math.abs(v.Y), math.abs(v.Z)
+	if ay >= ax and ay >= az then return v.Y > 0 and Enum.NormalId.Top or Enum.NormalId.Bottom end
+	if ax >= az then return v.X > 0 and Enum.NormalId.Right or Enum.NormalId.Left end
+	return v.Z > 0 and Enum.NormalId.Back or Enum.NormalId.Front
+end
+local function skyAttach(p, name)
+	local a = p:FindFirstChild("SkinFxAtt_" .. name)
+	if not a then
+		a = Instance.new("Attachment")
+		a.Name = "SkinFxAtt_" .. name
+		a.Parent = p
+	end
+	local h = math.clamp(bigSide(p) * 0.6, 5, 14)
+	pcall(function() a.Position = p.CFrame:VectorToObjectSpace(Vector3.new(0, h + p.Size.Y * 0.5, 0)) end)
+	return a
+end
+
+local function removeFx(model, name)
+	for _, p in ipairs(partsOf(model)) do
+		for _, nm in ipairs({ "SkinFx_" .. name, "SkinFxAtt_" .. name, "SkinFxAtt_" .. name .. "0", "SkinFxAtt_" .. name .. "1" }) do
+			local o = p:FindFirstChild(nm)
+			if o then o:Destroy() end
+		end
+	end
+end
+
 -- 効果を付ける / 外す。すでに付いていれば、作り直さずに設定だけ更新する (滑らかに変わる)
 local function setFx(model, name, on)
 	local s = st(model)
@@ -1866,31 +2329,42 @@ local function setFx(model, name, on)
 	local en = "SkinFx_" .. name
 	if not on then
 		s.fx[name] = nil
-		for _, p in ipairs(partsOf(model)) do
-			local e = p:FindFirstChild(en)
-			if e then e:Destroy() end
-		end
+		removeFx(model, name)
 		return
 	end
 	s.fx[name] = true
-	local hosts = fxHosts(model, 3)
+	if name == "trail" then
+		trailOn(model, s, fxHosts(model, 1))
+		return
+	end
+	local sky = (name == "rain")
+	local hosts = fxHosts(model, sky and 1 or 3)
 	local keep = {}
 	for _, p in ipairs(hosts) do
 		keep[p] = true
 		local e = p:FindFirstChild(en)
+		local att = sky and skyAttach(p, name) or nil
+		if sky and not e and att then e = att:FindFirstChild(en) end
 		if e then
-			FX[name](e, s, #hosts)
+			FX[name](e, s, #hosts, p)
 		else
 			e = Instance.new("ParticleEmitter")
 			e.Name = en
-			FX[name](e, s, #hosts)
-			e.Parent = p
+			FX[name](e, s, #hosts, p)
+			e.Parent = att or p
 		end
+		if att then
+			e.EmissionDirection = downFace(att)
+			e.Parent = att
+		end
+		trySet(e, "TimeScale", s.fxSpeed or 1)
 	end
 	for _, p in ipairs(partsOf(model)) do   -- パーツが増減した時に、付ける先から外れたものを片づける
 		if not keep[p] then
-			local e = p:FindFirstChild(en)
-			if e then e:Destroy() end
+			for _, nm in ipairs({ en, "SkinFxAtt_" .. name }) do
+				local o = p:FindFirstChild(nm)
+				if o then o:Destroy() end
+			end
 		end
 	end
 end
@@ -1913,74 +2387,131 @@ local function clearFx(model)
 	end
 end
 
--- プリセット(Full)を付ける前に、いまの光・動き・効果を全部消す
-function SK.resetExtras(model, parts)
+-- プリセット(Full)を付ける前に、いまの光・動き・効果を全部消す。
+-- which = nil なら全部 / "look" なら色・質感まわりだけ / "fx" なら光・動き・効果だけ
+function SK.resetExtras(model, parts, which)
 	local s = st(model)
-	clearFx(model)
-	s.sparkRate, s.sparkSize, s.fireSize, s.fireColor, s.fxMul = nil, nil, nil, nil, nil
-	s.pulse, s.pulseStyle, s.pulseBody = nil, nil, nil
-	s.rainbow, s.rbSpread = nil, nil
-	s.glowColor = nil
-	-- 光・動き・質感まわりの追加設定も、いったん初期に戻す (画面のスイッチ類も同時に初期へ戻るので、合わせておく)
-	s.pdepth, s.pwave, s.gmode, s.gcol2, s.gspeed, s.night, s.spot, s.ofill, s.lightShape = nil, nil, nil, nil, nil, nil, nil, nil, nil
-	s.sky, s.wkind, s.wh, s.glossAxis, s.variance, s.weather = nil, nil, nil, nil, nil, nil
-	twoOff(model, parts, false)
-	SK.sheen(model, parts, 0)
-	SK.edge(model, parts, 0)
-	SK.clearGrad(model)
-	setOutline(model, false)
+	if which ~= "look" then
+		clearFx(model)
+		s.sparkRate, s.sparkSize, s.fireSize, s.fireColor, s.fxMul = nil, nil, nil, nil, nil
+		s.fxSize, s.fxSpeed, s.fxTint, s.smokeColor, s.confColor = nil, nil, nil, nil, nil
+		s.pulse, s.pulseStyle, s.pulseBody = nil, nil, nil
+		s.glowColor = nil
+		-- 光・動きまわりの追加設定も、いったん初期に戻す (画面のスイッチ類も同時に初期へ戻るので、合わせておく)
+		s.pdepth, s.pwave, s.gmode, s.gcol2, s.gcol3, s.gspeed, s.night, s.spot, s.ofill, s.lightShape = nil, nil, nil, nil, nil, nil, nil, nil, nil, nil
+		s.lshadow, s.othru, s.glowSat = nil, nil, nil
+		setOutline(model, false)
+	end
+	if which ~= "fx" then
+		s.rainbow, s.rbSpread = nil, nil
+		s.sky, s.wkind, s.wh, s.glossAxis, s.variance, s.weather = nil, nil, nil, nil, nil, nil
+		s.sheenCol, s.edgeCol = nil, nil
+		twoOff(model, parts, false)
+		SK.sheen(model, parts, 0)
+		SK.edge(model, parts, 0)
+		SK.clearGrad(model)
+	end
 	syncAnim(model)
 end
 
 -- プリセットを反映する。Full のものは、いまの光・動き・効果を先に全部消してから見た目一式を付ける
-local function applyPreset(model, parts, pr)
+-- opt.part: "all" (ぜんぶ) / "look" (色・素材・ツヤだけ) / "fx" (光・動き・効果だけ)   opt.hue: 色相をずらす量 (0〜1。色違いにする)
+local function hueShift(c, h)
+	if typeof(c) ~= "Color3" or not h or h == 0 then return c end
+	local hh, ss, vv = c:ToHSV()
+	return Color3.fromHSV((hh + h) % 1, ss, vv)
+end
+local function applyPreset(model, parts, pr, opt)
 	local s = st(model)
-	if pr.Full then
-		SK.resetExtras(model, parts)
-		s.texUser = false
-		setTexture(parts, false)
+	local part = opt and opt.part or "all"
+	local hu = opt and isNum(opt.hue) and (opt.hue % 1) or nil
+	local function H(c) return hueShift(c, hu) end
+	if pr.Full then SK.resetExtras(model, parts, part ~= "all" and part or nil) end
+	if part ~= "fx" then
+		if pr.Full then
+			s.texUser = false
+			setTexture(parts, false)
+		end
+		s.rainbow = nil
+		s.neon, s.neonSaved = nil, nil
+		s.userCol = true     -- プリセットの色は、自分で選んだ色として扱う (このあと素材を選んでも色は残る)
+		s.seeMat = true      -- 素材の模様が、グラデの下から見える
+		s.glowLook = nil
+		if pr.Var then s.variance = pr.Var end
+		if pr.Wk then
+			s.wkind, s.weather = pr.Wk[1], pr.Wk[2]
+			SK.setHeights(model, parts)
+		end
+		paint(model, parts, H(pr.Color))
+		for _, p in ipairs(parts) do
+			remember(p)
+			p.Material = Enum.Material[pr.Material]
+			p.Transparency = pr.Transparency
+		end
+		s.glossStyle = pr.GlossStyle or (pr.Full and 1 or s.glossStyle)
+		if pr.Sky then s.sky = pr.Sky end
+		if pr.SheenCol then s.sheenCol = pr.SheenCol end
+		if pr.EdgeCol then s.edgeCol = pr.EdgeCol end
+		SK.reflect(model, parts, pr.Reflectance)
+		if pr.Grad then
+			local g = pr.Grad
+			SK.gradient(model, parts, { a = H(g.a), b = H(g.b), c = H(g.c), axis = g.axis, mid = g.mid, stripes = g.stripes, flow = g.flow, smooth = true })
+		end
+		if pr.Rainbow then
+			s.rbSpeed, s.rbSat, s.rbSpread = pr.Rainbow[1], pr.Rainbow[2], pr.Rainbow[3]
+			SK.rainbow(model, parts, true)
+		end
+		if pr.Sheen then SK.sheen(model, parts, pr.Sheen) end
+		if pr.Edge then SK.edge(model, parts, pr.Edge) end
 	end
-	s.rainbow = nil
-	s.neon, s.neonSaved = nil, nil
-	s.userCol = true     -- プリセットの色は、自分で選んだ色として扱う (このあと素材を選んでも色は残る)
-	s.seeMat = true      -- 素材の模様が、グラデの下から見える
-	s.glowLook = nil
-	paint(model, parts, pr.Color)
-	for _, p in ipairs(parts) do
-		remember(p)
-		p.Material = Enum.Material[pr.Material]
-		p.Transparency = pr.Transparency
+	if part ~= "look" then
+		if pr.FxMul then s.fxMul = pr.FxMul end
+		if pr.FxSize then s.fxSize = pr.FxSize end
+		if pr.FxSpeed then s.fxSpeed = pr.FxSpeed end
+		if pr.FxTint then s.fxTint = H(pr.FxTint) end
+		if pr.SmokeCol then s.smokeColor = pr.SmokeCol end
+		if pr.ConfCol then s.confColor = pr.ConfCol end
+		s.glowColor = H(pr.GlowColor)
+		if pr.Shape then s.lightShape = pr.Shape end
+		if pr.Spot then s.spot = pr.Spot end
+		if pr.GCol2 then s.gcol2 = H(pr.GCol2) end
+		if pr.GMode then s.gmode = pr.GMode end
+		if pr.GSpeed then s.gspeed = pr.GSpeed end
+		if pr.Night ~= nil then s.night = pr.Night end
+		setGlow(model, s.glowColor or H(pr.Color), pr.Glow, pr.Range)
+		if pr.Pulse then
+			s.pulse, s.pulseStyle, s.pulseBody = pr.Pulse[1], pr.Pulse[2], pr.Pulse[3] == true
+			if pr.Pulse[4] then s.pdepth = pr.Pulse[4] end
+			if pr.Pulse[5] then
+				s.pwave = pr.Pulse[5]
+				SK.assignW(model, parts)
+			end
+		end
+		if pr.FireSize then s.fireSize = pr.FireSize end
+		if pr.FireColor then s.fireColor = pr.FireColor end
+		if pr.Sparkle then
+			s.sparkRate, s.sparkSize = pr.Sparkle[1], pr.Sparkle[2]
+			setFx(model, "sparkle", true)
+		end
+		if pr.Fx then
+			for _, n in ipairs(pr.Fx) do setFx(model, n, true) end
+		end
+		if pr.OutlineHue or pr.OutlineCol then
+			s.ofill = pr.OFill
+			s.othru = pr.OThru
+			setOutline(model, true, pr.OutlineCol and H(pr.OutlineCol) or Color3.fromHSV((pr.OutlineHue + (hu or 0)) % 1, 0.75, 1))
+		end
+		if s.fx and not pr.Fx and not pr.Sparkle and (pr.FxMul or pr.FxSize or pr.FxSpeed or pr.FxTint) then refreshFx(model) end
 	end
-	s.glossStyle = pr.GlossStyle or (pr.Full and 1 or s.glossStyle)
-	SK.reflect(model, parts, pr.Reflectance)
-	s.glowColor = pr.GlowColor
-	setGlow(model, pr.GlowColor or pr.Color, pr.Glow, pr.Range)
-	if pr.Grad then
-		local g = pr.Grad
-		SK.gradient(model, parts, { a = g.a, b = g.b, c = g.c, axis = g.axis, mid = g.mid, stripes = g.stripes, flow = g.flow, smooth = true })
-	end
-	if pr.Rainbow then
-		s.rbSpeed, s.rbSat, s.rbSpread = pr.Rainbow[1], pr.Rainbow[2], pr.Rainbow[3]
-		SK.rainbow(model, parts, true)
-	end
-	if pr.Pulse then
-		s.pulse, s.pulseStyle, s.pulseBody = pr.Pulse[1], pr.Pulse[2], pr.Pulse[3] == true
-	end
-	if pr.FireSize then s.fireSize = pr.FireSize end
-	if pr.FireColor then s.fireColor = pr.FireColor end
-	if pr.Sparkle then
-		s.sparkRate, s.sparkSize = pr.Sparkle[1], pr.Sparkle[2]
-		setFx(model, "sparkle", true)
-	end
-	if pr.Fx then
-		for _, n in ipairs(pr.Fx) do setFx(model, n, true) end
-	end
-	if pr.OutlineHue then setOutline(model, true, Color3.fromHSV(pr.OutlineHue, 0.75, 1)) end
 	syncAnim(model)
 end
 
-local PULSE_STYLES = { Sine = true, Beat = true, Flicker = true, Strobe = true, Breath = true, Lightning = true, Neon = true, Saw = true, Steps = true, SOS = true }
-local MAX_BATCH = 100
+local PULSE_STYLES = { Sine = true, Beat = true, Flicker = true, Strobe = true, Breath = true, Lightning = true, Neon = true, Saw = true, Steps = true, SOS = true,
+	Twinkle = true, Police = true, Fire = true, Glitch = true, Pop = true, Wobble = true, Drift = true, Triple = true }
+local GLOW_MODES = { Solid = true, Blend = true, Alt = true, Hue = true, Tri = true, Rand = true, Flame = true }
+local FX_KIND = { Snow = "snow", Sakura = "sakura", Firefly = "firefly", Bubbles = "bubbles", Embers = "embers", Electric = "electric", Stardust = "stardust", Leaves = "leaves",
+	Droplets = "droplets", Magic = "magic", Mist = "mist", Halo = "halo", Rain = "rain", Trail = "trail" }
+local MAX_BATCH = 200
 local applySkin
 function applySkin(model, kind, value)
 	local parts = partsOf(model)
@@ -1989,9 +2520,11 @@ function applySkin(model, kind, value)
 	-- 素材ボタン (Look): 自分で色(単色・グラデ・レインボー)を選んでいる板では、色は消さずに素材だけ変える (smart)。
 	-- まだ色を選んでいない板は、今までどおり素材の色になる。素材の色にしたい時は LookRaw
 	local smart = (kind == "Look" and s.userCol == true)
-	if s.two and (kind == "Look" or kind == "LookKeep" or kind == "LookRaw" or kind == "Material" or kind == "Preset") then s.two = nil end   -- 素材を丸ごと入れ替える操作は、ツートンをやめる
+	local presetPart = (kind == "Preset" and typeof(value) == "table") and value.part or "all"   -- プリセットを「光と効果だけ」入れる時は、色・素材にさわらない
+	local presetLook = (kind == "Preset" and presetPart ~= "fx")
+	if s.two and (kind == "Look" or kind == "LookKeep" or kind == "LookRaw" or kind == "Material" or presetLook) then s.two = nil end   -- 素材を丸ごと入れ替える操作は、ツートンをやめる
 	-- 色を直接変える操作・レインボーONの時は、重ね貼りしているグラデーションを先に外す。色を決める操作はレインボーも止める
-	local recolor = kind == "Color" or kind == "HSV" or kind == "RGB" or kind == "LookRaw" or (kind == "Look" and not smart) or kind == "Preset"
+	local recolor = kind == "Color" or kind == "HSV" or kind == "RGB" or kind == "LookRaw" or (kind == "Look" and not smart) or presetLook
 	if recolor or (kind == "Rainbow" and value == true) then
 		SK.clearGrad(model)
 	end
@@ -2111,7 +2644,9 @@ function applySkin(model, kind, value)
 		SK.refreshGradTr(model, parts)
 		return "素材を元に戻しました"
 	elseif kind == "TwoTone" then   -- 板の一部だけ別の素材 (と色) にする
-		if typeof(value) ~= "table" or typeof(value.mat) ~= "string" or not MATERIAL_SET[value.mat] then return "素材が不正です" end
+		local tlk = typeof(value) == "table" and typeof(value.mat) == "string" and LOOKS[value.mat] or nil   -- 素材ライブラリの名前でも、素材名でもよい
+		local tmat = tlk and tlk[2] or (typeof(value) == "table" and value.mat or nil)
+		if typeof(tmat) ~= "string" or not MATERIAL_SET[tmat] then return "素材が不正です" end
 		local set = SK.groupParts(model, parts, value.mode)
 		if not set then return "分け方が不正です" end
 		local plain = not s.grad and not s.rainbow   -- グラデ・レインボー中は、色はそちらに従う
@@ -2121,14 +2656,14 @@ function applySkin(model, kind, value)
 			if set[p] then
 				remember(p)
 				prev[p] = p.Material
-				p.Material = Enum.Material[value.mat]
+				p.Material = Enum.Material[tmat]
 				back[#back + 1] = p
 			end
 		end
 		setTexture(back, false)   -- 木目が残ると、新しい素材が見えない
 		local col
 		if value.same ~= true then
-			col = (typeof(value.col) == "Color3") and value.col or (LOOKS[value.mat] and LOOKS[value.mat][1]) or nil
+			col = (typeof(value.col) == "Color3") and value.col or (tlk and tlk[1]) or nil
 		end
 		s.two = { set = set, prev = prev, col = col }
 		if s.seeMat ~= true then   -- 別の素材にした部分だけ、模様をグラデの下から見せる
@@ -2153,11 +2688,14 @@ function applySkin(model, kind, value)
 		if type(s.seeMat) == "table" then s.seeMat = nil end
 		SK.refreshGradTr(model, parts)
 		return "ツートンをやめました"
-	elseif kind == "Preset" then
-		local pr = typeof(value) == "string" and PRESETS[value] or nil
+	elseif kind == "Preset" then   -- 値は プリセット名 か { id = 名前, hue = 色相のずらし, part = "all" | "look" | "fx" }
+		local id, opt = value, nil
+		if typeof(value) == "table" then id, opt = value.id, value end
+		local pr = typeof(id) == "string" and PRESETS[id] or nil
 		if not pr then return "プリセットが不正です" end
-		applyPreset(model, parts, pr)
-		return "プリセット「" .. value .. "」を適用しました"
+		if opt and opt.part ~= nil and opt.part ~= "all" and opt.part ~= "look" and opt.part ~= "fx" then return "値が不正です" end
+		applyPreset(model, parts, pr, opt)
+		return "プリセット「" .. id .. "」を適用しました"
 	elseif kind == "Reflectance" then
 		if not isNum(value) then return "値が不正です" end
 		SK.reflect(model, parts, value)   -- 素材やテクスチャは変えない
@@ -2205,7 +2743,7 @@ function applySkin(model, kind, value)
 		return value > 0 and "光が走ります" or "光の走りを止めました"
 	elseif kind == "SheenColor" then
 		if not isNum(value) then return "値が不正です" end
-		s.sheenCol = math.clamp(math.floor(value + 0.5), 1, 3)
+		s.sheenCol = math.clamp(math.floor(value + 0.5), 1, SK.SHEEN_COLS)
 		if (s.sheen or 0) > 0 then SK.relayer(model) end
 		return "光の色を変えました"
 	elseif kind == "Edge" then   -- 角のハイライト
@@ -2231,7 +2769,7 @@ function applySkin(model, kind, value)
 	elseif kind == "GlowHue" then
 		if not isNum(value) then return "値が不正です" end
 		s.glowLook = nil
-		s.glowColor = Color3.fromHSV(math.clamp(value, 0, 1), 0.8, 1)
+		s.glowColor = Color3.fromHSV(math.clamp(value, 0, 1), s.glowSat or 0.8, 1)
 		local h = glowHost(model)
 		local l = h and h:FindFirstChild("SkinGlow")
 		if l then l.Color = s.glowColor end
@@ -2312,13 +2850,13 @@ function applySkin(model, kind, value)
 		syncAnim(model)
 		return "光の波を変えました"
 	elseif kind == "GlowMode" then   -- 光の色の動き: Solid 単色 / Blend 2色を往復 / Alt 2色を交互 / Hue 虹色
-		if value ~= "Solid" and value ~= "Blend" and value ~= "Alt" and value ~= "Hue" then return "値が不正です" end
+		if typeof(value) ~= "string" or not GLOW_MODES[value] then return "値が不正です" end
 		s.gmode = value
 		syncAnim(model)
 		return "光の色の動きを変えました"
 	elseif kind == "GlowHue2" then
 		if not isNum(value) then return "値が不正です" end
-		s.gcol2 = Color3.fromHSV(math.clamp(value, 0, 1), 0.8, 1)
+		s.gcol2 = Color3.fromHSV(math.clamp(value, 0, 1), s.glowSat or 0.8, 1)
 		syncAnim(model)
 		return "2つ目の光の色を変えました"
 	elseif kind == "GlowSpeed" then
@@ -2372,14 +2910,98 @@ function applySkin(model, kind, value)
 	elseif kind == "Confetti" then
 		setFx(model, "confetti", value == true)
 		return value == true and "紙吹雪ON" or "紙吹雪OFF"
-	elseif kind == "Snow" or kind == "Sakura" or kind == "Firefly" or kind == "Bubbles" or kind == "Embers" then
-		setFx(model, string.lower(kind), value == true)
+	elseif FX_KIND[kind] then
+		setFx(model, FX_KIND[kind], value == true)
 		return value == true and (kind .. "ON") or (kind .. "OFF")
 	elseif kind == "FxAmount" then
 		if not isNum(value) then return "値が不正です" end
 		s.fxMul = math.clamp(value, 0.2, 3)
 		refreshFx(model)
 		return "効果の量を変えました"
+	elseif kind == "FxClear" then   -- 出ている効果を、ぜんぶ消す (量・大きさ・色の設定はそのまま)
+		clearFx(model)
+		return "効果を消しました"
+	elseif kind == "EdgeColor" then   -- 角の輝きの色 (1 白 / 2 金 / 3 青 / 4 ピンク / 5 緑 / 6 虹)
+		if not isNum(value) then return "値が不正です" end
+		s.edgeCol = math.clamp(math.floor(value + 0.5), 1, SK.EDGE_COLS)
+		if (s.edge or 0) > 0 then SK.relayer(model) end
+		return "角の輝きの色を変えました"
+	elseif kind == "GlowColor" or kind == "GlowColor2" or kind == "GlowColor3" then   -- 光の色を、色そのもので決める (白や電球色もここから)
+		if typeof(value) ~= "Color3" then return "色が不正です" end
+		if kind == "GlowColor" then
+			s.glowLook = nil
+			s.glowColor = value
+			local h = glowHost(model)
+			local l = h and h:FindFirstChild("SkinGlow")
+			if l then l.Color = value end
+			model:SetAttribute("PS_GlowCol", value)
+		elseif kind == "GlowColor2" then
+			s.gcol2 = value
+		else
+			s.gcol3 = value
+		end
+		syncAnim(model)
+		return "光の色を変えました"
+	elseif kind == "GlowSat" then   -- 光の色のこさ (0 = 白 / 1 = こい色)。いまの色の色あいはそのまま
+		if not isNum(value) then return "値が不正です" end
+		s.glowSat = math.clamp(value, 0, 1)
+		local function resat(c)
+			local hh = c:ToHSV()
+			return Color3.fromHSV(hh, s.glowSat, 1)
+		end
+		s.glowLook = nil
+		s.glowColor = resat(s.glowColor or Color3.fromHSV(0.58, 0.8, 1))
+		if s.gcol2 then s.gcol2 = resat(s.gcol2) end
+		if s.gcol3 then s.gcol3 = resat(s.gcol3) end
+		local h = glowHost(model)
+		local l = h and h:FindFirstChild("SkinGlow")
+		if l then l.Color = s.glowColor end
+		model:SetAttribute("PS_GlowCol", s.glowColor)
+		syncAnim(model)
+		return "光の色のこさを変えました"
+	elseif kind == "OutlineColor" then
+		if typeof(value) ~= "Color3" then return "色が不正です" end
+		setOutline(model, true, value)
+		return "縁取りの色を変えました"
+	elseif kind == "OutlineThru" then   -- 壁の向こうでも、縁取りが見える
+		s.othru = (value == true)
+		if model:FindFirstChild("SkinOutline") then setOutline(model, true) end
+		return value == true and "縁取りが壁の向こうでも見えます" or "縁取りは壁にかくれます"
+	elseif kind == "LightShadows" then   -- 光が影を作る
+		s.lshadow = (value == true)
+		local h = glowHost(model)
+		local l = h and h:FindFirstChild("SkinGlow")
+		if l then pcall(function() l.Shadows = s.lshadow end) end
+		return value == true and "光が影を作ります" or "光は影を作りません"
+	elseif kind == "FxSize" then
+		if not isNum(value) then return "値が不正です" end
+		s.fxSize = math.clamp(value, 0.3, 3)
+		refreshFx(model)
+		return "効果の大きさを変えました"
+	elseif kind == "FxSpeed" then
+		if not isNum(value) then return "値が不正です" end
+		s.fxSpeed = math.clamp(value, 0.3, 3)
+		refreshFx(model)
+		return "効果の速さを変えました"
+	elseif kind == "FxColor" then
+		if typeof(value) ~= "Color3" then return "色が不正です" end
+		s.fxTint = value
+		refreshFx(model)
+		return "効果の色を変えました"
+	elseif kind == "FxColorClear" then
+		s.fxTint = nil
+		refreshFx(model)
+		return "効果の色を元に戻しました"
+	elseif kind == "SmokeColor" then
+		if not isNum(value) then return "値が不正です" end
+		s.smokeColor = math.clamp(math.floor(value + 0.5), 1, #SMOKE_COLORS)
+		setFx(model, "smoke", true)
+		return "煙の色を変えました"
+	elseif kind == "ConfettiColor" then
+		if not isNum(value) then return "値が不正です" end
+		s.confColor = math.clamp(math.floor(value + 0.5), 1, #CONF_COLORS)
+		setFx(model, "confetti", true)
+		return "紙吹雪の色を変えました"
 	elseif kind == "Reset" then
 		clearFx(model)
 		SK.dropAll(model)
@@ -2403,6 +3025,9 @@ function applySkin(model, kind, value)
 	end
 	return "不明な操作です"
 end
+
+SK.PRESETS = PRESETS   -- 画面側が、プリセットの中身 (色・分類・表示) を読むため
+SK.FX_COUNT = #FX_NAMES
 -- 板を変える受け口 (RemoteFunction)。フォルダなどは一切作らない。
 -- 名前に _v3 を付けているのは、前の版のサーバーコードが残っていても混ざらないようにするため
 local remote = ReplicatedStorage:FindFirstChild("PalletStudioApply_v3")
@@ -2508,595 +3133,10 @@ Players.PlayerRemoving:Connect(function(p)
 	nextSlot[p] = nil
 	dropPerm(p)
 end)
----------------------------------------------------------------------
--- GitHub保存 (サーバー側)
---  画面側 (LocalScript) は Roblox の決まりで通信できないので、ここが代わりに GitHub の API と話す。
---  1人1ファイル「<フォルダ>/<IDの名前>.json」に、設定だけ (永久保存の見た目・プリセット・UI設定・軽量化の選択) を預かる。
---  ・トークンは、Secrets (名前: PalletStudioGitHub) か、ServerStorage の StringValue「PalletStudioGitHubToken」から読む。画面側へは絶対に送らない。
---  ・受け付けるのは「呼んだ本人のファイル」だけ。中身は形と大きさを検査して、決まった項目だけを書く。
---  ・書き込みは、変更が止まってから (6秒) まとめて1回。同じ内容なら書かない。全員ぶんをあわせて 1.5秒に1回までに抑える。
---  ・読み込みに成功するまでは保存しない (読めなかったのに、空の設定で前の保存を上書きしてしまうのを防ぐ)。
----------------------------------------------------------------------
-do
-	local HttpService = game:GetService("HttpService")
-	local ServerStorage = game:GetService("ServerStorage")
-
-	-- 設定 (画面側のファイルの先頭で決めた値)。形がおかしい時は「オフ」にする (URL に混ぜるので、使える文字だけにする)
-	local REPO = type(GH_REPO) == "string" and GH_REPO or ""
-	local BRANCH = type(GH_BRANCH) == "string" and GH_BRANCH or ""
-	local DIR = type(GH_DIR) == "string" and GH_DIR or ""
-	if not REPO:match("^[%w%-_%.]+/[%w%-_%.]+$") then REPO = "" end
-	if not BRANCH:match("^[%w%-_%./]*$") or BRANCH:find("..", 1, true) then BRANCH = "" end
-	DIR = (DIR:gsub("^/+", ""))
-	DIR = (DIR:gsub("/+$", ""))
-	if not DIR:match("^[%w%-_%./]*$") or DIR:find("..", 1, true) or DIR:find("//", 1, true) then DIR = "PalletStudio" end
-
-	local MAX_JSON = 300000   -- 1人ぶんのファイルの大きさの上限 (文字)
-	local DEBOUNCE = 6        -- 最後の保存依頼から、この秒数だけ静かなら書く
-	local PLAYER_GAP = 10     -- 同じ人の書き込みは、この秒数以上あける
-	local GLOBAL_GAP = 1.5    -- だれの分でも、GitHub への書き込みはこの秒数以上あける
-	local API = "https://api.github.com/repos/" .. REPO
-
-	local cloudRF = ReplicatedStorage:FindFirstChild("PalletStudioCloud_v1")
-	if not cloudRF then
-		cloudRF = Instance.new("RemoteFunction")
-		cloudRF.Name = "PalletStudioCloud_v1"
-		cloudRF.Parent = ReplicatedStorage
-	end
-	local cloudEv = ReplicatedStorage:FindFirstChild("PalletStudioCloudEvt_v1")
-	if not cloudEv then
-		cloudEv = Instance.new("RemoteEvent")
-		cloudEv.Name = "PalletStudioCloudEvt_v1"
-		cloudEv.Parent = ReplicatedStorage
-	end
-
-	---------------------------------------------------------------
-	-- base64 (GitHub は、ファイルの中身を base64 でやりとりする)
-	---------------------------------------------------------------
-	local B64C, B64V = {}, {}
-	do
-		local chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
-		for i = 1, 64 do
-			local ch = chars:sub(i, i)
-			B64C[i - 1] = ch
-			B64V[ch:byte()] = i - 1
-		end
-	end
-	local function b64enc(s)
-		local out, n, len = {}, 0, #s
-		local i = 1
-		while i + 2 <= len do
-			local a, b, c = s:byte(i, i + 2)
-			local v = a * 65536 + b * 256 + c
-			n = n + 1
-			out[n] = B64C[math.floor(v / 262144)] .. B64C[math.floor(v / 4096) % 64] .. B64C[math.floor(v / 64) % 64] .. B64C[v % 64]
-			i = i + 3
-		end
-		local rem = len - i + 1
-		if rem == 1 then
-			local v = s:byte(i) * 65536
-			n = n + 1
-			out[n] = B64C[math.floor(v / 262144)] .. B64C[math.floor(v / 4096) % 64] .. "=="
-		elseif rem == 2 then
-			local a, b = s:byte(i, i + 1)
-			local v = a * 65536 + b * 256
-			n = n + 1
-			out[n] = B64C[math.floor(v / 262144)] .. B64C[math.floor(v / 4096) % 64] .. B64C[math.floor(v / 64) % 64] .. "="
-		end
-		return table.concat(out)
-	end
-	local function b64dec(s)
-		s = (s:gsub("[^%w%+/]", ""))   -- 改行や「=」は取りのぞく
-		local out, n, len = {}, 0, #s
-		local i = 1
-		while i + 3 <= len do
-			local a, b, c, d = s:byte(i, i + 3)
-			local v = B64V[a] * 262144 + B64V[b] * 4096 + B64V[c] * 64 + B64V[d]
-			n = n + 1
-			out[n] = string.char(math.floor(v / 65536), math.floor(v / 256) % 256, v % 256)
-			i = i + 4
-		end
-		local rem = len - i + 1
-		if rem == 2 then
-			local v = B64V[s:byte(i)] * 262144 + B64V[s:byte(i + 1)] * 4096
-			n = n + 1
-			out[n] = string.char(math.floor(v / 65536))
-		elseif rem == 3 then
-			local v = B64V[s:byte(i)] * 262144 + B64V[s:byte(i + 1)] * 4096 + B64V[s:byte(i + 2)] * 64
-			n = n + 1
-			out[n] = string.char(math.floor(v / 65536), math.floor(v / 256) % 256)
-		end
-		return table.concat(out)
-	end
-
-	---------------------------------------------------------------
-	-- 読みやすい JSON (キーは名前順。短い物は1行に。GitHub 上で見やすく、変更の差分も小さくなる)
-	---------------------------------------------------------------
-	local function jstr(s)
-		return '"' .. (s:gsub('[%c"\\]', function(c)
-			if c == '"' then return '\\"' end
-			if c == "\\" then return "\\\\" end
-			if c == "\n" then return "\\n" end
-			if c == "\r" then return "\\r" end
-			if c == "\t" then return "\\t" end
-			return string.format("\\u%04x", string.byte(c))
-		end)) .. '"'
-	end
-	local function jnum(n)
-		if n ~= n or n == math.huge or n == -math.huge then return "null" end
-		if n == math.floor(n) and math.abs(n) < 1e15 then
-			if n == 0 then return "0" end
-			return string.format("%.0f", n)
-		end
-		return (string.format("%.10g", n))
-	end
-	local function scalarJ(v)
-		local t = type(v)
-		if t == "string" then return jstr(v) end
-		if t == "number" then return jnum(v) end
-		if t == "boolean" then return v and "true" or "false" end
-		return nil
-	end
-	-- 並べる順番を決める: 配列なら 1,2,3… / 辞書なら名前順。2つめの戻り値は「配列か」
-	local function keysOf(v)
-		local n, max, arr = 0, 0, true
-		for k in pairs(v) do
-			n = n + 1
-			if type(k) == "number" and k >= 1 and k == math.floor(k) then
-				if k > max then max = k end
-			else
-				arr = false
-			end
-		end
-		local keys = {}
-		if arr and max == n then
-			for i = 1, n do keys[i] = i end
-			return keys, true
-		end
-		for k in pairs(v) do
-			if type(k) == "string" then keys[#keys + 1] = k end
-		end
-		table.sort(keys)
-		return keys, false
-	end
-	-- 1行で書ける (長さ room 以内) なら、その文字。だめなら nil
-	local function inlineJ(v, room)
-		local s = scalarJ(v)
-		if s then return (#s <= room) and s or nil end
-		if type(v) ~= "table" then return "null" end
-		local keys, arr = keysOf(v)
-		if #keys == 0 then return "[]" end
-		if #keys > 12 then return nil end
-		local parts, used = {}, 4
-		for i, k in ipairs(keys) do
-			local sv = inlineJ(v[k], room - used)
-			if not sv then return nil end
-			parts[i] = arr and sv or (jstr(k) .. ": " .. sv)
-			used = used + #parts[i] + 2
-			if used > room then return nil end
-		end
-		local line = table.concat(parts, ", ")
-		return arr and ("[" .. line .. "]") or ("{ " .. line .. " }")
-	end
-	local function prettyJ(v, ind, out)
-		local one = inlineJ(v, 92 - #ind)
-		if one then
-			out[#out + 1] = one
-			return
-		end
-		local keys, arr = keysOf(v)
-		local pad = ind .. "  "
-		out[#out + 1] = arr and "[\n" or "{\n"
-		for i, k in ipairs(keys) do
-			out[#out + 1] = pad
-			if not arr then out[#out + 1] = jstr(k) .. ": " end
-			prettyJ(v[k], pad, out)
-			out[#out + 1] = (i < #keys) and ",\n" or "\n"
-		end
-		out[#out + 1] = ind .. (arr and "]" or "}")
-	end
-	local function toJson(v)
-		local out = {}
-		prettyJ(v, "", out)
-		return table.concat(out) .. "\n"
-	end
-
-	---------------------------------------------------------------
-	-- 検査: 画面から届いた物 / ファイルから読んだ物を、決まった形だけに作り直す
-	--  (数字・文字・true/false・配列・辞書だけ。深さ・個数・文字数に上限。関数や Instance などは捨てる)
-	---------------------------------------------------------------
-	local function cleanV(v, depth, st)
-		local t = type(v)
-		if t == "number" then
-			if v ~= v or v == math.huge or v == -math.huge then return nil end
-			return v
-		elseif t == "boolean" then
-			return v
-		elseif t == "string" then
-			if #v > 120 or utf8.len(v) == nil then return nil end
-			return v
-		elseif t == "table" then
-			if depth > 8 then st.bad = true return nil end
-			local out, cnt = {}, 0
-			for k, x in pairs(v) do
-				cnt = cnt + 1
-				st.items = st.items + 1
-				if cnt > 600 or st.items > 80000 then st.bad = true return nil end
-				local ck
-				if type(k) == "number" then
-					if k ~= math.floor(k) or k < 1 or k > 600 then st.bad = true return nil end
-					ck = k
-				elseif type(k) == "string" and #k <= 40 and not k:find("%c") then
-					ck = k
-				else
-					st.bad = true
-					return nil
-				end
-				local cv = cleanV(x, depth + 1, st)
-				if st.bad then return nil end
-				if cv ~= nil then out[ck] = cv end
-			end
-			return out
-		end
-		return nil
-	end
-	local TOP_KEYS = { "perm", "presets", "ui", "opt" }
-	local function sanitize(data)
-		if type(data) ~= "table" then return nil, "bad" end
-		local st = { items = 0 }
-		local out = { v = 1 }
-		for _, key in ipairs(TOP_KEYS) do
-			if data[key] ~= nil then
-				local c = cleanV(data[key], 1, st)
-				if st.bad then return nil, "big" end
-				if c ~= nil then out[key] = c end
-			end
-		end
-		return out
-	end
-
-	---------------------------------------------------------------
-	-- GitHub との通信
-	---------------------------------------------------------------
-	-- トークン: Secrets (本番サーバー) → ServerStorage の StringValue (Studio のテスト用) の順に探す。見つからなければ nil
-	local function authValue()
-		local ok, sec = pcall(function() return HttpService:GetSecret("PalletStudioGitHub") end)
-		if ok and sec then
-			local ok2, withPrefix = pcall(function() return sec:AddPrefix("Bearer ") end)
-			if ok2 and withPrefix then return withPrefix end
-		end
-		local v = ServerStorage:FindFirstChild("PalletStudioGitHubToken")
-		if v and v:IsA("StringValue") then
-			local tok = ((v.Value or ""):gsub("%s", ""))
-			if tok ~= "" then return "Bearer " .. tok end
-		end
-		return nil
-	end
-	local function hdr(res, name)
-		local h = res.Headers
-		if type(h) ~= "table" then return nil end
-		if h[name] ~= nil then return h[name] end
-		for k, x in pairs(h) do
-			if type(k) == "string" and k:lower() == name then return x end
-		end
-		return nil
-	end
-	-- 1回の通信。戻り値: 応答の表 / (nil, エラーの種類)。エラーの種類: no_token / http_off / net
-	local function http(method, url, bodyTable)
-		local auth = authValue()
-		if not auth then return nil, "no_token" end
-		local headers = { Authorization = auth, Accept = "application/vnd.github+json", ["X-GitHub-Api-Version"] = "2022-11-28" }
-		local body
-		if bodyTable then
-			headers["Content-Type"] = "application/json"
-			body = HttpService:JSONEncode(bodyTable)
-		end
-		local ok, res = pcall(function()
-			return HttpService:RequestAsync({ Url = url, Method = method, Headers = headers, Body = body })
-		end)
-		if not ok then
-			if tostring(res):lower():find("not enabled", 1, true) then return nil, "http_off" end
-			return nil, "net"
-		end
-		if type(res) ~= "table" then return nil, "net" end
-		return res
-	end
-	-- 失敗した応答の種類。2つめの戻り値は、待つ秒数 (回数制限の時だけ)
-	local function classify(res)
-		local c = res.StatusCode or 0
-		local function rateWait()
-			local ra = tonumber(hdr(res, "retry-after") or "")
-			if ra then return math.clamp(ra, 5, 900) end
-			local reset = tonumber(hdr(res, "x-ratelimit-reset") or "")
-			if reset then return math.clamp(reset - os.time(), 5, 900) end
-			return 60
-		end
-		if c == 429 then return "rate", rateWait() end
-		if c == 403 then
-			local body = tostring(res.Body or ""):lower()
-			if tostring(hdr(res, "x-ratelimit-remaining") or "") == "0" or hdr(res, "retry-after") or body:find("rate limit", 1, true) or body:find("abuse", 1, true) then
-				return "rate", rateWait()
-			end
-			return "auth"
-		end
-		if c == 401 then return "auth" end
-		if c == 404 then return "notfound" end
-		if c == 409 or c == 422 then return "conflict" end
-		if c >= 500 then return "net" end
-		return "bad"
-	end
-
-	local function fileUrl(rec)
-		return API .. "/contents/" .. (DIR ~= "" and (DIR .. "/") or "") .. rec.name .. ".json"
-	end
-	local repoOK = nil   -- リポジトリに入れると確かめられたか (最初の「見つからない」の時だけ調べる)
-
-	-- ファイルを読む。戻り値: { s = "ok", text, sha } / { s = "none" } / { s = "err", code, wait }
-	local function getFile(rec)
-		local url = fileUrl(rec)
-		if BRANCH ~= "" then url = url .. "?ref=" .. HttpService:UrlEncode(BRANCH) end
-		local res, ecode = http("GET", url)
-		if not res then return { s = "err", code = ecode } end
-		if res.Success then
-			local okj, info = pcall(function() return HttpService:JSONDecode(res.Body) end)
-			if not okj or type(info) ~= "table" or info.type ~= "file" or type(info.content) ~= "string" or type(info.sha) ~= "string" then
-				return { s = "err", code = "parse" }
-			end
-			return { s = "ok", text = b64dec(info.content), sha = info.sha }
-		end
-		local kind, wait = classify(res)
-		if kind == "notfound" then
-			-- 「ファイルがまだ無い」のか「リポジトリに入れない」のかを見分ける
-			if repoOK ~= true then
-				local r2, e2 = http("GET", API)
-				if not r2 then return { s = "err", code = e2 } end
-				if r2.Success then
-					repoOK = true
-				else
-					local k2, w2 = classify(r2)
-					return { s = "err", code = (k2 == "notfound") and "repo" or k2, wait = w2 }
-				end
-			end
-			return { s = "none" }
-		end
-		return { s = "err", code = kind, wait = wait }
-	end
-
-	-- ファイルを書く (新規でも上書きでも)。sha が古い/無い時は、最新を取り直して1〜2回やり直す。戻り値: true, 新しい sha / false, code, wait
-	local function putFile(rec, text)
-		local msg = "PalletStudio: " .. rec.name
-		for _ = 1, 3 do
-			local res, ecode = http("PUT", fileUrl(rec), {
-				message = msg, content = b64enc(text), sha = rec.sha, branch = (BRANCH ~= "") and BRANCH or nil,
-			})
-			if not res then return false, ecode end
-			if res.Success then
-				local okj, info = pcall(function() return HttpService:JSONDecode(res.Body) end)
-				local sha = okj and type(info) == "table" and type(info.content) == "table" and info.content.sha or nil
-				return true, type(sha) == "string" and sha or nil
-			end
-			local kind, wait = classify(res)
-			if kind == "notfound" then return false, "repo" end
-			if kind ~= "conflict" then return false, kind, wait end
-			-- sha が合わない: いまの sha を取り直して、もう一度
-			local g = getFile(rec)
-			if g.s == "ok" then
-				rec.sha = g.sha
-			elseif g.s == "none" then
-				rec.sha = nil
-			else
-				return false, g.code, g.wait
-			end
-		end
-		return false, "conflict"
-	end
-
-	---------------------------------------------------------------
-	-- 人ごとの記録・書き込みの順番待ち
-	---------------------------------------------------------------
-	local recs = {}
-	local workerOn, closing, lastGlobal = false, false, -100
-	local function getRec(player)
-		local r = recs[player]
-		if not r then
-			r = {
-				player = player, name = (player.Name:gsub("[^%w_]", "_")), loaded = false, state = "idle",
-				lastLoad = -100, lastSaveCall = -100, lastWrite = -100, due = 0, nextTry = 0, fails = 0,
-				seq = 0, doneSeq = 0, failSeq = 0,
-			}
-			recs[player] = r
-		end
-		return r
-	end
-	local function setState(rec, state, code, wait)
-		rec.state, rec.code = state, code
-		pcall(function() cloudEv:FireClient(rec.player, "st", state, code, wait) end)
-	end
-
-	local FATAL = { no_repo = true, no_token = true, http_off = true, auth = true, repo = true, bad = true }
-	-- 1人ぶんを書く (順番待ちから呼ばれる。通信で待つので、他の処理は止まらない)
-	local function doWrite(rec)
-		rec.busy = true
-		local data, core, mySeq = rec.pending, rec.pendingCore, rec.seq
-		rec.pending, rec.pendingCore = nil, nil
-		if core == rec.lastCore then   -- すでに同じ内容が保存されている
-			rec.busy = false
-			rec.doneSeq = mySeq
-			setState(rec, "saved")
-		else
-			setState(rec, "saving")
-			-- 本体に、誰の物かと保存した時刻を足す (画面から届いた物ではなく、サーバーが決める)
-			local file = {}
-			for k, v in pairs(data) do file[k] = v end
-			file.name, file.uid, file.saved = rec.player.Name, rec.player.UserId, os.date("!%Y-%m-%d %H:%M:%S") .. " UTC"
-			local ok, a, b = putFile(rec, toJson(file))
-			rec.busy = false
-			if ok then
-				rec.sha = a or rec.sha
-				rec.lastCore = core
-				rec.lastWrite = os.clock()
-				rec.fails, rec.nextTry, rec.force = 0, 0, false
-				rec.doneSeq = mySeq
-				setState(rec, "saved")
-			else
-				rec.fails = rec.fails + 1
-				rec.failSeq = mySeq
-				if not rec.pending and not closing then rec.pending, rec.pendingCore = data, core end   -- あとでやり直す (新しい依頼が来ていればそちらを使う)
-				if FATAL[a] then
-					rec.nextTry = os.clock() + 60
-				else
-					rec.nextTry = os.clock() + (b or math.min(8 * 2 ^ (rec.fails - 1), 300))
-				end
-				if rec.leaving then
-					rec.leaveTries = (rec.leaveTries or 0) + 1
-					if rec.leaveTries >= 3 then rec.pending, rec.pendingCore = nil, nil end
-				end
-				if closing then rec.pending, rec.pendingCore = nil, nil end
-				setState(rec, "error", a, b)
-			end
-		end
-		if rec.leaving and not rec.pending and recs[rec.player] == rec then recs[rec.player] = nil end
-	end
-
-	local function worker()
-		while true do
-			local now = os.clock()
-			local best, bestAt
-			for _, rec in pairs(recs) do
-				if rec.pending and not rec.busy then
-					local at
-					if closing then
-						at = 0
-					elseif rec.leaving then
-						at = rec.nextTry
-					else
-						at = math.max(rec.due, rec.nextTry, rec.force and 0 or (rec.lastWrite + PLAYER_GAP))
-					end
-					if not bestAt or at < bestAt then best, bestAt = rec, at end
-				end
-			end
-			if not best then break end
-			local wake = math.max(bestAt, lastGlobal + (closing and 0.3 or GLOBAL_GAP))
-			if wake > now then
-				task.wait(math.min(wake - now, 1))
-			else
-				lastGlobal = os.clock()
-				local ok, err = pcall(doWrite, best)
-				if not ok then
-					warn("[PalletStudio] GitHub保存: " .. tostring(err))
-					best.busy = false
-					best.pending, best.pendingCore = nil, nil
-					best.failSeq = best.seq
-					setState(best, "error", "net")
-					if best.leaving and recs[best.player] == best then recs[best.player] = nil end
-				end
-			end
-		end
-		workerOn = false
-	end
-	local function kick()
-		if workerOn then return end
-		workerOn = true
-		task.spawn(worker)
-	end
-
-	-- 読み込み。戻り値: { s = "ok", data, saved } / { s = "none" } / { s = "err", code }
-	local function loadFor(rec)
-		if REPO == "" then return { s = "err", code = "no_repo" } end
-		local g = getFile(rec)
-		if g.s == "err" then return g end
-		if g.s == "none" then
-			rec.loaded, rec.sha, rec.lastCore = true, nil, nil
-			return { s = "none" }
-		end
-		local okj, data = pcall(function() return HttpService:JSONDecode(g.text) end)
-		if not okj or type(data) ~= "table" then return { s = "err", code = "parse" } end
-		local clean, why = sanitize(data)
-		if not clean then return { s = "err", code = (why == "big") and "big" or "parse" } end
-		rec.loaded, rec.sha, rec.lastCore = true, g.sha, toJson(clean)
-		return { s = "ok", data = clean, saved = (type(data.saved) == "string") and data.saved:sub(1, 40) or nil }
-	end
-
-	cloudRF.OnServerInvoke = function(player, action, payload)
-		if typeof(action) ~= "string" then return { s = "err", code = "bad" } end
-		local rec = getRec(player)
-		local now = os.clock()
-		if action == "load" then
-			if rec.loading or now - rec.lastLoad < 2 then return { s = "err", code = "busy" } end
-			rec.loading, rec.lastLoad = true, now
-			rec.pending, rec.pendingCore = nil, nil   -- 読み直す時は、まだ書いていない変更は捨てる (画面側が、読んだ内容で作り直す)
-			local t0 = os.clock()
-			while rec.busy and os.clock() - t0 < 30 do task.wait(0.1) end
-			local ok, res = pcall(loadFor, rec)
-			rec.loading = false
-			if not ok then return { s = "err", code = "net" } end
-			return res
-		elseif action == "save" or action == "flush" then
-			if REPO == "" then return { s = "err", code = "no_repo" } end
-			if not rec.loaded then return { s = "err", code = "notloaded" } end
-			if now - rec.lastSaveCall < 0.4 then return { s = "err", code = "busy" } end
-			rec.lastSaveCall = now
-			local data, why = sanitize(payload)
-			if not data then return { s = "err", code = why or "bad" } end
-			local core = toJson(data)
-			if #core > MAX_JSON then return { s = "err", code = "big" } end
-			if core == rec.lastCore and not rec.busy then   -- 保存してある内容と同じ: 何も書かない
-				rec.pending, rec.pendingCore = nil, nil
-				return { s = (action == "flush") and "ok" or "same" }
-			end
-			rec.seq = rec.seq + 1
-			local mySeq = rec.seq
-			rec.pending, rec.pendingCore = data, core
-			if action == "flush" then
-				rec.force, rec.due, rec.nextTry = true, now, 0
-			else
-				rec.due = now + DEBOUNCE
-			end
-			kick()
-			if action ~= "flush" then return { s = "queued" } end
-			local t0 = os.clock()
-			while rec.doneSeq < mySeq and rec.failSeq < mySeq and os.clock() - t0 < 40 do task.wait(0.2) end
-			if rec.doneSeq >= mySeq then return { s = "ok" } end
-			return { s = "err", code = (rec.failSeq >= mySeq and rec.code) or "net" }
-		elseif action == "state" then
-			return { s = "ok", state = rec.state, code = rec.code }
-		end
-		return { s = "err", code = "bad" }
-	end
-
-	-- 抜ける時: まだ書いていない分があれば、すぐ書く
-	Players.PlayerRemoving:Connect(function(p)
-		local rec = recs[p]
-		if not rec then return end
-		rec.leaving = true
-		if rec.pending then
-			kick()
-		elseif not rec.busy then
-			recs[p] = nil
-		end
-	end)
-	-- サーバーが閉じる時: 残りを (最大25秒で) 書ききる
-	pcall(function()
-		game:BindToClose(function()
-			closing = true
-			local t0 = os.clock()
-			local function left()
-				for _, rec in pairs(recs) do
-					if rec.pending or rec.busy then return true end
-				end
-				return false
-			end
-			if left() then kick() end
-			while (left() or workerOn) and os.clock() - t0 < 25 do task.wait(0.2) end
-		end)
-	end)
-end
 ]=====]
 task.spawn(function()
 	local r = RS_:WaitForChild("RunServerCode", 120)
-	if r then
-		r:FireServer(string.format("local GH_REPO, GH_BRANCH, GH_DIR = %q, %q, %q\n", tostring(GITHUB.repo or ""), tostring(GITHUB.branch or ""), tostring(GITHUB.folder or "")) .. SERVER_CODE)
-	end
+	if r then r:FireServer(SERVER_CODE) end
 end)
 local Players = game:GetService("Players")
 local RS = game:GetService("ReplicatedStorage")
@@ -3347,7 +3387,6 @@ local Lib = (function()
 			end)
 			local u = {}
 			function u:set(v) s = v render() end
-			function u:get() return s end
 			return u
 		end
 
@@ -3434,7 +3473,6 @@ local Lib = (function()
 			end)
 			local u = {}
 			function u:set(v) current = v show(v) end
-			function u:get() return current end
 			return u
 		end
 
@@ -3448,7 +3486,8 @@ local applySkin, LOOKS, ANIMCFG, ENG = (function()
 local function hasMat(n) return (pcall(function() return Enum.Material[n] end)) end
 local MATERIAL_SET = {}
 for _, n in ipairs({ "Plastic", "SmoothPlastic", "Wood", "WoodPlanks", "Metal", "DiamondPlate", "Foil", "Neon", "Glass", "Ice", "Marble", "Granite", "Slate", "Concrete", "Brick", "Cobblestone", "Sand", "Fabric", "ForceField",
-	"Glacier", "Snow", "Mud", "Rubber", "Leather", "Plaster", "CeramicTiles", "Carpet", "Cardboard", "Basalt", "Pebble", "Limestone", "Sandstone", "CorrodedMetal", "CrackedLava" }) do
+	"Glacier", "Snow", "Mud", "Rubber", "Leather", "Plaster", "CeramicTiles", "Carpet", "Cardboard", "Basalt", "Pebble", "Limestone", "Sandstone", "CorrodedMetal", "CrackedLava",
+	"Grass", "LeafyGrass", "Ground", "Asphalt", "Pavement", "Rock", "Salt", "ClayRoofTiles", "RoofShingles" }) do
 	if hasMat(n) then MATERIAL_SET[n] = true end
 end
 
@@ -3473,51 +3512,77 @@ local PRESETS = {
 	RoseGold = { Color = Color3.fromRGB(236, 160, 150), Material = "Metal", Reflectance = 0.4, Transparency = 0, Glow = 0, Range = 10 },
 }
 
-local LOOKS = {
-	Plastic = { Color3.fromRGB(70, 130, 230), "Plastic", 0, 0, 0 },
-	SmoothPlastic = { Color3.fromRGB(245, 245, 250), "SmoothPlastic", 0.05, 0, 0 },
-	Wood = { Color3.fromRGB(150, 100, 60), "Wood", 0, 0, 0 },
-	WoodPlanks = { Color3.fromRGB(190, 140, 85), "WoodPlanks", 0, 0, 0 },
-	Metal = { Color3.fromRGB(150, 158, 170), "Metal", 0.32, 0, 0 },
-	DiamondPlate = { Color3.fromRGB(120, 125, 135), "DiamondPlate", 0.2, 0, 0 },
-	Foil = { Color3.fromRGB(215, 220, 230), "Foil", 0.5, 0, 0 },
-	Neon = { Color3.fromRGB(60, 255, 200), "Neon", 0, 0, 1.5 },
-	Glass = { Color3.fromRGB(190, 225, 240), "Glass", 0.1, 0.45, 0 },
-	Ice = { Color3.fromRGB(170, 220, 255), "Ice", 0.15, 0.25, 0 },
-	Marble = { Color3.fromRGB(236, 236, 240), "Marble", 0.12, 0, 0 },
-	Granite = { Color3.fromRGB(125, 120, 118), "Granite", 0, 0, 0 },
-	Slate = { Color3.fromRGB(75, 82, 95), "Slate", 0, 0, 0 },
-	Concrete = { Color3.fromRGB(160, 160, 158), "Concrete", 0, 0, 0 },
-	Brick = { Color3.fromRGB(170, 70, 55), "Brick", 0, 0, 0 },
-	Cobblestone = { Color3.fromRGB(130, 125, 120), "Cobblestone", 0, 0, 0 },
-	Sand = { Color3.fromRGB(225, 200, 140), "Sand", 0, 0, 0 },
-	Fabric = { Color3.fromRGB(90, 120, 200), "Fabric", 0, 0, 0 },
-	ForceField = { Color3.fromRGB(120, 200, 255), "ForceField", 0, 0.2, 1 },
-}
--- 追加の素材 (存在するものだけ)。{ 色, 素材名, 反射, 透明度, 発光 }
-for n, lk in pairs({
-	Glacier = { Color3.fromRGB(190, 230, 245), "Glacier", 0.1, 0, 0 },
-	Snow = { Color3.fromRGB(245, 248, 252), "Snow", 0, 0, 0 },
-	Mud = { Color3.fromRGB(95, 70, 50), "Mud", 0, 0, 0 },
-	Rubber = { Color3.fromRGB(40, 40, 46), "Rubber", 0, 0, 0 },
-	Leather = { Color3.fromRGB(125, 72, 46), "Leather", 0, 0, 0 },
-	Plaster = { Color3.fromRGB(232, 225, 212), "Plaster", 0, 0, 0 },
-	CeramicTiles = { Color3.fromRGB(236, 240, 242), "CeramicTiles", 0.08, 0, 0 },
-	Carpet = { Color3.fromRGB(150, 60, 72), "Carpet", 0, 0, 0 },
-	Cardboard = { Color3.fromRGB(192, 152, 102), "Cardboard", 0, 0, 0 },
-	Basalt = { Color3.fromRGB(62, 64, 70), "Basalt", 0, 0, 0 },
-	Pebble = { Color3.fromRGB(150, 140, 130), "Pebble", 0, 0, 0 },
-	Limestone = { Color3.fromRGB(222, 214, 192), "Limestone", 0, 0, 0 },
-	Sandstone = { Color3.fromRGB(202, 162, 112), "Sandstone", 0, 0, 0 },
-	CorrodedMetal = { Color3.fromRGB(132, 100, 80), "CorrodedMetal", 0, 0, 0 },
-	CrackedLava = { Color3.fromRGB(255, 120, 40), "CrackedLava", 0, 0, 0.8 },
-}) do
-	if hasMat(n) then LOOKS[n] = lk end
+-- ===== 素材 (LOOKS) =====
+-- LOOKS[名前] = { 色, 素材名, 反射, 透明度, 発光 }。名前が素材名と同じものは、その素材そのもの。
+-- 名前が素材名と違うもの (Gold・Ruby・Oak など) は、色と質感をあわせた「素材ライブラリ」。
+local LOOKS = {}
+do
+	local function look(id, mat, r, g, b, refl, tr, glow)
+		if hasMat(mat) then LOOKS[id] = { Color3.fromRGB(r, g, b), mat, refl or 0, tr or 0, glow or 0 } end
+	end
+	for _, e in ipairs({
+		-- 基本の素材 (Roblox の素材そのもの)
+		{ "Plastic", "Plastic", 70, 130, 230 }, { "SmoothPlastic", "SmoothPlastic", 245, 245, 250, 0.05 }, { "Wood", "Wood", 150, 100, 60 }, { "WoodPlanks", "WoodPlanks", 190, 140, 85 },
+		{ "Metal", "Metal", 150, 158, 170, 0.32 }, { "DiamondPlate", "DiamondPlate", 120, 125, 135, 0.2 }, { "Foil", "Foil", 215, 220, 230, 0.5 }, { "Neon", "Neon", 60, 255, 200, 0, 0, 1.5 },
+		{ "Glass", "Glass", 190, 225, 240, 0.1, 0.45 }, { "Ice", "Ice", 170, 220, 255, 0.15, 0.25 }, { "Marble", "Marble", 236, 236, 240, 0.12 }, { "Granite", "Granite", 125, 120, 118 },
+		{ "Slate", "Slate", 75, 82, 95 }, { "Concrete", "Concrete", 160, 160, 158 }, { "Brick", "Brick", 170, 70, 55 }, { "Cobblestone", "Cobblestone", 130, 125, 120 },
+		{ "Sand", "Sand", 225, 200, 140 }, { "Fabric", "Fabric", 90, 120, 200 }, { "ForceField", "ForceField", 120, 200, 255, 0, 0.2, 1 },
+		{ "Glacier", "Glacier", 190, 230, 245, 0.1 }, { "Snow", "Snow", 245, 248, 252 }, { "Mud", "Mud", 95, 70, 50 }, { "Rubber", "Rubber", 40, 40, 46 }, { "Leather", "Leather", 125, 72, 46 },
+		{ "Plaster", "Plaster", 232, 225, 212 }, { "CeramicTiles", "CeramicTiles", 236, 240, 242, 0.08 }, { "Carpet", "Carpet", 150, 60, 72 }, { "Cardboard", "Cardboard", 192, 152, 102 },
+		{ "Basalt", "Basalt", 62, 64, 70 }, { "Pebble", "Pebble", 150, 140, 130 }, { "Limestone", "Limestone", 222, 214, 192 }, { "Sandstone", "Sandstone", 202, 162, 112 },
+		{ "CorrodedMetal", "CorrodedMetal", 132, 100, 80 }, { "CrackedLava", "CrackedLava", 255, 120, 40, 0, 0, 0.8 },
+		{ "Grass", "Grass", 82, 140, 62 }, { "LeafyGrass", "LeafyGrass", 72, 150, 72 }, { "Ground", "Ground", 122, 96, 70 }, { "Asphalt", "Asphalt", 62, 64, 68 },
+		{ "Pavement", "Pavement", 128, 128, 130 }, { "Rock", "Rock", 112, 106, 100 }, { "Salt", "Salt", 240, 238, 232 }, { "ClayRoofTiles", "ClayRoofTiles", 176, 84, 52 },
+		{ "RoofShingles", "RoofShingles", 92, 82, 78 },
+		-- 金属
+		{ "Gold", "Metal", 255, 200, 70, 0.45 }, { "Silver", "Metal", 214, 218, 226, 0.5 }, { "Bronze", "Metal", 176, 122, 62, 0.35 }, { "Copper", "Metal", 200, 112, 72, 0.4 },
+		{ "Brass", "Metal", 204, 172, 82, 0.38 }, { "Platinum", "Foil", 232, 235, 242, 0.55 }, { "Titanium", "Metal", 128, 140, 156, 0.4 }, { "Gunmetal", "Metal", 62, 68, 80, 0.35 },
+		{ "Iron", "DiamondPlate", 98, 100, 108, 0.25 }, { "RoseGold", "Metal", 236, 160, 150, 0.42 }, { "BlackChrome", "Foil", 28, 30, 36, 0.75 }, { "Mirror", "Foil", 244, 247, 252, 0.92 },
+		{ "Stainless", "Metal", 202, 206, 212, 0.5 }, { "Mithril", "Metal", 160, 232, 238, 0.5, 0, 0.5 }, { "Orichalcum", "Metal", 255, 140, 90, 0.45, 0, 0.5 },
+		-- 宝石・ガラス
+		{ "Ruby", "Glass", 224, 30, 64, 0.2, 0.35 }, { "Sapphire", "Glass", 30, 72, 226, 0.2, 0.35 }, { "Emerald", "Glass", 30, 196, 112, 0.2, 0.35 }, { "Amethyst", "Glass", 154, 72, 226, 0.2, 0.35 },
+		{ "Topaz", "Glass", 255, 192, 52, 0.2, 0.35 }, { "Aquamarine", "Glass", 112, 224, 234, 0.2, 0.4 }, { "Diamond", "Glass", 226, 246, 255, 0.4, 0.25 }, { "Amber", "Glass", 255, 172, 44, 0.15, 0.3 },
+		{ "Jade", "Marble", 104, 194, 144, 0.18, 0.08 }, { "Obsidian", "Glass", 26, 22, 32, 0.32 }, { "Pearl", "SmoothPlastic", 246, 240, 236, 0.3 }, { "Crystal", "Glass", 214, 236, 255, 0.3, 0.3, 0.3 },
+		{ "BlueGlass", "Glass", 120, 170, 232, 0.15, 0.4 }, { "SmokeGlass", "Glass", 62, 66, 72, 0.1, 0.45 }, { "FrostGlass", "SmoothPlastic", 236, 246, 250, 0, 0.4 }, { "Opal", "SmoothPlastic", 236, 238, 250, 0.35 },
+		-- 木
+		{ "Oak", "Wood", 172, 128, 78 }, { "Cherry", "Wood", 152, 72, 52, 0.05 }, { "Walnut", "Wood", 96, 66, 46 }, { "Birch", "WoodPlanks", 236, 216, 176 }, { "Bamboo", "WoodPlanks", 192, 202, 112 },
+		{ "Ebony", "Wood", 36, 30, 28, 0.06 }, { "Pine", "WoodPlanks", 218, 172, 106 }, { "Mahogany", "Wood", 122, 52, 42, 0.05 }, { "Driftwood", "Wood", 172, 162, 146 }, { "Charred", "Wood", 46, 40, 36 },
+		-- 石・土
+		{ "BlackMarble", "Marble", 30, 30, 36, 0.22 }, { "PinkMarble", "Marble", 236, 202, 208, 0.15 }, { "GreenMarble", "Marble", 72, 122, 102, 0.15 }, { "Quartz", "Marble", 242, 238, 238, 0.22 },
+		{ "Lapis", "Marble", 42, 72, 164, 0.2 }, { "WhiteBrick", "Brick", 226, 220, 212 }, { "MossyStone", "Cobblestone", 110, 128, 96 }, { "Gravel", "Pebble", 152, 150, 142 },
+		{ "RedSand", "Sand", 208, 122, 82 }, { "Clay", "Mud", 192, 122, 88 }, { "Coal", "Basalt", 30, 30, 34, 0.08 }, { "Terracotta", "ClayRoofTiles", 206, 112, 76 },
+		-- 自然
+		{ "Moss", "LeafyGrass", 74, 128, 56 }, { "Autumn", "LeafyGrass", 196, 112, 42 }, { "Water", "Glass", 92, 172, 232, 0.25, 0.5 }, { "DeepSea", "Glass", 20, 62, 142, 0.2, 0.35 },
+		{ "Swamp", "Mud", 72, 92, 52 }, { "Cloud", "SmoothPlastic", 248, 250, 255, 0.1, 0.2 }, { "BlueIce", "Ice", 132, 192, 255, 0.2, 0.25 }, { "Frost", "Glacier", 226, 242, 252, 0.12, 0.05 },
+		{ "SakuraPetal", "SmoothPlastic", 255, 208, 222, 0.05 }, { "Lawn", "Grass", 96, 172, 70 },
+		-- 日用品
+		{ "Ceramic", "SmoothPlastic", 246, 242, 232, 0.25 }, { "Porcelain", "CeramicTiles", 250, 250, 253, 0.15 }, { "RedLacquer", "SmoothPlastic", 132, 26, 32, 0.5 }, { "BlackLacquer", "SmoothPlastic", 24, 20, 22, 0.55 },
+		{ "Paper", "Plaster", 248, 246, 240 }, { "Cork", "Cardboard", 206, 164, 114 }, { "Chalkboard", "Slate", 38, 62, 52 }, { "Carbon", "DiamondPlate", 28, 30, 36, 0.28 }, { "Milk", "SmoothPlastic", 252, 250, 246, 0.2 },
+		-- 布・革
+		{ "Denim", "Fabric", 70, 100, 162 }, { "Velvet", "Carpet", 94, 26, 84 }, { "Silk", "Fabric", 236, 222, 240, 0.15 }, { "Wool", "Carpet", 232, 202, 182 }, { "Canvas", "Fabric", 226, 216, 192 },
+		{ "BlackLeather", "Leather", 30, 28, 30, 0.1 }, { "WhiteLeather", "Leather", 242, 240, 234, 0.1 }, { "RedLeather", "Leather", 150, 36, 40, 0.1 }, { "Linen", "Fabric", 220, 208, 184 },
+		-- ポップ
+		{ "Candy", "SmoothPlastic", 255, 150, 205, 0.3 }, { "Jelly", "SmoothPlastic", 255, 120, 160, 0.2, 0.35 }, { "Gummy", "SmoothPlastic", 120, 222, 92, 0.15, 0.3 }, { "Slime", "SmoothPlastic", 112, 232, 92, 0.25, 0.3, 0.3 },
+		{ "Chocolate", "SmoothPlastic", 82, 46, 32, 0.1 }, { "Marshmallow", "Plaster", 255, 246, 250 }, { "Cheese", "SmoothPlastic", 255, 206, 72, 0.05 }, { "Bubblegum", "SmoothPlastic", 255, 122, 190, 0.2 },
+		{ "Balloon", "SmoothPlastic", 238, 70, 70, 0.35 }, { "Lemon", "SmoothPlastic", 255, 236, 80, 0.15 }, { "Mint", "SmoothPlastic", 150, 240, 200, 0.1 }, { "Grape", "SmoothPlastic", 130, 70, 190, 0.25, 0.15 },
+		{ "Peach", "SmoothPlastic", 255, 190, 160, 0.1 },
+		-- 光る
+		{ "NeonPink", "Neon", 255, 70, 190, 0, 0, 1.8 }, { "NeonBlue", "Neon", 56, 189, 248, 0, 0, 1.8 }, { "NeonGreen", "Neon", 60, 255, 130, 0, 0, 1.8 }, { "NeonOrange", "Neon", 255, 140, 40, 0, 0, 1.8 },
+		{ "NeonPurple", "Neon", 170, 90, 255, 0, 0, 1.8 }, { "NeonRed", "Neon", 255, 50, 60, 0, 0, 1.8 }, { "NeonYellow", "Neon", 255, 240, 70, 0, 0, 1.8 }, { "NeonWhite", "Neon", 245, 250, 255, 0, 0, 1.6 },
+		{ "Plasma", "Neon", 176, 124, 255, 0, 0, 2.4 }, { "Magma", "CrackedLava", 255, 64, 22, 0, 0, 1.6 }, { "Radioactive", "Neon", 170, 255, 0, 0, 0, 2 }, { "Hologram", "ForceField", 100, 220, 255, 0, 0.3, 1 },
+		{ "Aura", "ForceField", 255, 200, 255, 0, 0.25, 1 }, { "Moonlight", "ForceField", 220, 235, 255, 0, 0.2, 1.2 }, { "Sunbeam", "Neon", 255, 220, 120, 0, 0, 2 },
+	}) do
+		look(table.unpack(e))
+	end
 end
 
--- 追加プリセット (見た目一式)。Full = 今ついている光・動き・効果を先に消してから反映する
--- Grad = グラデーション / GlossStyle = ツヤの種類(1やわらか 2くっきり 3ガラス 4メタル) / Pulse = {速さ, 型, 板も明滅}
--- Rainbow = {速さ, 鮮やかさ, 波の幅} / Fx = 出す効果の名前 / FireSize / FireColor / Sparkle / OutlineHue / GlowColor
+-- ===== プリセット (見た目一式) =====
+-- Full = 今ついている光・動き・効果を先に消してから反映する
+-- 色・素材: Color / Material / Transparency / Reflectance / GlossStyle(1〜20) / Sky(映り込む空 1〜14) / Sheen・SheenCol(光の走り) / Edge・EdgeCol(角の輝き)
+--   Grad = {a, c, b, axis, flow, stripes} / Rainbow = {速さ, 鮮やかさ, 波} / Wk = {経年の種類, 量} / Var = 色ムラ
+-- 光: Glow / Range / GlowColor / GCol2 (2つ目の色) / GMode / GSpeed / Night / Shape / Spot / Pulse = {速さ, 型, 板も, 深さ, 波}
+--   OutlineHue / OutlineCol / OFill / OThru (縁取り)
+-- 効果: Fx = 出す効果の名前 / Sparkle = {量, 大きさ} / FireSize / FireColor / SmokeCol / ConfCol / FxMul / FxSize / FxSpeed / FxTint
 do
 	local function C(r, g, b) return Color3.fromRGB(r, g, b) end
 	local function add(name, t)
@@ -3526,8 +3591,14 @@ do
 		t.Range = t.Range or 12
 		t.Transparency = t.Transparency or 0
 		t.Glow = t.Glow or 0
+		t.Reflectance = t.Reflectance or 0
 		PRESETS[name] = t
 	end
+	local function basic(name, mat, r, g, b, refl, tr, glow)
+		if not hasMat(mat) then mat = "SmoothPlastic" end
+		PRESETS[name] = { Color = C(r, g, b), Material = mat, Reflectance = refl or 0, Transparency = tr or 0, Glow = glow or 0, Range = 12 }
+	end
+	-- はじめの12種
 	add("Aurora", { Color = C(60, 230, 180), Material = "SmoothPlastic", Reflectance = 0.55, GlossStyle = 2, Glow = 1.2,
 		Grad = { a = C(40, 235, 160), c = C(70, 130, 255), b = C(190, 80, 255), axis = "X", flow = 0.12 }, Pulse = { 0.25, "Sine" } })
 	add("Galaxy", { Color = C(60, 40, 140), Material = "SmoothPlastic", Reflectance = 0.3, GlossStyle = 3, Glow = 1,
@@ -3552,6 +3623,108 @@ do
 		Grad = { a = C(255, 110, 40), c = C(255, 90, 150), b = C(110, 60, 200), axis = "Y" } })
 	add("Ocean", { Color = C(20, 130, 200), Material = "SmoothPlastic", Reflectance = 0.7, GlossStyle = 3, Glow = 0.6, GlowColor = C(80, 200, 255),
 		Grad = { a = C(10, 40, 120), c = C(20, 130, 200), b = C(90, 230, 230), axis = "X", flow = 0.1 }, Fx = { "bubbles" } })
+
+	-- 幻想
+	add("Fairy", { Color = C(150, 230, 140), Material = "SmoothPlastic", Reflectance = 0.5, GlossStyle = 6, Sky = 9, Glow = 1.3, GlowColor = C(190, 255, 160), GCol2 = C(255, 240, 150), GMode = "Blend", GSpeed = 0.25,
+		Grad = { a = C(120, 230, 140), b = C(255, 240, 170), axis = "Y" }, Sparkle = { 26, 0.3 }, Fx = { "firefly", "magic" }, Pulse = { 0.4, "Drift" } })
+	add("MagicCircle", { Color = C(110, 60, 200), Material = "Glass", Reflectance = 0.6, Transparency = 0.25, GlossStyle = 15, Glow = 1.8, GlowColor = C(190, 120, 255), GCol2 = C(90, 200, 255), GMode = "Blend", GSpeed = 0.3,
+		Pulse = { 0.7, "Breath" }, Fx = { "magic", "halo" }, OutlineCol = C(200, 140, 255), OFill = 0.15, Edge = 0.6, EdgeCol = 4 })
+	add("Dragon", { Color = C(36, 70, 48), Material = "Metal", Reflectance = 0.5, GlossStyle = 14, Sky = 13, Glow = 1.2, GlowColor = C(255, 110, 40), Var = 0.25,
+		Fx = { "embers", "smoke" }, FireSize = 4, Pulse = { 0.5, "Fire" }, SmokeCol = 2 })
+	add("CrystalCave", { Color = C(140, 90, 230), Material = "Glass", Reflectance = 0.7, Transparency = 0.2, GlossStyle = 20, Sky = 11, Glow = 1.4, GlowColor = C(190, 140, 255),
+		Sparkle = { 36, 0.35 }, Sheen = 0.5, SheenCol = 8, Edge = 0.7, EdgeCol = 4 })
+	add("Phoenix", { Color = C(255, 120, 30), Material = "Neon", Glow = 2.6, Range = 18, Grad = { a = C(255, 60, 20), c = C(255, 160, 30), b = C(255, 240, 120), axis = "Y", flow = 0.25 },
+		Fx = { "fire", "embers" }, FireSize = 7, Pulse = { 0.9, "Fire" }, Sparkle = { 20, 0.3 } })
+	add("Unicorn", { Color = C(255, 220, 245), Material = "SmoothPlastic", Reflectance = 0.7, GlossStyle = 15, Glow = 0.6, GlowColor = C(255, 210, 245), Sheen = 0.5, SheenCol = 3, Edge = 0.4, EdgeCol = 6,
+		Grad = { a = C(255, 190, 230), c = C(200, 200, 255), b = C(190, 255, 235), axis = "X", flow = 0.06 }, Sparkle = { 34, 0.3 } })
+	add("Celestial", { Color = C(245, 240, 225), Material = "Marble", Reflectance = 0.5, GlossStyle = 16, Sky = 8, Glow = 1.6, GlowColor = C(255, 235, 170), Fx = { "halo", "stardust" },
+		Pulse = { 0.3, "Breath" }, Sheen = 0.4, SheenCol = 2, Edge = 0.5, EdgeCol = 2 })
+	-- 自然
+	add("Meadow", { Color = C(110, 190, 80), Material = "Grass", Sky = 1, Var = 0.2, Fx = { "leaves" }, FxTint = C(120, 210, 80), FxMul = 0.7 })
+	add("Autumn", { Color = C(235, 130, 40), Material = "Wood", Var = 0.3, Sky = 2, Grad = { a = C(255, 200, 60), c = C(235, 110, 30), b = C(160, 50, 25), axis = "Y" }, Fx = { "leaves" } })
+	add("MossyRuins", { Color = C(110, 130, 100), Material = "Cobblestone", Wk = { 3, 0.8 }, Var = 0.35, Fx = { "mist" }, FxTint = C(200, 230, 200), FxMul = 0.7 })
+	add("Desert", { Color = C(222, 184, 120), Material = "Sand", Sky = 10, Wk = { 6, 0.5 }, Fx = { "mist" }, FxTint = C(235, 205, 150), FxMul = 0.5 })
+	add("Rainforest", { Color = C(50, 140, 70), Material = "LeafyGrass", Reflectance = 0.1, GlossStyle = 5, Sky = 9, Glow = 0.5, GlowColor = C(150, 255, 170), Fx = { "droplets", "mist" }, FxTint = C(190, 255, 200) })
+	add("Volcano", { Color = C(50, 40, 40), Material = "Basalt", Grad = { a = C(40, 30, 30), c = C(160, 50, 20), b = C(255, 110, 20), axis = "Y" }, Glow = 2, GlowColor = C(255, 110, 30),
+		Fx = { "fire", "embers", "smoke" }, FireSize = 4, Pulse = { 0.6, "Fire" }, Wk = { 10, 0.4 }, SmokeCol = 2 })
+	-- 炎・光
+	add("Campfire", { Color = C(90, 60, 40), Material = "Wood", Glow = 2.4, Range = 18, GlowColor = C(255, 150, 60), GCol2 = C(255, 200, 90), GMode = "Blend", GSpeed = 0.5, Pulse = { 1.4, "Fire" },
+		Fx = { "fire", "embers", "smoke" }, FireSize = 5, Wk = { 5, 0.5 } })
+	add("Torch", { Color = C(110, 70, 45), Material = "Wood", Glow = 2.2, GlowColor = C(255, 160, 60), Pulse = { 1.2, "Flicker" }, Fx = { "fire" }, FireSize = 4 })
+	add("Sun", { Color = C(255, 220, 90), Material = "Neon", Glow = 3.2, Range = 24, GlowColor = C(255, 230, 140), Pulse = { 0.25, "Breath" }, Fx = { "halo" }, Sparkle = { 40, 0.4 } })
+	add("Thunder", { Color = C(170, 200, 255), Material = "Neon", Glow = 3.5, Range = 26, GlowColor = C(190, 210, 255), Pulse = { 1.1, "Lightning", true }, Fx = { "electric" }, Sparkle = { 30, 0.3 }, OutlineCol = C(200, 220, 255) })
+	add("Furnace", { Color = C(120, 70, 50), Material = "Metal", Reflectance = 0.2, Wk = { 5, 0.6 }, Grad = { a = C(60, 40, 40), b = C(255, 100, 30), axis = "Y" }, Glow = 2.6, GlowColor = C(255, 120, 40),
+		Pulse = { 0.7, "Fire", true }, Fx = { "embers" } })
+	add("NeonTube", { Color = C(255, 60, 190), Material = "Neon", Glow = 3, Range = 16, GlowColor = C(255, 80, 200), Pulse = { 0.9, "Neon" }, OutlineCol = C(255, 120, 220), OFill = 0.35, Fx = { "halo" } })
+	-- 水・氷
+	add("DeepSea", { Color = C(10, 90, 150), Material = "Glass", Transparency = 0.25, Reflectance = 0.6, GlossStyle = 10, Sky = 12, Glow = 1, GlowColor = C(80, 220, 255),
+		Grad = { a = C(5, 20, 70), c = C(10, 90, 150), b = C(60, 210, 230), axis = "Y", flow = 0.08 }, Pulse = { 0.3, "Drift" }, Fx = { "bubbles", "droplets" } })
+	add("GlacierBlue", { Color = C(170, 225, 245), Material = "Glacier", Reflectance = 0.5, GlossStyle = 3, Sky = 14, Wk = { 8, 0.6 }, Glow = 0.8, GlowColor = C(200, 240, 255), Fx = { "snow", "mist" } })
+	add("RainyDay", { Color = C(70, 86, 104), Material = "Slate", Reflectance = 0.55, GlossStyle = 5, Sky = 8, Fx = { "rain", "mist" }, FxTint = C(170, 200, 230) })
+	add("Coral", { Color = C(255, 140, 120), Material = "SmoothPlastic", Reflectance = 0.4, GlossStyle = 6, Sky = 12, Grad = { a = C(255, 120, 140), c = C(255, 170, 90), b = C(255, 230, 150), axis = "X" },
+		Fx = { "bubbles" }, Sparkle = { 16, 0.25 }, Glow = 0.5, GlowColor = C(255, 170, 140) })
+	add("Waterfall", { Color = C(170, 225, 255), Material = "Glass", Transparency = 0.15, Reflectance = 0.6, GlossStyle = 10, Grad = { a = C(255, 255, 255), c = C(170, 225, 255), b = C(60, 150, 220), axis = "Y", flow = 0.35 },
+		Fx = { "mist", "droplets" } })
+	-- SF
+	add("DigitalRain", { Color = C(6, 20, 10), Material = "Metal", Reflectance = 0.4, GlossStyle = 4, Glow = 2, GlowColor = C(60, 255, 120), Pulse = { 2.5, "Glitch" }, Fx = { "rain" }, FxTint = C(60, 255, 120), OutlineCol = C(60, 255, 120) })
+	add("Spaceship", { Color = C(150, 165, 185), Material = "Metal", Reflectance = 0.6, GlossStyle = 4, Sky = 11, Glow = 1.4, GlowColor = C(110, 190, 255), OutlineCol = C(110, 190, 255), OFill = 0.1, Sheen = 0.35, Edge = 0.6, EdgeCol = 3, Pulse = { 0.4, "Sine" } })
+	add("PlasmaBall", { Color = C(130, 60, 230), Material = "Neon", Glow = 3, Range = 20, GlowColor = C(170, 110, 255), GCol2 = C(90, 200, 255), GMode = "Blend", GSpeed = 0.6, Pulse = { 1.6, "Neon" }, Fx = { "electric" } })
+	add("LaserRed", { Color = C(255, 30, 40), Material = "Neon", Glow = 3, Range = 16, GlowColor = C(255, 50, 50), Pulse = { 2, "Strobe" }, Fx = { "halo" } })
+	add("Stealth", { Color = C(18, 20, 24), Material = "SmoothPlastic", Reflectance = 0.2, GlossStyle = 2, Edge = 0.8, Glow = 0.5, GlowColor = C(0, 255, 200), Night = true, Pulse = { 0.2, "Drift" }, OutlineCol = C(0, 255, 200) })
+	add("Android", { Color = C(240, 244, 248), Material = "CeramicTiles", Reflectance = 0.4, GlossStyle = 7, Glow = 1.2, GlowColor = C(0, 230, 255), OutlineCol = C(0, 230, 255), OFill = 0.08, Pulse = { 0.6, "Beat" }, Edge = 0.5, EdgeCol = 3 })
+	-- ポップ
+	add("Bubblegum", { Color = C(255, 120, 190), Material = "SmoothPlastic", Reflectance = 0.85, GlossStyle = 1, Grad = { a = C(255, 110, 190), b = C(255, 200, 230), axis = "Y" }, Sparkle = { 20, 0.3 }, Fx = { "bubbles" }, FxTint = C(255, 170, 220) })
+	add("RainbowPop", { Color = C(255, 150, 200), Material = "SmoothPlastic", Reflectance = 0.8, GlossStyle = 1, Rainbow = { 0.18, 0.85, 0.6 }, Fx = { "confetti" }, Sparkle = { 30, 0.3 } })
+	add("LemonSoda", { Color = C(255, 240, 90), Material = "SmoothPlastic", Transparency = 0.3, Reflectance = 0.5, GlossStyle = 5, Glow = 0.6, GlowColor = C(255, 245, 120), Fx = { "bubbles" }, FxTint = C(255, 250, 150) })
+	add("PuruJelly", { Color = C(255, 100, 170), Material = "SmoothPlastic", Transparency = 0.3, Reflectance = 0.6, GlossStyle = 12, Glow = 0.8, GlowColor = C(255, 120, 190), Pulse = { 0.9, "Wobble", true, 0.5 }, Sparkle = { 10, 0.25 } })
+	add("CottonCandy", { Color = C(255, 190, 230), Material = "Fabric", Reflectance = 0.1, Grad = { a = C(255, 170, 220), c = C(255, 255, 255), b = C(150, 200, 255), axis = "X", flow = 0.08 }, Fx = { "mist" }, FxTint = C(255, 200, 240), Sparkle = { 18, 0.3 } })
+	add("Party", { Color = C(255, 90, 200), Material = "SmoothPlastic", Reflectance = 0.6, GlossStyle = 1, Glow = 2.6, GlowColor = C(255, 90, 200), GMode = "Rand", GSpeed = 0.8, Pulse = { 2, "Beat", true, 0.6 }, Fx = { "confetti" }, Sparkle = { 40, 0.35 } })
+	-- 豪華
+	add("GoldKing", { Color = C(255, 200, 60), Material = "Metal", Reflectance = 0.95, GlossStyle = 11, Glow = 0.6, GlowColor = C(255, 210, 100), Sheen = 0.5, SheenCol = 2, Edge = 0.7, EdgeCol = 2, Sparkle = { 20, 0.3 } })
+	add("DiamondKing", { Color = C(225, 245, 255), Material = "Glass", Transparency = 0.15, Reflectance = 0.9, GlossStyle = 8, Sky = 14, Glow = 0.8, GlowColor = C(220, 240, 255), Sheen = 0.6, SheenCol = 3, Edge = 0.9, EdgeCol = 6, Sparkle = { 50, 0.35 } })
+	add("RubyRed", { Color = C(230, 20, 60), Material = "Glass", Transparency = 0.2, Reflectance = 0.6, GlossStyle = 8, Glow = 1.4, GlowColor = C(255, 40, 80), Sparkle = { 26, 0.3 }, Sheen = 0.4, SheenCol = 7, Edge = 0.6 })
+	add("EmeraldGreen", { Color = C(20, 190, 100), Material = "Glass", Transparency = 0.2, Reflectance = 0.6, GlossStyle = 8, Glow = 1.4, GlowColor = C(60, 255, 140), Sparkle = { 26, 0.3 }, Sheen = 0.4, SheenCol = 6, Edge = 0.6, EdgeCol = 5 })
+	add("PlatinumMirror", { Color = C(230, 234, 240), Material = "Foil", Reflectance = 1, GlossStyle = 13, Edge = 0.8, Sheen = 0.3, SheenCol = 4 })
+	add("BlackGold", { Color = C(40, 34, 20), Material = "Metal", Reflectance = 0.7, GlossStyle = 11, Grad = { a = C(15, 14, 18), c = C(60, 48, 20), b = C(255, 200, 60), axis = "X" }, Sheen = 0.5, SheenCol = 2, Edge = 0.8, EdgeCol = 2 })
+	-- 夜・ダーク
+	add("Moonlight", { Color = C(190, 205, 235), Material = "SmoothPlastic", Reflectance = 0.5, GlossStyle = 6, Sky = 3, Glow = 1.3, GlowColor = C(190, 215, 255), Night = true, Fx = { "halo", "mist" }, FxTint = C(190, 210, 255), Pulse = { 0.2, "Breath" } })
+	add("Ghost2", { Color = C(225, 250, 240), Material = "ForceField", Transparency = 0.3, Glow = 1.4, GlowColor = C(160, 255, 210), Fx = { "mist", "firefly" }, FxTint = C(170, 255, 220), Pulse = { 0.35, "Drift" } })
+	add("DarkKnight", { Color = C(24, 26, 34), Material = "Metal", Reflectance = 0.6, GlossStyle = 4, Sky = 3, Glow = 1.2, GlowColor = C(150, 90, 255), OutlineCol = C(150, 90, 255), OFill = 0.1, Edge = 0.8, EdgeCol = 3 })
+	add("Haunted", { Color = C(60, 30, 80), Material = "Slate", Wk = { 10, 0.6 }, Var = 0.3, Glow = 1.5, GlowColor = C(120, 255, 120), Pulse = { 0.8, "Neon" }, Fx = { "mist", "firefly" }, FxTint = C(130, 255, 150) })
+	add("Shadow", { Color = C(12, 10, 16), Material = "SmoothPlastic", Reflectance = 0.3, GlossStyle = 11, Sky = 3, Glow = 1, GlowColor = C(255, 40, 80), Pulse = { 0.25, "Breath" }, Fx = { "mist" }, FxTint = C(90, 40, 110) })
+	-- 季節・イベント
+	add("Christmas", { Color = C(200, 30, 40), Material = "SmoothPlastic", Reflectance = 0.6, GlossStyle = 1, Grad = { a = C(200, 30, 40), c = C(255, 255, 255), b = C(30, 140, 70), axis = "X", stripes = 6 },
+		Glow = 1, GlowColor = C(255, 230, 170), Fx = { "snow" }, Sparkle = { 30, 0.3 } })
+	add("Halloween", { Color = C(255, 120, 20), Material = "SmoothPlastic", Reflectance = 0.3, Grad = { a = C(255, 120, 20), b = C(90, 30, 140), axis = "Y" }, Glow = 2, GlowColor = C(255, 130, 30),
+		Pulse = { 0.9, "Flicker" }, Fx = { "mist", "firefly" }, FxTint = C(255, 150, 50) })
+	add("Festival", { Color = C(210, 40, 40), Material = "Fabric", Glow = 2.2, GlowColor = C(255, 170, 80), Pulse = { 1, "Flicker" }, Sparkle = { 22, 0.3 }, Fx = { "embers" } })
+	add("NewYear", { Color = C(190, 20, 30), Material = "Metal", Reflectance = 0.5, GlossStyle = 11, Grad = { a = C(190, 20, 30), b = C(255, 200, 60), axis = "Y" }, Sheen = 0.4, SheenCol = 2, Fx = { "confetti" }, ConfCol = 2, Sparkle = { 30, 0.3 } })
+	add("Valentine", { Color = C(255, 100, 150), Material = "SmoothPlastic", Reflectance = 0.6, GlossStyle = 7, Glow = 1.4, GlowColor = C(255, 90, 150), Pulse = { 1.1, "Beat", true }, Sparkle = { 26, 0.3 }, Fx = { "sakura" }, FxTint = C(255, 120, 170) })
+
+	-- 基本のプリセット (追加)
+	basic("Copper", "Metal", 200, 112, 72, 0.4)
+	basic("Bronze", "Metal", 176, 122, 62, 0.35)
+	basic("Steel", "Metal", 130, 140, 156, 0.45)
+	basic("Pearl", "SmoothPlastic", 246, 240, 236, 0.35)
+	basic("Emerald", "Glass", 30, 190, 110, 0.2, 0.3)
+	basic("Ruby", "Glass", 224, 30, 64, 0.2, 0.3)
+	basic("Sapphire", "Glass", 40, 80, 230, 0.2, 0.3)
+	basic("Amethyst", "Glass", 154, 72, 226, 0.2, 0.3)
+	basic("Topaz", "Glass", 255, 192, 52, 0.2, 0.3)
+	basic("Mint", "SmoothPlastic", 150, 240, 200, 0.1)
+	basic("Peach", "SmoothPlastic", 255, 190, 160, 0.1)
+	basic("Lavender", "SmoothPlastic", 190, 170, 240, 0.1)
+	basic("Cocoa", "SmoothPlastic", 110, 70, 50, 0.05)
+	basic("Midnight", "SmoothPlastic", 20, 24, 60, 0.2, 0, 0.3)
+	basic("Coral2", "SmoothPlastic", 255, 120, 120, 0.1)
+	basic("Lemon", "SmoothPlastic", 255, 236, 80, 0.1)
+	basic("SkyBlue", "SmoothPlastic", 130, 200, 255, 0.1)
+	basic("NeonPurple", "Neon", 170, 90, 255, 0, 0, 2)
+	basic("NeonOrange", "Neon", 255, 140, 40, 0, 0, 2)
+	basic("NeonRed", "Neon", 255, 50, 60, 0, 0, 2)
+	basic("NeonYellow", "Neon", 255, 240, 70, 0, 0, 2)
+	basic("NeonWhite", "Neon", 245, 250, 255, 0, 0, 1.8)
+	basic("Sunflower", "Neon", 255, 210, 40, 0, 0, 1.5)
 end
 
 local CollectionService = game:GetService("CollectionService")
@@ -3643,6 +3816,13 @@ local WEATHER_KINDS = {
 	{ Color3.fromRGB(66, 112, 40), 0.8, -1, 0.08 },    -- 3 こけ (下ほど濃い)
 	{ Color3.fromRGB(246, 250, 255), 0.95, 1, 0 },     -- 4 雪 (上ほど濃い)
 	{ Color3.fromRGB(24, 18, 14), 0.9, 0, 0 },         -- 5 焦げ
+	{ Color3.fromRGB(200, 175, 130), 0.75, -1, 0.04 }, -- 6 砂ぼこり (下ほど濃い)
+	{ Color3.fromRGB(70, 160, 140), 0.8, 0, 0.05 },    -- 7 緑青 (銅のさび)
+	{ Color3.fromRGB(215, 235, 250), 0.85, 1, 0 },     -- 8 霜 (上ほど濃い)
+	{ Color3.fromRGB(92, 68, 46), 0.85, -1, 0.1 },     -- 9 泥はね (下ほど濃い)
+	{ Color3.fromRGB(34, 30, 28), 0.8, 1, 0.1 },       -- 10 すす (上ほど濃い)
+	{ Color3.fromRGB(200, 196, 190), 0.7, 0, 0 },      -- 11 色あせ
+	{ Color3.fromRGB(255, 215, 110), 0.6, 1, 0 },      -- 12 金粉 (上ほど濃い)
 }
 local WEATHER_N = #WEATHER_KINDS
 
@@ -3690,7 +3870,7 @@ end
 -- 動かすのは各自の画面側 (なめらかに動くように)。サーバーは設定を書くだけで、毎フレーム更新はしない。
 local ANIM_ATTRS = { "PS_Rb", "PS_RbSpeed", "PS_RbSat", "PS_RbSpread", "PS_Pulse", "PS_PulseStyle", "PS_PulseBody", "PS_Flow",
 	"PS_GA", "PS_GB", "PS_GC", "PS_GRev", "PS_GMid", "PS_GStripes", "PS_GlowB", "PS_GlowCol",
-	"PS_PulseDepth", "PS_PulseWave", "PS_GMode", "PS_GlowCol2", "PS_GSpeed", "PS_Night", "PS_Sheen", "PS_FId" }
+	"PS_PulseDepth", "PS_PulseWave", "PS_GMode", "PS_GlowCol2", "PS_GlowCol3", "PS_GSpeed", "PS_Night", "PS_Sheen", "PS_FId" }
 local function syncAnim(model)
 	local s = st(model)
 	local g = s.grad
@@ -3718,6 +3898,7 @@ local function syncAnim(model)
 	model:SetAttribute("PS_PulseWave", s.pwave or 0)
 	model:SetAttribute("PS_GMode", gm)
 	model:SetAttribute("PS_GlowCol2", s.gcol2)
+	model:SetAttribute("PS_GlowCol3", s.gcol3)
 	model:SetAttribute("PS_GSpeed", s.gspeed or 0.3)
 	model:SetAttribute("PS_Night", s.night == true)
 	model:SetAttribute("PS_Sheen", s.sheen or 0)
@@ -3755,6 +3936,7 @@ local function setGlow(model, color, brightness, range)
 		l.Shadows = false
 		l.Parent = h
 	end
+	pcall(function() l.Shadows = (s.lshadow == true) end)   -- 光が影を作る (重いので、初期はOFF)
 	if cls == "SpotLight" then
 		l.Face = (shape == "Up") and Enum.NormalId.Top or Enum.NormalId.Bottom
 		l.Angle = s.spot or 120
@@ -3782,6 +3964,7 @@ local function setOutline(model, on, color)
 		o.Parent = model
 	end
 	if color then o.OutlineColor = color end
+	pcall(function() o.DepthMode = st(model).othru and Enum.HighlightDepthMode.AlwaysOnTop or Enum.HighlightDepthMode.Occluded end)   -- 壁の向こうでも見える縁取り
 	local f = st(model).ofill or 0   -- 縁取りの内側を光らせる量 (オーラ)
 	o.FillColor = o.OutlineColor
 	o.FillTransparency = f > 0 and (1 - 0.7 * f) or 1
@@ -4152,6 +4335,23 @@ do
 		{ bands = { { 0.30, 0.012, 1 }, { 0.345, 0.05, 0.34 }, { 0.72, 0.015, 0.92 } }, sky = 0.12 },                                               -- 7 ニス (細くて鋭い光 + うすい映り込み)
 		{ bands = { { 0.14, 0.07, 0.95 }, { 0.32, 0.045, 0.7 }, { 0.5, 0.09, 0.95 }, { 0.68, 0.045, 0.7 }, { 0.86, 0.07, 0.95 } }, sky = 0.22, irid = 0.9 }, -- 8 ダイヤ (虹色にきらめく面)
 	}
+	-- 9〜20: 細い帯をたくさん並べる型は thin = true (帯1本につき点を3つだけ使う。20点の上限の中で、帯を6本まで置ける)
+	for _, st_ in ipairs({
+		{ bands = { { 0.08, 0.04, 0.4 }, { 0.2, 0.04, 0.35 }, { 0.34, 0.04, 0.45 }, { 0.5, 0.04, 0.35 }, { 0.66, 0.04, 0.45 }, { 0.82, 0.04, 0.35 } }, sky = 0.2, thin = true },    -- 9 ブラッシュ (ヘアライン)
+		{ bands = { { 0.18, 0.12, 0.5 }, { 0.5, 0.2, 0.36 }, { 0.82, 0.12, 0.55 } }, sky = 0.58 },                                                                           -- 10 水面 (やわらかな波)
+		{ bands = { { 0.28, 0.02, 1 }, { 0.3, 0.2, 0.3 } }, sky = 0.15 },                                                                                                    -- 11 漆 (するどい1本 + 広いつや)
+		{ bands = { { 0.35, 0.3, 0.55 }, { 0.78, 0.14, 0.3 } }, sky = 0.36 },                                                                                                -- 12 琥珀 (あめ色の、とろんとしたツヤ)
+		{ bands = { { 0.2, 0.05, 1 }, { 0.8, 0.05, 1 } }, sky = 0.1 },                                                                                                       -- 13 蛍光灯 (2本の長い光)
+		{ bands = { { 0.07, 0.016, 0.9 }, { 0.2, 0.014, 0.8 }, { 0.36, 0.018, 0.95 }, { 0.52, 0.014, 0.75 }, { 0.68, 0.016, 0.9 }, { 0.86, 0.016, 0.85 } }, sky = 0.26, irid = 0.6, thin = true }, -- 14 スパークル (小さな光がちらばる)
+		{ bands = { { 0.2, 0.2, 0.55 }, { 0.62, 0.22, 0.5 } }, sky = 0.35, irid = 3.2 },                                                                                     -- 15 マジョーラ (角度で色がかわる)
+		{ bands = { { 0.5, 0.45, 0.4 } }, sky = 0.3 },                                                                                                                       -- 16 サテン (広くてやさしい光沢)
+		{ bands = { { 0.125, 0.07, 0.75 }, { 0.375, 0.07, 0.75 }, { 0.625, 0.07, 0.75 }, { 0.875, 0.07, 0.75 } }, sky = 0.2, thin = true },                                    -- 17 しま (はっきりした縞)
+		{ bands = { { 0.4, 0.018, 1 }, { 0.47, 0.018, 1 } }, sky = 0.18 },                                                                                                   -- 18 ダブルライン (細い2本)
+		{ bands = { { 0.5, 0.3, 0.9 } }, sky = 0.4 },                                                                                                                        -- 19 ドーム (まるいツヤ)
+		{ bands = { { 0.12, 0.012, 0.9 }, { 0.27, 0.01, 0.7 }, { 0.41, 0.013, 0.95 }, { 0.54, 0.01, 0.6 }, { 0.68, 0.012, 0.9 }, { 0.82, 0.01, 0.7 }, { 0.94, 0.013, 0.85 } }, sky = 0.3, irid = 0.3, thin = true }, -- 20 ひび氷
+	}) do
+		GLOSS_STYLES[#GLOSS_STYLES + 1] = st_
+	end
 	SK.GLOSS_STYLES = #GLOSS_STYLES
 	-- 映り込む空 (環境)。sky=空の色 / hi=光の帯の色 / a=映り込みの濃さの倍率
 	local SKIES = {
@@ -4162,6 +4362,18 @@ do
 		{ sky = Color3.fromRGB(86, 236, 192), hi = Color3.fromRGB(218, 255, 240), a = 1.15 },     -- 5 オーロラ
 		{ sky = Color3.new(1, 1, 1), hi = Color3.new(1, 1, 1), a = 0.7 },                         -- 6 スタジオ (白)
 	}
+	for _, sk_ in ipairs({
+		{ sky = Color3.fromRGB(250, 214, 190), hi = Color3.fromRGB(255, 245, 225), a = 1.05 },    -- 7 朝焼け
+		{ sky = Color3.fromRGB(190, 198, 210), hi = Color3.fromRGB(240, 244, 250), a = 0.85 },    -- 8 くもり
+		{ sky = Color3.fromRGB(120, 190, 130), hi = Color3.fromRGB(230, 255, 225), a = 1 },       -- 9 森
+		{ sky = Color3.fromRGB(255, 214, 140), hi = Color3.fromRGB(255, 246, 210), a = 1.1 },     -- 10 砂漠
+		{ sky = Color3.fromRGB(40, 30, 90), hi = Color3.fromRGB(200, 190, 255), a = 1.4 },        -- 11 宇宙
+		{ sky = Color3.fromRGB(80, 200, 230), hi = Color3.fromRGB(225, 250, 255), a = 1.1 },      -- 12 海
+		{ sky = Color3.fromRGB(255, 90, 40), hi = Color3.fromRGB(255, 200, 120), a = 1.2 },       -- 13 火山
+		{ sky = Color3.fromRGB(225, 240, 255), hi = Color3.fromRGB(255, 255, 255), a = 0.95 },    -- 14 雪原
+	}) do
+		SKIES[#SKIES + 1] = sk_
+	end
 	SK.SKIES = #SKIES
 	local function bandAlpha(bands, t)
 		local a = 0
@@ -4183,7 +4395,7 @@ do
 		local us = { 0, 1 }
 		if math.abs(t1 - t0) > 1e-6 then
 			for _, b in ipairs(style.bands) do
-				for _, d in ipairs({ -1, -0.5, 0, 0.5, 1 }) do
+				for _, d in ipairs(style.thin and { -1, 0, 1 } or { -1, -0.5, 0, 0.5, 1 }) do
 					local u = (b[1] + d * b[2] - t0) / (t1 - t0)
 					if u > 0.003 and u < 0.997 then us[#us + 1] = u end
 				end
@@ -4238,6 +4450,7 @@ do
 	-- 帯は真ん中だけ不透明で、ふちはなめらかに消える。動かすのは各自の画面(アニメ担当)で、ここでは「画面の外」に置いておく
 	local SHEEN_TILT = 24
 	local SHEEN_HIDE = -1.3
+	SK.SHEEN_COLS = 8
 	local function sheenSeqs(id)
 		local nks = NumberSequence.new({
 			NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.33, 1), NumberSequenceKeypoint.new(0.44, 0.55),
@@ -4254,15 +4467,29 @@ do
 				ColorSequenceKeypoint.new(0.58, Color3.fromRGB(255, 236, 120)), ColorSequenceKeypoint.new(0.67, Color3.fromRGB(150, 255, 170)),
 				ColorSequenceKeypoint.new(1, Color3.new(1, 1, 1)),
 			})
+		elseif id >= 4 and id <= 8 then   -- 4 青 / 5 ピンク / 6 緑 / 7 赤 / 8 紫
+			local sc = ({ Color3.fromRGB(150, 205, 255), Color3.fromRGB(255, 170, 215), Color3.fromRGB(160, 255, 190), Color3.fromRGB(255, 130, 130), Color3.fromRGB(205, 160, 255) })[id - 3]
+			cs = ColorSequence.new(sc)
 		else
 			cs = ColorSequence.new(Color3.new(1, 1, 1))
 		end
 		return cs, nks
 	end
-	local EDGE_COL = ColorSequence.new({
-		ColorSequenceKeypoint.new(0, Color3.new(1, 1, 1)), ColorSequenceKeypoint.new(0.4, Color3.fromRGB(236, 241, 255)),
-		ColorSequenceKeypoint.new(0.6, Color3.fromRGB(150, 154, 170)), ColorSequenceKeypoint.new(1, Color3.fromRGB(34, 36, 48)),
-	})
+	local function edgeCol(a, b, c, d)
+		return ColorSequence.new({ ColorSequenceKeypoint.new(0, a), ColorSequenceKeypoint.new(0.4, b), ColorSequenceKeypoint.new(0.6, c), ColorSequenceKeypoint.new(1, d) })
+	end
+	local EDGE_COLS = {
+		edgeCol(Color3.new(1, 1, 1), Color3.fromRGB(236, 241, 255), Color3.fromRGB(150, 154, 170), Color3.fromRGB(34, 36, 48)),     -- 1 白 (ふつう)
+		edgeCol(Color3.fromRGB(255, 244, 190), Color3.fromRGB(255, 214, 110), Color3.fromRGB(176, 124, 40), Color3.fromRGB(50, 32, 8)),  -- 2 金
+		edgeCol(Color3.fromRGB(215, 240, 255), Color3.fromRGB(120, 190, 255), Color3.fromRGB(50, 100, 200), Color3.fromRGB(10, 20, 60)),  -- 3 青
+		edgeCol(Color3.fromRGB(255, 225, 240), Color3.fromRGB(255, 140, 200), Color3.fromRGB(190, 60, 130), Color3.fromRGB(50, 10, 40)),  -- 4 ピンク
+		edgeCol(Color3.fromRGB(225, 255, 235), Color3.fromRGB(110, 235, 160), Color3.fromRGB(40, 150, 90), Color3.fromRGB(8, 40, 24)),   -- 5 緑
+		ColorSequence.new({
+			ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 120, 120)), ColorSequenceKeypoint.new(0.25, Color3.fromRGB(255, 230, 110)), ColorSequenceKeypoint.new(0.5, Color3.fromRGB(110, 255, 170)),
+			ColorSequenceKeypoint.new(0.75, Color3.fromRGB(110, 170, 255)), ColorSequenceKeypoint.new(1, Color3.fromRGB(220, 120, 255)),
+		}),                                                                                                                              -- 6 虹
+	}
+	SK.EDGE_COLS = #EDGE_COLS
 
 	-- t0(左/上) → t1(右/下) の ColorSequence を作る。ストライプの時は境目を急に切り替える
 	local function buildSeq(cfg, t0, t1, tf)
@@ -4412,8 +4639,8 @@ do
 			local sid = SKIES[s.sky or 1] and (s.sky or 1) or 1
 			plan.gl = { k = k * (1 - 0.6 * trMax), id = id, style = GLOSS_STYLES[id], ax = ax, ex = ex, flip = (g and g.topFlip) == true, sky = sid, env = SKIES[sid] }
 		end
-		if (s.sheen or 0) > 0 then plan.sh = { col = (s.sheenCol == 2 or s.sheenCol == 3) and s.sheenCol or 1 } end   -- 光が走る帯
-		if (s.edge or 0) > 0 then plan.ed = { k = math.clamp(s.edge, 0, 1) } end                                      -- 角のハイライト
+		if (s.sheen or 0) > 0 then plan.sh = { col = math.clamp(math.floor(s.sheenCol or 1), 1, SK.SHEEN_COLS) } end    -- 光が走る帯
+		if (s.edge or 0) > 0 then plan.ed = { k = math.clamp(s.edge, 0, 1), col = math.clamp(math.floor(s.edgeCol or 1), 1, SK.EDGE_COLS) } end   -- 角のハイライト
 		-- 部品ごとの面の大きさ。大きな面だけに重ねる
 		local areas, amax = {}, 0
 		for i, p in ipairs(parts) do
@@ -4637,12 +4864,13 @@ do
 				es.Parent = fE
 				eg = Instance.new("UIGradient")
 				eg.Rotation = 45
-				eg.Color = EDGE_COL
 				eg.Parent = es
 				rec.ed = nil
 			end
-			local sig = string.format("%.3f|%s", k, cvs)
+			local sig = string.format("%.3f|%s|%d", k, cvs, plan.ed.col)
 			if rec.ed ~= sig then
+				eg = eg or es:FindFirstChildOfClass("UIGradient")
+				if eg then eg.Color = EDGE_COLS[plan.ed.col] or EDGE_COLS[1] end
 				local inset = 2 + 1.5 * k
 				fE.Position = UDim2.fromOffset(inset, inset)
 				fE.Size = UDim2.new(1, -2 * inset, 1, -2 * inset)
@@ -4951,7 +5179,8 @@ do
 
 	-- ツートン: 板の一部を選ぶ。mode = Top 上の段 / Bottom 下の段 / Half1 前半 / Half2 後半 / Stripe しましま / Outer 外側 / Random ランダム
 	-- 戻り値: { [パーツ] = true }。パーツが2つ以上あれば、必ず「一部だけ」(すべて・ゼロにならない)。不正な mode は nil
-	local TWO_MODE = { Top = true, Bottom = true, Half1 = true, Half2 = true, Stripe = true, Outer = true, Random = true }
+	local TWO_MODE = { Top = true, Bottom = true, Half1 = true, Half2 = true, Stripe = true, Outer = true, Random = true,
+		Ends = true, Center = true, Third1 = true, Third2 = true, Third3 = true, Every3 = true, Diag = true, Inner = true, Checker = true }
 	function SK.groupParts(model, parts, mode)
 		if not TWO_MODE[mode] then return nil end
 		local n = #parts
@@ -4992,6 +5221,56 @@ do
 				score[i] = sel[i] and 1 or 0
 			end
 			direct = true
+		elseif mode == "Ends" or mode == "Center" then   -- 両はし / まんなか (長い方向)
+			for i = 1, n do
+				local d = math.abs(cen(long[i]) - 0.5)
+				sel[i] = (mode == "Ends") and d >= 0.3 or (mode == "Center" and d <= 0.2)
+				score[i] = (mode == "Ends") and d or -d
+			end
+			direct = true
+		elseif mode == "Third1" or mode == "Third2" or mode == "Third3" then   -- 前1/3 / 中1/3 / 後ろ1/3
+			local k = (mode == "Third1") and 1 or (mode == "Third2" and 2 or 3)
+			for i = 1, n do
+				local t = cen(long[i])
+				sel[i] = math.min(2, math.floor(t * 3)) + 1 == k
+				score[i] = -math.abs(t - (k * 2 - 1) / 6)
+			end
+			direct = true
+		elseif mode == "Every3" then   -- 3本に1本
+			local order = {}
+			for i = 1, n do order[i] = i end
+			table.sort(order, function(a, b)
+				local ca, cb = cen(long[a]), cen(long[b])
+				if ca ~= cb then return ca < cb end
+				return a < b
+			end)
+			for r, i in ipairs(order) do
+				sel[i] = (r % 3 == 0)
+				score[i] = sel[i] and 1 or 0
+			end
+			direct = true
+		elseif mode == "Diag" then   -- ななめ半分
+			local other = (long == exX) and exZ or exX
+			for i = 1, n do
+				local a, b = cen(long[i]), cen(other[i])
+				sel[i] = (a + b) >= 1
+				score[i] = a + b
+			end
+			direct = true
+		elseif mode == "Checker" then   -- ちどりがけ (市松)
+			local other = (long == exX) and exZ or exX
+			for i = 1, n do
+				local a, b = cen(long[i]), cen(other[i])
+				sel[i] = (math.floor(a * 4 - 1e-6) + math.floor(b * 2 - 1e-6)) % 2 == 0
+				score[i] = sel[i] and 1 or 0
+			end
+			direct = true
+		elseif mode == "Inner" then   -- まんなかの半分 (Outer の反対)
+			for i = 1, n do
+				local dx = (spX > 1e-3) and math.abs(cen(exX[i]) - 0.5) or 0
+				local dz = (spZ > 1e-3) and math.abs(cen(exZ[i]) - 0.5) or 0
+				score[i] = -math.max(dx, dz) + i * 1e-6
+			end
 		elseif mode == "Outer" then
 			for i = 1, n do
 				local dx = (spX > 1e-3) and math.abs(cen(exX[i]) - 0.5) or 0
@@ -5100,12 +5379,14 @@ do
 end
 
 ---------------------------------------------------------------------
--- 効果 (炎・煙・キラキラ・紙吹雪・雪・桜・ほたる・あわ・火の粉) — すべて ParticleEmitter
+-- 効果 (炎・煙・キラキラ・紙吹雪・雪・桜・ほたる・あわ・火の粉・電気・星くず・落ち葉・しずく・魔法・もや・後光・雨・軌跡)
+-- 軌跡 (trail) だけは Trail。あとは ParticleEmitter。
 -- Acceleration は「世界の上下」で効くので、板がどんな向きでも、炎や煙は必ず上へ昇る。
 -- 板の大きいパーツ(最大3つ)に付けるので、小さな音用パーツの向きに引っ張られない。
+-- 全部の効果に効く設定: 量 fxMul / 大きさ fxSize / 速さ fxSpeed / 色 fxTint
 ---------------------------------------------------------------------
 local FX = {}
-local FX_NAMES = { "fire", "smoke", "sparkle", "confetti", "snow", "sakura", "firefly", "bubbles", "embers" }
+local FX_NAMES = { "fire", "smoke", "sparkle", "confetti", "snow", "sakura", "firefly", "bubbles", "embers", "electric", "stardust", "leaves", "droplets", "magic", "mist", "halo", "rain", "trail" }
 local FX_TEX = {
 	fire = "rbxasset://textures/particles/fire_main.dds",
 	smoke = "rbxasset://textures/particles/smoke_main.dds",
@@ -5113,33 +5394,73 @@ local FX_TEX = {
 }
 -- 炎の色: { 芯, 中, 外, 消える頃 }
 local FIRE_COLORS = {
-	{ Color3.fromRGB(255, 240, 170), Color3.fromRGB(255, 150, 40), Color3.fromRGB(225, 60, 20), Color3.fromRGB(50, 20, 15) },
-	{ Color3.fromRGB(200, 235, 255), Color3.fromRGB(70, 150, 255), Color3.fromRGB(30, 70, 220), Color3.fromRGB(10, 15, 50) },
-	{ Color3.fromRGB(220, 255, 200), Color3.fromRGB(80, 255, 120), Color3.fromRGB(20, 170, 70), Color3.fromRGB(5, 40, 20) },
-	{ Color3.fromRGB(240, 215, 255), Color3.fromRGB(180, 100, 255), Color3.fromRGB(110, 40, 200), Color3.fromRGB(25, 10, 50) },
-	{ Color3.fromRGB(255, 225, 240), Color3.fromRGB(255, 110, 190), Color3.fromRGB(210, 40, 130), Color3.fromRGB(50, 10, 35) },
+	{ Color3.fromRGB(255, 240, 170), Color3.fromRGB(255, 150, 40), Color3.fromRGB(225, 60, 20), Color3.fromRGB(50, 20, 15) },      -- 1 通常
+	{ Color3.fromRGB(200, 235, 255), Color3.fromRGB(70, 150, 255), Color3.fromRGB(30, 70, 220), Color3.fromRGB(10, 15, 50) },      -- 2 青
+	{ Color3.fromRGB(220, 255, 200), Color3.fromRGB(80, 255, 120), Color3.fromRGB(20, 170, 70), Color3.fromRGB(5, 40, 20) },       -- 3 緑
+	{ Color3.fromRGB(240, 215, 255), Color3.fromRGB(180, 100, 255), Color3.fromRGB(110, 40, 200), Color3.fromRGB(25, 10, 50) },    -- 4 紫
+	{ Color3.fromRGB(255, 225, 240), Color3.fromRGB(255, 110, 190), Color3.fromRGB(210, 40, 130), Color3.fromRGB(50, 10, 35) },    -- 5 ピンク
+	{ Color3.fromRGB(255, 250, 200), Color3.fromRGB(255, 215, 90), Color3.fromRGB(230, 160, 30), Color3.fromRGB(60, 40, 10) },     -- 6 金
+	{ Color3.fromRGB(255, 255, 255), Color3.fromRGB(235, 240, 255), Color3.fromRGB(190, 200, 225), Color3.fromRGB(40, 45, 60) },   -- 7 白
+	{ Color3.fromRGB(255, 170, 150), Color3.fromRGB(230, 40, 30), Color3.fromRGB(120, 10, 20), Color3.fromRGB(15, 0, 5) },         -- 8 地獄 (赤黒)
+	{ Color3.fromRGB(210, 190, 255), Color3.fromRGB(110, 70, 170), Color3.fromRGB(45, 20, 80), Color3.fromRGB(8, 4, 16) },         -- 9 闇 (黒紫)
+	{ Color3.fromRGB(255, 120, 120), Color3.fromRGB(255, 230, 90), Color3.fromRGB(90, 230, 255), Color3.fromRGB(200, 100, 255) },  -- 10 虹
 }
-local function seqN(list)
+-- 煙の色: { はじめ, おわり }
+local SMOKE_COLORS = {
+	{ Color3.fromRGB(120, 120, 126), Color3.fromRGB(205, 205, 212) },   -- 1 グレー
+	{ Color3.fromRGB(20, 20, 24), Color3.fromRGB(80, 80, 88) },         -- 2 黒
+	{ Color3.fromRGB(235, 235, 240), Color3.fromRGB(255, 255, 255) },   -- 3 白
+	{ Color3.fromRGB(90, 50, 140), Color3.fromRGB(190, 140, 230) },     -- 4 紫
+	{ Color3.fromRGB(230, 120, 170), Color3.fromRGB(255, 200, 225) },   -- 5 ピンク
+	{ Color3.fromRGB(70, 110, 190), Color3.fromRGB(170, 200, 245) },    -- 6 青
+	{ Color3.fromRGB(60, 130, 70), Color3.fromRGB(160, 220, 150) },     -- 7 緑
+}
+-- 紙吹雪の色 (ぜんぶ { 色, ... })
+local CONF_COLORS = {
+	false,   -- 1 にじ色 (下で作る)
+	{ Color3.fromRGB(255, 215, 90), Color3.fromRGB(235, 235, 245), Color3.fromRGB(255, 240, 190), Color3.fromRGB(200, 205, 220) },       -- 2 金と銀
+	{ Color3.fromRGB(255, 190, 215), Color3.fromRGB(190, 225, 255), Color3.fromRGB(255, 245, 190), Color3.fromRGB(205, 255, 220) },      -- 3 パステル
+	{ Color3.fromRGB(230, 40, 50), Color3.fromRGB(40, 170, 80), Color3.fromRGB(255, 255, 255), Color3.fromRGB(255, 205, 70) },          -- 4 赤と緑
+	{ Color3.fromRGB(235, 245, 255), Color3.fromRGB(150, 200, 255), Color3.fromRGB(255, 255, 255), Color3.fromRGB(190, 220, 250) },      -- 5 雪の色
+	{ Color3.fromRGB(255, 120, 170), Color3.fromRGB(255, 190, 215), Color3.fromRGB(255, 80, 130), Color3.fromRGB(255, 225, 235) },      -- 6 ピンク
+}
+local function lumOf(c) return 0.3 * c.R + 0.59 * c.G + 0.11 * c.B end
+-- 効果の色 (fxTint) を選んでいる時は、その色に変える (明るさは元の色のまま)
+local function tc(s, c)
+	local t = s.fxTint
+	if not t then return c end
+	local l = lumOf(c)
+	return Color3.new(t.R * l, t.G * l, t.B * l)
+end
+-- zs = 大きさの倍率 (大きさの並びにだけ使う)
+local function seqN(list, zs)
 	local k = {}
-	for _, a in ipairs(list) do k[#k + 1] = NumberSequenceKeypoint.new(a[1], a[2]) end
+	for _, a in ipairs(list) do k[#k + 1] = NumberSequenceKeypoint.new(a[1], a[2] * (zs or 1)) end
 	return NumberSequence.new(k)
 end
-local function seqC(list)
+local function seqC(list, s)
 	local k = {}
-	for _, a in ipairs(list) do k[#k + 1] = ColorSequenceKeypoint.new(a[1], a[2]) end
+	for _, a in ipairs(list) do k[#k + 1] = ColorSequenceKeypoint.new(a[1], s and tc(s, a[2]) or a[2]) end
 	return ColorSequence.new(k)
 end
+local function oneC(s, c) return seqC({ { 0, c }, { 1, c } }, s) end
 local function trySet(o, k, v) pcall(function() o[k] = v end) end
 local function mul(s) return s.fxMul or 1 end
+local function zoom(s) return s.fxSize or 1 end
+local function bigSide(p)
+	if not p then return 4 end
+	local z = p.Size
+	return math.max(z.X, z.Y, z.Z)
+end
 
 FX.fire = function(e, s, n)
 	local sc = (s.fireSize or 6) / 6
 	local pal = FIRE_COLORS[s.fireColor or 1] or FIRE_COLORS[1]
 	e.Texture = FX_TEX.fire
-	e.Color = seqC({ { 0, pal[1] }, { 0.25, pal[2] }, { 0.65, pal[3] }, { 1, pal[4] } })
+	e.Color = seqC({ { 0, pal[1] }, { 0.25, pal[2] }, { 0.65, pal[3] }, { 1, pal[4] } }, (s.fireColor or 1) == 1 and s or nil)
 	e.LightEmission = 1
 	trySet(e, "LightInfluence", 0)
-	e.Size = seqN({ { 0, 0.5 * sc }, { 0.2, 1.6 * sc }, { 1, 0.1 * sc } })
+	e.Size = seqN({ { 0, 0.5 * sc }, { 0.2, 1.6 * sc }, { 1, 0.1 * sc } }, zoom(s))
 	e.Transparency = seqN({ { 0, 1 }, { 0.12, 0.25 }, { 0.7, 0.55 }, { 1, 1 } })
 	e.Lifetime = NumberRange.new(0.7, 1.3)
 	e.Speed = NumberRange.new(0, 0.8)
@@ -5150,11 +5471,12 @@ FX.fire = function(e, s, n)
 end
 FX.smoke = function(e, s, n)
 	local sc = (s.fireSize or 6) / 6
+	local pal = SMOKE_COLORS[s.smokeColor or 1] or SMOKE_COLORS[1]
 	e.Texture = FX_TEX.smoke
-	e.Color = seqC({ { 0, Color3.fromRGB(120, 120, 126) }, { 1, Color3.fromRGB(205, 205, 212) } })
+	e.Color = seqC({ { 0, pal[1] }, { 1, pal[2] } }, (s.smokeColor or 1) == 1 and s or nil)
 	e.LightEmission = 0
 	trySet(e, "LightInfluence", 0.6)
-	e.Size = seqN({ { 0, 0.8 * sc }, { 1, 3.2 * sc } })
+	e.Size = seqN({ { 0, 0.8 * sc }, { 1, 3.2 * sc } }, zoom(s))
 	e.Transparency = seqN({ { 0, 1 }, { 0.15, 0.55 }, { 0.7, 0.8 }, { 1, 1 } })
 	e.Lifetime = NumberRange.new(2.2, 3.8)
 	e.Speed = NumberRange.new(0, 0.6)
@@ -5165,9 +5487,9 @@ FX.smoke = function(e, s, n)
 end
 FX.embers = function(e, s, n)
 	e.Texture = FX_TEX.spark
-	e.Color = seqC({ { 0, Color3.fromRGB(255, 220, 140) }, { 0.5, Color3.fromRGB(255, 120, 30) }, { 1, Color3.fromRGB(120, 30, 10) } })
+	e.Color = seqC({ { 0, Color3.fromRGB(255, 220, 140) }, { 0.5, Color3.fromRGB(255, 120, 30) }, { 1, Color3.fromRGB(120, 30, 10) } }, s)
 	e.LightEmission = 1
-	e.Size = seqN({ { 0, 0.28 }, { 0.3, 0.2 }, { 1, 0 } })
+	e.Size = seqN({ { 0, 0.28 }, { 0.3, 0.2 }, { 1, 0 } }, zoom(s))
 	e.Transparency = seqN({ { 0, 0.1 }, { 0.8, 0.3 }, { 1, 1 } })
 	e.Lifetime = NumberRange.new(1.4, 3)
 	e.Speed = NumberRange.new(0.5, 2.5)
@@ -5183,8 +5505,8 @@ FX.sparkle = function(e, s, n)
 	e.Acceleration = Vector3.new(0, 0.6, 0)
 	e.Transparency = seqN({ { 0, 0 }, { 1, 1 } })
 	e.LightEmission = 1
-	e.Color = ColorSequence.new(Color3.new(1, 1, 1))
-	e.Size = seqN({ { 0, s.sparkSize or 0.35 }, { 1, 0 } })
+	e.Color = oneC(s, Color3.new(1, 1, 1))
+	e.Size = seqN({ { 0, s.sparkSize or 0.35 }, { 1, 0 } }, zoom(s))
 	e.Rate = (s.sparkRate or 25) * mul(s) / n
 end
 FX.confetti = function(e, s, n)
@@ -5197,17 +5519,22 @@ FX.confetti = function(e, s, n)
 	e.Rotation = NumberRange.new(0, 360)
 	e.RotSpeed = NumberRange.new(-240, 240)
 	e.LightEmission = 0.2
-	e.Size = NumberSequence.new(0.35)
+	e.Size = seqN({ { 0, 0.35 }, { 1, 0.35 } }, zoom(s))
 	e.Transparency = seqN({ { 0, 0 }, { 0.8, 0 }, { 1, 1 } })
 	local keys = {}
-	for i = 0, 6 do keys[#keys + 1] = { i / 6, Color3.fromHSV(i / 6, 0.85, 1) } end
-	e.Color = seqC(keys)
+	local pal = CONF_COLORS[s.confColor or 1]
+	if pal then
+		for i = 0, 6 do keys[#keys + 1] = { i / 6, pal[i % #pal + 1] } end
+	else
+		for i = 0, 6 do keys[#keys + 1] = { i / 6, Color3.fromHSV(i / 6, 0.85, 1) } end
+	end
+	e.Color = seqC(keys, s)
 end
 FX.snow = function(e, s, n)
 	e.Texture = FX_TEX.spark
-	e.Color = ColorSequence.new(Color3.new(1, 1, 1))
+	e.Color = oneC(s, Color3.new(1, 1, 1))
 	e.LightEmission = 0.5
-	e.Size = seqN({ { 0, 0.22 }, { 1, 0.16 } })
+	e.Size = seqN({ { 0, 0.22 }, { 1, 0.16 } }, zoom(s))
 	e.Transparency = seqN({ { 0, 1 }, { 0.1, 0.1 }, { 0.85, 0.2 }, { 1, 1 } })
 	e.Lifetime = NumberRange.new(3, 5)
 	e.Speed = NumberRange.new(1, 3)
@@ -5218,9 +5545,9 @@ FX.snow = function(e, s, n)
 end
 FX.sakura = function(e, s, n)
 	e.Texture = FX_TEX.spark
-	e.Color = ColorSequence.new(Color3.fromRGB(255, 170, 200))
+	e.Color = oneC(s, Color3.fromRGB(255, 170, 200))
 	e.LightEmission = 0.1
-	e.Size = seqN({ { 0, 0.4 }, { 1, 0.3 } })
+	e.Size = seqN({ { 0, 0.4 }, { 1, 0.3 } }, zoom(s))
 	e.Transparency = seqN({ { 0, 1 }, { 0.1, 0.1 }, { 0.85, 0.2 }, { 1, 1 } })
 	e.Lifetime = NumberRange.new(3, 5)
 	e.Speed = NumberRange.new(1, 3)
@@ -5232,9 +5559,9 @@ FX.sakura = function(e, s, n)
 end
 FX.firefly = function(e, s, n)
 	e.Texture = FX_TEX.spark
-	e.Color = ColorSequence.new(Color3.fromRGB(210, 255, 120))
+	e.Color = oneC(s, Color3.fromRGB(210, 255, 120))
 	e.LightEmission = 1
-	e.Size = seqN({ { 0, 0 }, { 0.2, 0.4 }, { 0.8, 0.4 }, { 1, 0 } })
+	e.Size = seqN({ { 0, 0 }, { 0.2, 0.4 }, { 0.8, 0.4 }, { 1, 0 } }, zoom(s))
 	e.Transparency = seqN({ { 0, 1 }, { 0.2, 0.15 }, { 0.8, 0.15 }, { 1, 1 } })
 	e.Lifetime = NumberRange.new(3, 5)
 	e.Speed = NumberRange.new(0.4, 1.2)
@@ -5244,15 +5571,178 @@ FX.firefly = function(e, s, n)
 end
 FX.bubbles = function(e, s, n)
 	e.Texture = FX_TEX.smoke
-	e.Color = ColorSequence.new(Color3.fromRGB(190, 235, 255))
+	e.Color = oneC(s, Color3.fromRGB(190, 235, 255))
 	e.LightEmission = 0.3
-	e.Size = seqN({ { 0, 0.2 }, { 1, 0.6 } })
+	e.Size = seqN({ { 0, 0.2 }, { 1, 0.6 } }, zoom(s))
 	e.Transparency = seqN({ { 0, 0.55 }, { 0.8, 0.65 }, { 1, 1 } })
 	e.Lifetime = NumberRange.new(2, 3.5)
 	e.Speed = NumberRange.new(0.3, 1.2)
 	e.Acceleration = Vector3.new(0, 1.8, 0)
 	trySet(e, "Drag", 0.6)
 	e.Rate = 7 * mul(s) / n
+end
+-- ⚡ 電気: 青白い火花が、パチパチと四方へ飛ぶ
+FX.electric = function(e, s, n)
+	e.Texture = FX_TEX.spark
+	e.Color = seqC({ { 0, Color3.fromRGB(255, 255, 255) }, { 0.4, Color3.fromRGB(150, 205, 255) }, { 1, Color3.fromRGB(70, 110, 255) } }, s)
+	e.LightEmission = 1
+	e.Size = seqN({ { 0, 0.5 }, { 0.5, 0.28 }, { 1, 0 } }, zoom(s))
+	e.Transparency = seqN({ { 0, 0 }, { 0.7, 0.2 }, { 1, 1 } })
+	e.Lifetime = NumberRange.new(0.12, 0.34)
+	e.Speed = NumberRange.new(7, 16)
+	e.SpreadAngle = Vector2.new(180, 180)
+	e.Acceleration = Vector3.new(0, 0, 0)
+	e.Rotation = NumberRange.new(0, 360)
+	e.RotSpeed = NumberRange.new(-400, 400)
+	e.Rate = 34 * mul(s) / n
+end
+-- 🌠 星くず: カラフルな小さな星が、ふわふわ昇る
+FX.stardust = function(e, s, n)
+	e.Texture = FX_TEX.spark
+	local keys = {}
+	for i = 0, 5 do keys[#keys + 1] = { i / 5, Color3.fromHSV((i * 0.17) % 1, 0.5, 1) } end
+	e.Color = seqC(keys, s)
+	e.LightEmission = 1
+	e.Size = seqN({ { 0, 0 }, { 0.2, 0.42 }, { 1, 0.08 } }, zoom(s))
+	e.Transparency = seqN({ { 0, 1 }, { 0.15, 0.1 }, { 0.8, 0.25 }, { 1, 1 } })
+	e.Lifetime = NumberRange.new(2, 3.6)
+	e.Speed = NumberRange.new(0.6, 2.4)
+	e.Acceleration = Vector3.new(0, 0.5, 0)
+	trySet(e, "Drag", 0.6)
+	e.Rotation = NumberRange.new(0, 360)
+	e.RotSpeed = NumberRange.new(-120, 120)
+	e.Rate = 14 * mul(s) / n
+end
+-- 🍂 落ち葉: 黄色からこげ茶へ、くるくる回りながら落ちる
+FX.leaves = function(e, s, n)
+	e.Texture = FX_TEX.spark
+	e.Color = seqC({ { 0, Color3.fromRGB(255, 205, 70) }, { 0.5, Color3.fromRGB(230, 120, 35) }, { 1, Color3.fromRGB(140, 70, 25) } }, s)
+	e.LightEmission = 0
+	e.Size = seqN({ { 0, 0.55 }, { 1, 0.45 } }, zoom(s))
+	e.Transparency = seqN({ { 0, 1 }, { 0.1, 0.05 }, { 0.85, 0.1 }, { 1, 1 } })
+	e.Lifetime = NumberRange.new(3.5, 5.5)
+	e.Speed = NumberRange.new(1, 3)
+	e.Acceleration = Vector3.new(0, -1.8, 0)
+	trySet(e, "Drag", 0.7)
+	e.Rotation = NumberRange.new(0, 360)
+	e.RotSpeed = NumberRange.new(-180, 180)
+	e.Rate = 9 * mul(s) / n
+end
+-- 💧 しずく: 水しぶきが跳ねて、また落ちる
+FX.droplets = function(e, s, n)
+	e.Texture = FX_TEX.spark
+	e.Color = seqC({ { 0, Color3.fromRGB(215, 240, 255) }, { 1, Color3.fromRGB(110, 175, 255) } }, s)
+	e.LightEmission = 0.4
+	e.Size = seqN({ { 0, 0.2 }, { 1, 0.1 } }, zoom(s))
+	e.Transparency = seqN({ { 0, 0.1 }, { 0.8, 0.3 }, { 1, 1 } })
+	e.Lifetime = NumberRange.new(0.8, 1.4)
+	e.Speed = NumberRange.new(3, 8)
+	e.SpreadAngle = Vector2.new(50, 50)
+	e.EmissionDirection = Enum.NormalId.Top
+	e.Acceleration = Vector3.new(0, -26, 0)
+	e.Rate = 22 * mul(s) / n
+end
+-- 🔮 魔法: 紫からピンク・白へ、きらめきながら昇る
+FX.magic = function(e, s, n)
+	e.Texture = FX_TEX.spark
+	e.Color = seqC({ { 0, Color3.fromRGB(130, 70, 255) }, { 0.5, Color3.fromRGB(255, 110, 230) }, { 1, Color3.fromRGB(255, 255, 255) } }, s)
+	e.LightEmission = 1
+	e.Size = seqN({ { 0, 0.2 }, { 0.3, 0.55 }, { 1, 0 } }, zoom(s))
+	e.Transparency = seqN({ { 0, 1 }, { 0.15, 0.1 }, { 0.8, 0.3 }, { 1, 1 } })
+	e.Lifetime = NumberRange.new(1.6, 2.8)
+	e.Speed = NumberRange.new(0.5, 1.8)
+	e.Acceleration = Vector3.new(0, 1.8, 0)
+	trySet(e, "Drag", 0.5)
+	e.Rotation = NumberRange.new(0, 360)
+	e.RotSpeed = NumberRange.new(-200, 200)
+	e.Rate = 18 * mul(s) / n
+end
+-- 🌫 もや: 板のまわりを、うすい霧がただよう
+FX.mist = function(e, s, n, p)
+	local d = bigSide(p)
+	e.Texture = FX_TEX.smoke
+	e.Color = seqC({ { 0, Color3.fromRGB(215, 225, 235) }, { 1, Color3.fromRGB(240, 245, 250) } }, s)
+	e.LightEmission = 0
+	trySet(e, "LightInfluence", 0.8)
+	e.Size = seqN({ { 0, 0.5 * d }, { 1, 1.1 * d } }, zoom(s))
+	e.Transparency = seqN({ { 0, 1 }, { 0.25, 0.74 }, { 0.7, 0.84 }, { 1, 1 } })
+	e.Lifetime = NumberRange.new(3.5, 5.5)
+	e.Speed = NumberRange.new(0.2, 0.8)
+	e.Acceleration = Vector3.new(0, 0.3, 0)
+	e.Rotation = NumberRange.new(0, 360)
+	e.RotSpeed = NumberRange.new(-15, 15)
+	e.Rate = 3.5 * mul(s) / n
+end
+-- 🔆 後光: 板のまわりに、大きくてやわらかい光のかたまり (板についてくる)
+FX.halo = function(e, s, n, p)
+	local d = bigSide(p)
+	e.Texture = FX_TEX.smoke
+	local base = s.glowColor or Color3.fromRGB(255, 235, 190)
+	e.Color = seqC({ { 0, base }, { 1, base } }, s and s.fxTint and s or nil)
+	e.LightEmission = 1
+	trySet(e, "LightInfluence", 0)
+	e.Size = seqN({ { 0, 1.1 * d }, { 1, 1.8 * d } }, zoom(s))
+	e.Transparency = seqN({ { 0, 1 }, { 0.2, 0.8 }, { 0.8, 0.88 }, { 1, 1 } })
+	e.Lifetime = NumberRange.new(2.2, 3)
+	e.Speed = NumberRange.new(0, 0)
+	e.Acceleration = Vector3.new(0, 0, 0)
+	trySet(e, "LockedToPart", true)
+	e.Rate = 2.4 * mul(s) / n
+end
+-- 🌧 雨: 板の上から、斜めにならず真下へ降りそそぐ (板の上にならんだ見えない点から出す)
+FX.rain = function(e, s, n, p)
+	local d = bigSide(p)
+	e.Texture = FX_TEX.spark
+	e.Color = seqC({ { 0, Color3.fromRGB(230, 242, 255) }, { 1, Color3.fromRGB(150, 190, 255) } }, s)
+	e.LightEmission = 0.5
+	e.Size = seqN({ { 0, 0.16 }, { 1, 0.12 } }, zoom(s))
+	e.Transparency = seqN({ { 0, 0.3 }, { 0.8, 0.45 }, { 1, 1 } })
+	local h = math.clamp(d * 0.6, 5, 14)
+	e.Lifetime = NumberRange.new(h / 34 + 0.05, h / 34 + 0.25)
+	e.Speed = NumberRange.new(26, 34)
+	local ang = math.clamp(math.deg(math.atan((d * 0.5) / h)) + 6, 12, 55)
+	e.SpreadAngle = Vector2.new(ang, ang)
+	e.Acceleration = Vector3.new(0, -24, 0)
+	e.Rate = 60 * mul(s) / n
+end
+
+-- 軌跡 (トレイル): 板が動くと、うしろに光の帯がのびる (止まっていると見えない)
+local function trailOn(model, s, hosts)
+	local p = hosts[1]
+	if not p then return end
+	local tr = p:FindFirstChild("SkinFx_trail")
+	local a0, a1 = p:FindFirstChild("SkinFxAtt_trail0"), p:FindFirstChild("SkinFxAtt_trail1")
+	if not a0 then
+		a0 = Instance.new("Attachment")
+		a0.Name = "SkinFxAtt_trail0"
+		a0.Parent = p
+	end
+	if not a1 then
+		a1 = Instance.new("Attachment")
+		a1.Name = "SkinFxAtt_trail1"
+		a1.Parent = p
+	end
+	local z = p.Size
+	local ax = Vector3.new(0, 1, 0)   -- いちばん長い辺の向きに、帯の幅をとる
+	local len = z.Y
+	if z.X >= len and z.X >= z.Z then ax, len = Vector3.new(1, 0, 0), z.X elseif z.Z >= len then ax, len = Vector3.new(0, 0, 1), z.Z end
+	pcall(function()
+		a0.Position = ax * (len * 0.45)
+		a1.Position = ax * (-len * 0.45)
+	end)
+	if not tr then
+		tr = Instance.new("Trail")
+		tr.Name = "SkinFx_trail"
+		tr.Attachment0, tr.Attachment1 = a0, a1
+		tr.Parent = p
+	end
+	trySet(tr, "Lifetime", 0.9 * (1 + 0.5 * ((s.fxMul or 1) - 1)))
+	trySet(tr, "MinLength", 0.05)
+	trySet(tr, "FaceCamera", true)
+	trySet(tr, "LightEmission", 0.6)
+	trySet(tr, "Color", seqC({ { 0, Color3.fromRGB(90, 220, 255) }, { 0.5, Color3.fromRGB(190, 110, 255) }, { 1, Color3.fromRGB(255, 110, 200) } }, s))
+	trySet(tr, "Transparency", seqN({ { 0, 0.15 }, { 1, 1 } }))
+	trySet(tr, "WidthScale", seqN({ { 0, 1 }, { 1, 0.1 } }, zoom(s)))
 end
 
 local function fxHosts(model, n)
@@ -5267,6 +5757,36 @@ local function fxHosts(model, n)
 	return out
 end
 
+-- 板の上の見えない点から、真下へ向けて出すための場所 (雨用)。板が傾いていても、世界の真下へ向く面を選ぶ
+local function downFace(a)
+	local ok, v = pcall(function() return a.WorldCFrame:VectorToObjectSpace(Vector3.new(0, -1, 0)) end)
+	if not ok or not v then return Enum.NormalId.Bottom end
+	local ax, ay, az = math.abs(v.X), math.abs(v.Y), math.abs(v.Z)
+	if ay >= ax and ay >= az then return v.Y > 0 and Enum.NormalId.Top or Enum.NormalId.Bottom end
+	if ax >= az then return v.X > 0 and Enum.NormalId.Right or Enum.NormalId.Left end
+	return v.Z > 0 and Enum.NormalId.Back or Enum.NormalId.Front
+end
+local function skyAttach(p, name)
+	local a = p:FindFirstChild("SkinFxAtt_" .. name)
+	if not a then
+		a = Instance.new("Attachment")
+		a.Name = "SkinFxAtt_" .. name
+		a.Parent = p
+	end
+	local h = math.clamp(bigSide(p) * 0.6, 5, 14)
+	pcall(function() a.Position = p.CFrame:VectorToObjectSpace(Vector3.new(0, h + p.Size.Y * 0.5, 0)) end)
+	return a
+end
+
+local function removeFx(model, name)
+	for _, p in ipairs(partsOf(model)) do
+		for _, nm in ipairs({ "SkinFx_" .. name, "SkinFxAtt_" .. name, "SkinFxAtt_" .. name .. "0", "SkinFxAtt_" .. name .. "1" }) do
+			local o = p:FindFirstChild(nm)
+			if o then o:Destroy() end
+		end
+	end
+end
+
 -- 効果を付ける / 外す。すでに付いていれば、作り直さずに設定だけ更新する (滑らかに変わる)
 local function setFx(model, name, on)
 	local s = st(model)
@@ -5274,31 +5794,42 @@ local function setFx(model, name, on)
 	local en = "SkinFx_" .. name
 	if not on then
 		s.fx[name] = nil
-		for _, p in ipairs(partsOf(model)) do
-			local e = p:FindFirstChild(en)
-			if e then e:Destroy() end
-		end
+		removeFx(model, name)
 		return
 	end
 	s.fx[name] = true
-	local hosts = fxHosts(model, 3)
+	if name == "trail" then
+		trailOn(model, s, fxHosts(model, 1))
+		return
+	end
+	local sky = (name == "rain")
+	local hosts = fxHosts(model, sky and 1 or 3)
 	local keep = {}
 	for _, p in ipairs(hosts) do
 		keep[p] = true
 		local e = p:FindFirstChild(en)
+		local att = sky and skyAttach(p, name) or nil
+		if sky and not e and att then e = att:FindFirstChild(en) end
 		if e then
-			FX[name](e, s, #hosts)
+			FX[name](e, s, #hosts, p)
 		else
 			e = Instance.new("ParticleEmitter")
 			e.Name = en
-			FX[name](e, s, #hosts)
-			e.Parent = p
+			FX[name](e, s, #hosts, p)
+			e.Parent = att or p
 		end
+		if att then
+			e.EmissionDirection = downFace(att)
+			e.Parent = att
+		end
+		trySet(e, "TimeScale", s.fxSpeed or 1)
 	end
 	for _, p in ipairs(partsOf(model)) do   -- パーツが増減した時に、付ける先から外れたものを片づける
 		if not keep[p] then
-			local e = p:FindFirstChild(en)
-			if e then e:Destroy() end
+			for _, nm in ipairs({ en, "SkinFxAtt_" .. name }) do
+				local o = p:FindFirstChild(nm)
+				if o then o:Destroy() end
+			end
 		end
 	end
 end
@@ -5321,74 +5852,131 @@ local function clearFx(model)
 	end
 end
 
--- プリセット(Full)を付ける前に、いまの光・動き・効果を全部消す
-function SK.resetExtras(model, parts)
+-- プリセット(Full)を付ける前に、いまの光・動き・効果を全部消す。
+-- which = nil なら全部 / "look" なら色・質感まわりだけ / "fx" なら光・動き・効果だけ
+function SK.resetExtras(model, parts, which)
 	local s = st(model)
-	clearFx(model)
-	s.sparkRate, s.sparkSize, s.fireSize, s.fireColor, s.fxMul = nil, nil, nil, nil, nil
-	s.pulse, s.pulseStyle, s.pulseBody = nil, nil, nil
-	s.rainbow, s.rbSpread = nil, nil
-	s.glowColor = nil
-	-- 光・動き・質感まわりの追加設定も、いったん初期に戻す (画面のスイッチ類も同時に初期へ戻るので、合わせておく)
-	s.pdepth, s.pwave, s.gmode, s.gcol2, s.gspeed, s.night, s.spot, s.ofill, s.lightShape = nil, nil, nil, nil, nil, nil, nil, nil, nil
-	s.sky, s.wkind, s.wh, s.glossAxis, s.variance, s.weather = nil, nil, nil, nil, nil, nil
-	twoOff(model, parts, false)
-	SK.sheen(model, parts, 0)
-	SK.edge(model, parts, 0)
-	SK.clearGrad(model)
-	setOutline(model, false)
+	if which ~= "look" then
+		clearFx(model)
+		s.sparkRate, s.sparkSize, s.fireSize, s.fireColor, s.fxMul = nil, nil, nil, nil, nil
+		s.fxSize, s.fxSpeed, s.fxTint, s.smokeColor, s.confColor = nil, nil, nil, nil, nil
+		s.pulse, s.pulseStyle, s.pulseBody = nil, nil, nil
+		s.glowColor = nil
+		-- 光・動きまわりの追加設定も、いったん初期に戻す (画面のスイッチ類も同時に初期へ戻るので、合わせておく)
+		s.pdepth, s.pwave, s.gmode, s.gcol2, s.gcol3, s.gspeed, s.night, s.spot, s.ofill, s.lightShape = nil, nil, nil, nil, nil, nil, nil, nil, nil, nil
+		s.lshadow, s.othru, s.glowSat = nil, nil, nil
+		setOutline(model, false)
+	end
+	if which ~= "fx" then
+		s.rainbow, s.rbSpread = nil, nil
+		s.sky, s.wkind, s.wh, s.glossAxis, s.variance, s.weather = nil, nil, nil, nil, nil, nil
+		s.sheenCol, s.edgeCol = nil, nil
+		twoOff(model, parts, false)
+		SK.sheen(model, parts, 0)
+		SK.edge(model, parts, 0)
+		SK.clearGrad(model)
+	end
 	syncAnim(model)
 end
 
 -- プリセットを反映する。Full のものは、いまの光・動き・効果を先に全部消してから見た目一式を付ける
-local function applyPreset(model, parts, pr)
+-- opt.part: "all" (ぜんぶ) / "look" (色・素材・ツヤだけ) / "fx" (光・動き・効果だけ)   opt.hue: 色相をずらす量 (0〜1。色違いにする)
+local function hueShift(c, h)
+	if typeof(c) ~= "Color3" or not h or h == 0 then return c end
+	local hh, ss, vv = c:ToHSV()
+	return Color3.fromHSV((hh + h) % 1, ss, vv)
+end
+local function applyPreset(model, parts, pr, opt)
 	local s = st(model)
-	if pr.Full then
-		SK.resetExtras(model, parts)
-		s.texUser = false
-		setTexture(parts, false)
+	local part = opt and opt.part or "all"
+	local hu = opt and isNum(opt.hue) and (opt.hue % 1) or nil
+	local function H(c) return hueShift(c, hu) end
+	if pr.Full then SK.resetExtras(model, parts, part ~= "all" and part or nil) end
+	if part ~= "fx" then
+		if pr.Full then
+			s.texUser = false
+			setTexture(parts, false)
+		end
+		s.rainbow = nil
+		s.neon, s.neonSaved = nil, nil
+		s.userCol = true     -- プリセットの色は、自分で選んだ色として扱う (このあと素材を選んでも色は残る)
+		s.seeMat = true      -- 素材の模様が、グラデの下から見える
+		s.glowLook = nil
+		if pr.Var then s.variance = pr.Var end
+		if pr.Wk then
+			s.wkind, s.weather = pr.Wk[1], pr.Wk[2]
+			SK.setHeights(model, parts)
+		end
+		paint(model, parts, H(pr.Color))
+		for _, p in ipairs(parts) do
+			remember(p)
+			p.Material = Enum.Material[pr.Material]
+			p.Transparency = pr.Transparency
+		end
+		s.glossStyle = pr.GlossStyle or (pr.Full and 1 or s.glossStyle)
+		if pr.Sky then s.sky = pr.Sky end
+		if pr.SheenCol then s.sheenCol = pr.SheenCol end
+		if pr.EdgeCol then s.edgeCol = pr.EdgeCol end
+		SK.reflect(model, parts, pr.Reflectance)
+		if pr.Grad then
+			local g = pr.Grad
+			SK.gradient(model, parts, { a = H(g.a), b = H(g.b), c = H(g.c), axis = g.axis, mid = g.mid, stripes = g.stripes, flow = g.flow, smooth = true })
+		end
+		if pr.Rainbow then
+			s.rbSpeed, s.rbSat, s.rbSpread = pr.Rainbow[1], pr.Rainbow[2], pr.Rainbow[3]
+			SK.rainbow(model, parts, true)
+		end
+		if pr.Sheen then SK.sheen(model, parts, pr.Sheen) end
+		if pr.Edge then SK.edge(model, parts, pr.Edge) end
 	end
-	s.rainbow = nil
-	s.neon, s.neonSaved = nil, nil
-	s.userCol = true     -- プリセットの色は、自分で選んだ色として扱う (このあと素材を選んでも色は残る)
-	s.seeMat = true      -- 素材の模様が、グラデの下から見える
-	s.glowLook = nil
-	paint(model, parts, pr.Color)
-	for _, p in ipairs(parts) do
-		remember(p)
-		p.Material = Enum.Material[pr.Material]
-		p.Transparency = pr.Transparency
+	if part ~= "look" then
+		if pr.FxMul then s.fxMul = pr.FxMul end
+		if pr.FxSize then s.fxSize = pr.FxSize end
+		if pr.FxSpeed then s.fxSpeed = pr.FxSpeed end
+		if pr.FxTint then s.fxTint = H(pr.FxTint) end
+		if pr.SmokeCol then s.smokeColor = pr.SmokeCol end
+		if pr.ConfCol then s.confColor = pr.ConfCol end
+		s.glowColor = H(pr.GlowColor)
+		if pr.Shape then s.lightShape = pr.Shape end
+		if pr.Spot then s.spot = pr.Spot end
+		if pr.GCol2 then s.gcol2 = H(pr.GCol2) end
+		if pr.GMode then s.gmode = pr.GMode end
+		if pr.GSpeed then s.gspeed = pr.GSpeed end
+		if pr.Night ~= nil then s.night = pr.Night end
+		setGlow(model, s.glowColor or H(pr.Color), pr.Glow, pr.Range)
+		if pr.Pulse then
+			s.pulse, s.pulseStyle, s.pulseBody = pr.Pulse[1], pr.Pulse[2], pr.Pulse[3] == true
+			if pr.Pulse[4] then s.pdepth = pr.Pulse[4] end
+			if pr.Pulse[5] then
+				s.pwave = pr.Pulse[5]
+				SK.assignW(model, parts)
+			end
+		end
+		if pr.FireSize then s.fireSize = pr.FireSize end
+		if pr.FireColor then s.fireColor = pr.FireColor end
+		if pr.Sparkle then
+			s.sparkRate, s.sparkSize = pr.Sparkle[1], pr.Sparkle[2]
+			setFx(model, "sparkle", true)
+		end
+		if pr.Fx then
+			for _, n in ipairs(pr.Fx) do setFx(model, n, true) end
+		end
+		if pr.OutlineHue or pr.OutlineCol then
+			s.ofill = pr.OFill
+			s.othru = pr.OThru
+			setOutline(model, true, pr.OutlineCol and H(pr.OutlineCol) or Color3.fromHSV((pr.OutlineHue + (hu or 0)) % 1, 0.75, 1))
+		end
+		if s.fx and not pr.Fx and not pr.Sparkle and (pr.FxMul or pr.FxSize or pr.FxSpeed or pr.FxTint) then refreshFx(model) end
 	end
-	s.glossStyle = pr.GlossStyle or (pr.Full and 1 or s.glossStyle)
-	SK.reflect(model, parts, pr.Reflectance)
-	s.glowColor = pr.GlowColor
-	setGlow(model, pr.GlowColor or pr.Color, pr.Glow, pr.Range)
-	if pr.Grad then
-		local g = pr.Grad
-		SK.gradient(model, parts, { a = g.a, b = g.b, c = g.c, axis = g.axis, mid = g.mid, stripes = g.stripes, flow = g.flow, smooth = true })
-	end
-	if pr.Rainbow then
-		s.rbSpeed, s.rbSat, s.rbSpread = pr.Rainbow[1], pr.Rainbow[2], pr.Rainbow[3]
-		SK.rainbow(model, parts, true)
-	end
-	if pr.Pulse then
-		s.pulse, s.pulseStyle, s.pulseBody = pr.Pulse[1], pr.Pulse[2], pr.Pulse[3] == true
-	end
-	if pr.FireSize then s.fireSize = pr.FireSize end
-	if pr.FireColor then s.fireColor = pr.FireColor end
-	if pr.Sparkle then
-		s.sparkRate, s.sparkSize = pr.Sparkle[1], pr.Sparkle[2]
-		setFx(model, "sparkle", true)
-	end
-	if pr.Fx then
-		for _, n in ipairs(pr.Fx) do setFx(model, n, true) end
-	end
-	if pr.OutlineHue then setOutline(model, true, Color3.fromHSV(pr.OutlineHue, 0.75, 1)) end
 	syncAnim(model)
 end
 
-local PULSE_STYLES = { Sine = true, Beat = true, Flicker = true, Strobe = true, Breath = true, Lightning = true, Neon = true, Saw = true, Steps = true, SOS = true }
-local MAX_BATCH = 100
+local PULSE_STYLES = { Sine = true, Beat = true, Flicker = true, Strobe = true, Breath = true, Lightning = true, Neon = true, Saw = true, Steps = true, SOS = true,
+	Twinkle = true, Police = true, Fire = true, Glitch = true, Pop = true, Wobble = true, Drift = true, Triple = true }
+local GLOW_MODES = { Solid = true, Blend = true, Alt = true, Hue = true, Tri = true, Rand = true, Flame = true }
+local FX_KIND = { Snow = "snow", Sakura = "sakura", Firefly = "firefly", Bubbles = "bubbles", Embers = "embers", Electric = "electric", Stardust = "stardust", Leaves = "leaves",
+	Droplets = "droplets", Magic = "magic", Mist = "mist", Halo = "halo", Rain = "rain", Trail = "trail" }
+local MAX_BATCH = 200
 local applySkin
 function applySkin(model, kind, value)
 	local parts = partsOf(model)
@@ -5397,9 +5985,11 @@ function applySkin(model, kind, value)
 	-- 素材ボタン (Look): 自分で色(単色・グラデ・レインボー)を選んでいる板では、色は消さずに素材だけ変える (smart)。
 	-- まだ色を選んでいない板は、今までどおり素材の色になる。素材の色にしたい時は LookRaw
 	local smart = (kind == "Look" and s.userCol == true)
-	if s.two and (kind == "Look" or kind == "LookKeep" or kind == "LookRaw" or kind == "Material" or kind == "Preset") then s.two = nil end   -- 素材を丸ごと入れ替える操作は、ツートンをやめる
+	local presetPart = (kind == "Preset" and typeof(value) == "table") and value.part or "all"   -- プリセットを「光と効果だけ」入れる時は、色・素材にさわらない
+	local presetLook = (kind == "Preset" and presetPart ~= "fx")
+	if s.two and (kind == "Look" or kind == "LookKeep" or kind == "LookRaw" or kind == "Material" or presetLook) then s.two = nil end   -- 素材を丸ごと入れ替える操作は、ツートンをやめる
 	-- 色を直接変える操作・レインボーONの時は、重ね貼りしているグラデーションを先に外す。色を決める操作はレインボーも止める
-	local recolor = kind == "Color" or kind == "HSV" or kind == "RGB" or kind == "LookRaw" or (kind == "Look" and not smart) or kind == "Preset"
+	local recolor = kind == "Color" or kind == "HSV" or kind == "RGB" or kind == "LookRaw" or (kind == "Look" and not smart) or presetLook
 	if recolor or (kind == "Rainbow" and value == true) then
 		SK.clearGrad(model)
 	end
@@ -5519,7 +6109,9 @@ function applySkin(model, kind, value)
 		SK.refreshGradTr(model, parts)
 		return "素材を元に戻しました"
 	elseif kind == "TwoTone" then   -- 板の一部だけ別の素材 (と色) にする
-		if typeof(value) ~= "table" or typeof(value.mat) ~= "string" or not MATERIAL_SET[value.mat] then return "素材が不正です" end
+		local tlk = typeof(value) == "table" and typeof(value.mat) == "string" and LOOKS[value.mat] or nil   -- 素材ライブラリの名前でも、素材名でもよい
+		local tmat = tlk and tlk[2] or (typeof(value) == "table" and value.mat or nil)
+		if typeof(tmat) ~= "string" or not MATERIAL_SET[tmat] then return "素材が不正です" end
 		local set = SK.groupParts(model, parts, value.mode)
 		if not set then return "分け方が不正です" end
 		local plain = not s.grad and not s.rainbow   -- グラデ・レインボー中は、色はそちらに従う
@@ -5529,14 +6121,14 @@ function applySkin(model, kind, value)
 			if set[p] then
 				remember(p)
 				prev[p] = p.Material
-				p.Material = Enum.Material[value.mat]
+				p.Material = Enum.Material[tmat]
 				back[#back + 1] = p
 			end
 		end
 		setTexture(back, false)   -- 木目が残ると、新しい素材が見えない
 		local col
 		if value.same ~= true then
-			col = (typeof(value.col) == "Color3") and value.col or (LOOKS[value.mat] and LOOKS[value.mat][1]) or nil
+			col = (typeof(value.col) == "Color3") and value.col or (tlk and tlk[1]) or nil
 		end
 		s.two = { set = set, prev = prev, col = col }
 		if s.seeMat ~= true then   -- 別の素材にした部分だけ、模様をグラデの下から見せる
@@ -5561,11 +6153,14 @@ function applySkin(model, kind, value)
 		if type(s.seeMat) == "table" then s.seeMat = nil end
 		SK.refreshGradTr(model, parts)
 		return "ツートンをやめました"
-	elseif kind == "Preset" then
-		local pr = typeof(value) == "string" and PRESETS[value] or nil
+	elseif kind == "Preset" then   -- 値は プリセット名 か { id = 名前, hue = 色相のずらし, part = "all" | "look" | "fx" }
+		local id, opt = value, nil
+		if typeof(value) == "table" then id, opt = value.id, value end
+		local pr = typeof(id) == "string" and PRESETS[id] or nil
 		if not pr then return "プリセットが不正です" end
-		applyPreset(model, parts, pr)
-		return "プリセット「" .. value .. "」を適用しました"
+		if opt and opt.part ~= nil and opt.part ~= "all" and opt.part ~= "look" and opt.part ~= "fx" then return "値が不正です" end
+		applyPreset(model, parts, pr, opt)
+		return "プリセット「" .. id .. "」を適用しました"
 	elseif kind == "Reflectance" then
 		if not isNum(value) then return "値が不正です" end
 		SK.reflect(model, parts, value)   -- 素材やテクスチャは変えない
@@ -5613,7 +6208,7 @@ function applySkin(model, kind, value)
 		return value > 0 and "光が走ります" or "光の走りを止めました"
 	elseif kind == "SheenColor" then
 		if not isNum(value) then return "値が不正です" end
-		s.sheenCol = math.clamp(math.floor(value + 0.5), 1, 3)
+		s.sheenCol = math.clamp(math.floor(value + 0.5), 1, SK.SHEEN_COLS)
 		if (s.sheen or 0) > 0 then SK.relayer(model) end
 		return "光の色を変えました"
 	elseif kind == "Edge" then   -- 角のハイライト
@@ -5639,7 +6234,7 @@ function applySkin(model, kind, value)
 	elseif kind == "GlowHue" then
 		if not isNum(value) then return "値が不正です" end
 		s.glowLook = nil
-		s.glowColor = Color3.fromHSV(math.clamp(value, 0, 1), 0.8, 1)
+		s.glowColor = Color3.fromHSV(math.clamp(value, 0, 1), s.glowSat or 0.8, 1)
 		local h = glowHost(model)
 		local l = h and h:FindFirstChild("SkinGlow")
 		if l then l.Color = s.glowColor end
@@ -5720,13 +6315,13 @@ function applySkin(model, kind, value)
 		syncAnim(model)
 		return "光の波を変えました"
 	elseif kind == "GlowMode" then   -- 光の色の動き: Solid 単色 / Blend 2色を往復 / Alt 2色を交互 / Hue 虹色
-		if value ~= "Solid" and value ~= "Blend" and value ~= "Alt" and value ~= "Hue" then return "値が不正です" end
+		if typeof(value) ~= "string" or not GLOW_MODES[value] then return "値が不正です" end
 		s.gmode = value
 		syncAnim(model)
 		return "光の色の動きを変えました"
 	elseif kind == "GlowHue2" then
 		if not isNum(value) then return "値が不正です" end
-		s.gcol2 = Color3.fromHSV(math.clamp(value, 0, 1), 0.8, 1)
+		s.gcol2 = Color3.fromHSV(math.clamp(value, 0, 1), s.glowSat or 0.8, 1)
 		syncAnim(model)
 		return "2つ目の光の色を変えました"
 	elseif kind == "GlowSpeed" then
@@ -5780,14 +6375,98 @@ function applySkin(model, kind, value)
 	elseif kind == "Confetti" then
 		setFx(model, "confetti", value == true)
 		return value == true and "紙吹雪ON" or "紙吹雪OFF"
-	elseif kind == "Snow" or kind == "Sakura" or kind == "Firefly" or kind == "Bubbles" or kind == "Embers" then
-		setFx(model, string.lower(kind), value == true)
+	elseif FX_KIND[kind] then
+		setFx(model, FX_KIND[kind], value == true)
 		return value == true and (kind .. "ON") or (kind .. "OFF")
 	elseif kind == "FxAmount" then
 		if not isNum(value) then return "値が不正です" end
 		s.fxMul = math.clamp(value, 0.2, 3)
 		refreshFx(model)
 		return "効果の量を変えました"
+	elseif kind == "FxClear" then   -- 出ている効果を、ぜんぶ消す (量・大きさ・色の設定はそのまま)
+		clearFx(model)
+		return "効果を消しました"
+	elseif kind == "EdgeColor" then   -- 角の輝きの色 (1 白 / 2 金 / 3 青 / 4 ピンク / 5 緑 / 6 虹)
+		if not isNum(value) then return "値が不正です" end
+		s.edgeCol = math.clamp(math.floor(value + 0.5), 1, SK.EDGE_COLS)
+		if (s.edge or 0) > 0 then SK.relayer(model) end
+		return "角の輝きの色を変えました"
+	elseif kind == "GlowColor" or kind == "GlowColor2" or kind == "GlowColor3" then   -- 光の色を、色そのもので決める (白や電球色もここから)
+		if typeof(value) ~= "Color3" then return "色が不正です" end
+		if kind == "GlowColor" then
+			s.glowLook = nil
+			s.glowColor = value
+			local h = glowHost(model)
+			local l = h and h:FindFirstChild("SkinGlow")
+			if l then l.Color = value end
+			model:SetAttribute("PS_GlowCol", value)
+		elseif kind == "GlowColor2" then
+			s.gcol2 = value
+		else
+			s.gcol3 = value
+		end
+		syncAnim(model)
+		return "光の色を変えました"
+	elseif kind == "GlowSat" then   -- 光の色のこさ (0 = 白 / 1 = こい色)。いまの色の色あいはそのまま
+		if not isNum(value) then return "値が不正です" end
+		s.glowSat = math.clamp(value, 0, 1)
+		local function resat(c)
+			local hh = c:ToHSV()
+			return Color3.fromHSV(hh, s.glowSat, 1)
+		end
+		s.glowLook = nil
+		s.glowColor = resat(s.glowColor or Color3.fromHSV(0.58, 0.8, 1))
+		if s.gcol2 then s.gcol2 = resat(s.gcol2) end
+		if s.gcol3 then s.gcol3 = resat(s.gcol3) end
+		local h = glowHost(model)
+		local l = h and h:FindFirstChild("SkinGlow")
+		if l then l.Color = s.glowColor end
+		model:SetAttribute("PS_GlowCol", s.glowColor)
+		syncAnim(model)
+		return "光の色のこさを変えました"
+	elseif kind == "OutlineColor" then
+		if typeof(value) ~= "Color3" then return "色が不正です" end
+		setOutline(model, true, value)
+		return "縁取りの色を変えました"
+	elseif kind == "OutlineThru" then   -- 壁の向こうでも、縁取りが見える
+		s.othru = (value == true)
+		if model:FindFirstChild("SkinOutline") then setOutline(model, true) end
+		return value == true and "縁取りが壁の向こうでも見えます" or "縁取りは壁にかくれます"
+	elseif kind == "LightShadows" then   -- 光が影を作る
+		s.lshadow = (value == true)
+		local h = glowHost(model)
+		local l = h and h:FindFirstChild("SkinGlow")
+		if l then pcall(function() l.Shadows = s.lshadow end) end
+		return value == true and "光が影を作ります" or "光は影を作りません"
+	elseif kind == "FxSize" then
+		if not isNum(value) then return "値が不正です" end
+		s.fxSize = math.clamp(value, 0.3, 3)
+		refreshFx(model)
+		return "効果の大きさを変えました"
+	elseif kind == "FxSpeed" then
+		if not isNum(value) then return "値が不正です" end
+		s.fxSpeed = math.clamp(value, 0.3, 3)
+		refreshFx(model)
+		return "効果の速さを変えました"
+	elseif kind == "FxColor" then
+		if typeof(value) ~= "Color3" then return "色が不正です" end
+		s.fxTint = value
+		refreshFx(model)
+		return "効果の色を変えました"
+	elseif kind == "FxColorClear" then
+		s.fxTint = nil
+		refreshFx(model)
+		return "効果の色を元に戻しました"
+	elseif kind == "SmokeColor" then
+		if not isNum(value) then return "値が不正です" end
+		s.smokeColor = math.clamp(math.floor(value + 0.5), 1, #SMOKE_COLORS)
+		setFx(model, "smoke", true)
+		return "煙の色を変えました"
+	elseif kind == "ConfettiColor" then
+		if not isNum(value) then return "値が不正です" end
+		s.confColor = math.clamp(math.floor(value + 0.5), 1, #CONF_COLORS)
+		setFx(model, "confetti", true)
+		return "紙吹雪の色を変えました"
 	elseif kind == "Reset" then
 		clearFx(model)
 		SK.dropAll(model)
@@ -5811,6 +6490,9 @@ function applySkin(model, kind, value)
 	end
 	return "不明な操作です"
 end
+
+SK.PRESETS = PRESETS   -- 画面側が、プリセットの中身 (色・分類・表示) を読むため
+SK.FX_COUNT = #FX_NAMES
 ---------------------------------------------------------------------
 -- 動き (レインボー / 明滅 / 光の色の動き / 夜だけ光る / グラデーションの流れ / 光が走る帯) を、この画面でなめらかに動かす担当
 -- サーバーは「設定」を板の属性に書くだけ。毎フレームの色・明るさの更新はここ(各自の画面)で行うので、
@@ -5902,6 +6584,46 @@ do
 				if k > v then v = k end
 			end
 			return 0.06 + 0.94 * v
+		end,
+		Twinkle = function(t, sp)   -- 星のまたたき: 明るいまま、こまかくチラチラする
+			local n = noise(t * sp * 5.3, 2.2, 0.7) * 1.4 + noise(t * sp * 13.1, 5.1, 0.2) * 0.6
+			return math.clamp(0.7 + 0.5 * n, 0.25, 1)
+		end,
+		Police = function(t, sp)   -- パトライト: 2回パパッと光って、ひと休み
+			local ph = (t * sp) % 1
+			local v = math.max(smooth(ph / 0.03) * smooth((0.1 - ph) / 0.03), smooth((ph - 0.18) / 0.03) * smooth((0.28 - ph) / 0.03))
+			return 0.06 + 0.94 * v
+		end,
+		Fire = function(t, sp)   -- 炎のゆらぎ: 大きくゆれて、こまかくも揺れる
+			local n = noise(t * sp * 3.1, 0.4, 1.1) * 1.2 + noise(t * sp * 8.7, 2.2, 0.9) * 0.7 + noise(t * sp * 17, 5, 3) * 0.35
+			return math.clamp(0.7 + 0.55 * n, 0.2, 1)
+		end,
+		Glitch = function(t, sp)   -- バグったような点滅: ふだんは明るく、ときどき一瞬ガクッと落ちる
+			local k = math.floor(t * sp * 9)
+			local r = hash(k)
+			if r > 0.82 then return 0.1 + 0.5 * hash(k + 7) end
+			if r < 0.1 then return 1 end
+			return 0.88
+		end,
+		Pop = function(t, sp)   -- ポン、ポンと光って、すっと消える
+			local ph = (t * sp) % 1
+			return 0.06 + 0.94 * math.exp(-ph * 5)
+		end,
+		Wobble = function(t, sp)   -- ゆらゆら: 2つの波がまざる
+			local x = t * sp * 6.2832
+			return 0.15 + 0.85 * (0.5 + 0.25 * math.sin(x) + 0.25 * math.sin(x * 2.7 + 1.3))
+		end,
+		Drift = function(t, sp)   -- ふわふわ: ゆっくり、不規則に明るさが漂う
+			return math.clamp(0.55 + 0.75 * noise(t * sp * 0.8, 9.1, 0.4), 0.12, 1)
+		end,
+		Triple = function(t, sp)   -- ドクドクドク: 3回つづけて光って、ひと休み
+			local ph = (t * sp) % 1
+			local v = 0
+			for _, c in ipairs({ 0.05, 0.15, 0.25 }) do
+				local d = (ph - c) / 0.04
+				v = math.max(v, math.exp(-d * d))
+			end
+			return 0.1 + 0.9 * v
 		end,
 	}
 	local function tri(x)
@@ -6200,6 +6922,29 @@ do
 					if gmode == "Hue" then
 						local h, sa = ca:ToHSV()
 						c = Color3.fromHSV((h + t * sp) % 1, math.max(sa, 0.6), 1)
+					elseif gmode == "Tri" then   -- 3つの色を順ぐりに
+						local h, sa, va = ca:ToHSV()
+						local cb = m:GetAttribute("PS_GlowCol2") or Color3.fromHSV((h + 0.333) % 1, sa, va)
+						local cc = m:GetAttribute("PS_GlowCol3") or Color3.fromHSV((h + 0.667) % 1, sa, va)
+						local x = (t * sp) % 3
+						local k = math.floor(x)
+						local from = (k == 0 and ca) or (k == 1 and cb) or cc
+						local to = (k == 0 and cb) or (k == 1 and cc) or ca
+						c = lerpC(from, to, smooth(x - k))
+					elseif gmode == "Rand" then   -- ランダムな色へ、つぎつぎ変わる (見ている人どうしで同じ色)
+						local _, sa = ca:ToHSV()
+						sa = math.max(sa, 0.6)
+						local x = t * sp * 1.2
+						local k = math.floor(x)
+						c = lerpC(Color3.fromHSV(hash(k), sa, 1), Color3.fromHSV(hash(k + 1), sa, 1), smooth(x - k))
+					elseif gmode == "Flame" then   -- 2つの色のあいだを、炎のようにゆらゆら
+						local cb = m:GetAttribute("PS_GlowCol2")
+						if not cb then
+							local h, sa, va = ca:ToHSV()
+							cb = Color3.fromHSV((h + 0.08) % 1, sa, va)
+						end
+						local f = math.clamp(0.5 + 0.9 * noise(t * sp * 5, 3.3, 1.1) + 0.35 * noise(t * sp * 13, 1.1, 4.4), 0, 1)
+						c = lerpC(ca, cb, f)
 					else
 						local cb = m:GetAttribute("PS_GlowCol2")
 						if not cb then
@@ -6317,6 +7062,516 @@ do
 end
 	return applySkin, LOOKS, ANIMCFG, SK
 end)()
+ENG.CAT = (function()
+---------------------------------------------------------------------
+-- 一覧データ (名前・分類・説明・セット)。画面 (素材/プリセット/質感/光/効果) とヘルプの両方が、これを読む。
+-- 板には送らない、この画面だけのデータ。ENG.CAT として使う。
+---------------------------------------------------------------------
+local C = Color3.fromRGB
+local CAT = {}
+
+-- 1行 = id|表示名|分類(文字の並び)|説明
+local function parse(src)
+	local list = {}
+	for line in string.gmatch(src, "[^\n]+") do
+		local a, b, c, d = string.match(line, "^([^|]*)|([^|]*)|([^|]*)|(.*)$")
+		if a then list[#list + 1] = { id = a, label = b, cats = c, desc = d } end
+	end
+	return list
+end
+
+---------------------------------------------------------------------
+-- 素材 (LOOKS の名前と同じ)。分類の先頭の文字が、いちばんの分類
+---------------------------------------------------------------------
+CAT.MAT_CATS = {
+	{ "b", "🧱 基本" }, { "m", "⚙️ 金属" }, { "g", "💎 宝石・ガラス" }, { "w", "🪵 木" }, { "s", "🪨 石・土" },
+	{ "n", "🌿 自然" }, { "d", "🏠 日用品" }, { "c", "🧵 布・革" }, { "p", "🍬 ポップ" }, { "l", "💡 光る" },
+}
+CAT.MATS = parse([==[
+Plastic|🧴 プラスチック|bd|ふつうのプラスチック。ほどよい質感の青い板になります。
+SmoothPlastic|🫧 つるつる|bd|表面がなめらかで、少しだけツヤのある白い板です。
+Wood|🪵 木|bw|木目のある茶色い板です。
+WoodPlanks|📏 板木|bw|板を並べたような木目の、明るい茶色の板です。
+Metal|⚙️ 金属|bm|グレーの金属で、反射があります。
+DiamondPlate|🔷 ダイヤ板|bm|ひし形の凹凸がある、鉄板のような素材です。
+Foil|🪞 ホイル|bm|アルミホイルのような、ピカピカした銀色です。
+Neon|💡 ネオン|bl|自分で光る素材です。水色に光ります。
+Glass|🔮 ガラス|bg|透明感のあるガラスで、反射があります。
+Ice|🧊 氷|bgn|青白くて半透明の氷です。
+Marble|🏛 大理石|bs|白くて、石の模様と少しのツヤがあります。
+Granite|🪨 花崗岩|bs|ざらざらした、グレーの石です。
+Slate|⬛ スレート|bs|暗い灰色の、平らな石板です。
+Concrete|🏗 コンクリ|bs|コンクリートの灰色です。
+Brick|🧱 レンガ|bs|赤茶色のレンガの模様です。
+Cobblestone|🛣 石畳|bs|丸い石を敷き詰めたような模様です。
+Sand|🏖 砂|bsn|さらさらした砂の色と質感です。
+Fabric|🧵 布|bc|布のあらい織り目の質感です。
+ForceField|🛡 フォース|blg|フォースフィールド。うすく光る、バリアのような素材です。
+Glacier|🏔 氷河|bgn|青みのある、厚い氷のような素材です。
+Snow|☃️ 雪|bn|ふわっとした白い雪です。
+Mud|🟤 泥|bsn|こげ茶色の泥です。
+Rubber|⚫ ゴム|bd|黒くてマットな、ゴムの質感です。
+Leather|👜 革|bc|茶色い革の質感です。
+Plaster|🧱 しっくい|bsd|かべのような、ざらっとしたクリーム色です。
+CeramicTiles|🚿 タイル|bds|つるっとした白いタイルです。
+Carpet|🟥 カーペット|bcd|赤いカーペットの毛足の質感です。
+Cardboard|📦 段ボール|bd|段ボールの紙の質感です。
+Basalt|🌋 玄武岩|bs|黒っぽい、火山の石です。
+Pebble|⚪ 小石|bs|小さな石が集まったような質感です。
+Limestone|🦴 石灰岩|bs|うすいクリーム色の、やわらかな石です。
+Sandstone|🏜 砂岩|bs|黄土色の、砂が固まった石です。
+CorrodedMetal|🦀 さび金属|bm|さびて、茶色くなった金属です。
+CrackedLava|🔥 溶岩|blns|ひび割れから、オレンジ色の光がもれる岩です。
+Grass|🌱 草|bn|短い草の地面です。
+LeafyGrass|🍃 葉の草|bn|葉のしげった、こい緑の草です。
+Ground|🟫 地面|bsn|土の地面です。
+Asphalt|🚧 アスファルト|bs|道路の、黒っぽい灰色です。
+Pavement|🚶 舗装|bs|歩道のような、明るい灰色の石です。
+Rock|⛰ 岩|bsn|ごつごつした、灰色の岩です。
+Salt|🧂 塩|bn|白くてざらっとした、塩の結晶です。
+ClayRoofTiles|🏠 瓦|bs|赤茶色の、焼き物の屋根瓦です。
+RoofShingles|🏚 屋根板|bs|うすい板を重ねた、灰色の屋根です。
+Gold|🥇 ゴールド|m|金色で、反射の強い金属です。
+Silver|🥈 シルバー|m|銀色で、反射の強い金属です。
+Bronze|🥉 ブロンズ|m|少し暗い、青銅色の金属です。
+Copper|🔶 銅|m|赤みのあるオレンジ色の金属です。
+Brass|🎺 真ちゅう|m|黄色みのある、くすんだ金色の金属です。
+Platinum|💍 プラチナ|m|白く上品に光る、高級な金属です。
+Titanium|🔩 チタン|m|青みがかった、かたい灰色の金属です。
+Gunmetal|⚙️ ガンメタル|m|黒に近い、こい灰色の金属です。
+Iron|🧲 鉄|m|ごつごつした、重い鉄の板です。
+RoseGold|🌹 ローズゴールド|m|ピンクがかった金色の金属です。
+BlackChrome|🖤 ブラッククローム|m|黒いのに、鏡のように映る金属です。
+Mirror|🪞 ミラー|m|ほぼ鏡。まわりがくっきり映ります。
+Stainless|🍴 ステンレス|m|台所の道具のような、明るい銀色です。
+Mithril|🧝 ミスリル|m|うす青く光る、ゲームに出てくる銀です。
+Orichalcum|🔱 オリハルコン|m|オレンジ色に光る、伝説の金属です。
+Ruby|❤️ ルビー|g|赤い宝石です。透けて、光を通します。
+Sapphire|💙 サファイア|g|深い青の宝石です。
+Emerald|💚 エメラルド|g|緑の宝石です。
+Amethyst|💜 アメジスト|g|紫の宝石です。
+Topaz|💛 トパーズ|g|黄色の宝石です。
+Aquamarine|🩵 アクアマリン|g|うすい水色の宝石です。
+Diamond|💎 ダイヤモンド|g|ほぼ透明で、強く反射する宝石です。
+Amber|🟠 琥珀|g|あめ色の、透きとおった樹脂です。
+Jade|🟢 翡翠|g|しっとりした、緑の石です。
+Obsidian|🖤 黒曜石|g|黒くてツルツルした、ガラスの石です。
+Pearl|🦪 パール|g|白くやわらかく光る、真珠の色です。
+Crystal|✨ クリスタル|g|澄んだ水晶。ほんのり光ります。
+BlueGlass|🔵 青ガラス|g|青い色つきガラスです。
+SmokeGlass|🕶 スモークガラス|g|黒っぽく透ける、車の窓のようなガラスです。
+FrostGlass|🪟 すりガラス|g|表面がくもった、半透明のガラスです。
+Opal|🌈 オパール|g|白地に、やさしく光る宝石です。
+Oak|🌳 オーク|w|明るい茶色の、がっしりした木です。
+Cherry|🍒 チェリー|w|赤みのある、つやのある木です。
+Walnut|🥜 ウォールナット|w|こげ茶色の、落ち着いた木です。
+Birch|🪵 白樺|w|白っぽくて明るい、うすい木です。
+Bamboo|🎋 竹|w|黄緑がかった、竹の板です。
+Ebony|⬛ 黒檀|w|ほとんど黒の、高級な木です。
+Pine|🌲 松|w|黄色みのある、明るい木材です。
+Mahogany|🟥 マホガニー|w|赤茶色の、重みのある木です。
+Driftwood|🌊 流木|w|海で色がぬけた、灰色の木です。
+Charred|🔥 焦げ木|w|表面が焦げた、黒い木です。
+BlackMarble|⬛ 黒大理石|s|黒い大理石。つやがあります。
+PinkMarble|🌸 ピンク大理石|s|うすいピンクの大理石です。
+GreenMarble|🟩 緑大理石|s|深い緑の大理石です。
+Quartz|🤍 石英|s|白くてつるっとした、明るい石です。
+Lapis|🔷 ラピス|s|濃い青の、宝石のような石です。
+WhiteBrick|⬜ 白レンガ|s|白くぬったレンガです。
+MossyStone|🌿 苔むす石|s|こけの生えた、緑がかった石畳です。
+Gravel|🪨 砂利|s|小さな石の、灰色の砂利道です。
+RedSand|🟧 赤砂|s|赤みのある、乾いた砂です。
+Clay|🏺 粘土|s|やわらかい、赤茶色の粘土です。
+Coal|⚫ 石炭|s|真っ黒な石炭です。
+Terracotta|🧱 テラコッタ|s|オレンジ色の、素焼きの色です。
+Moss|🌿 こけ|n|しっとり濃い緑の、こけです。
+Autumn|🍂 秋の葉|n|オレンジ色に染まった、落ち葉の色です。
+Water|💧 水|n|透きとおった、水の青です。
+DeepSea|🌊 深海|n|暗くて深い、海の青です。
+Swamp|🐸 沼|n|にごった、緑茶色の泥です。
+Cloud|☁️ 雲|n|ふわっと白い、雲の色です。
+BlueIce|🧊 青い氷|n|青みが強い、分厚い氷です。
+Frost|❄️ 霜|n|うっすら白い、霜の色です。
+SakuraPetal|🌸 桜の花びら|n|うすいピンクの、花びらの色です。
+Lawn|🌾 芝生|n|明るい緑の、手入れされた芝です。
+Ceramic|🍵 陶器|d|つるっと白い、陶器の食器の色です。
+Porcelain|🍽 磁器|d|白くてなめらかな、磁器です。
+RedLacquer|🔴 赤漆|d|つやのある、赤い漆です。
+BlackLacquer|⚫ 黒漆|d|つやのある、黒い漆です。
+Paper|📄 紙|d|白くて、ざらっとした紙の色です。
+Cork|🍾 コルク|d|うす茶色の、コルクの質感です。
+Chalkboard|🖍 黒板|d|深い緑の、黒板の色です。
+Carbon|🏎 カーボン|d|編み目のある、黒いカーボンです。
+Milk|🥛 ミルク|d|やさしい白で、少しツヤがあります。
+Denim|👖 デニム|c|青い、ジーンズの布です。
+Velvet|🎭 ベルベット|c|深い紫の、なめらかな布です。
+Silk|🧣 シルク|c|うすく光る、やわらかな布です。
+Wool|🧶 ウール|c|ふわっとした、ベージュの毛糸です。
+Canvas|🎨 キャンバス|c|あらい、生成り色の厚い布です。
+BlackLeather|🧥 黒革|c|黒くて、少しツヤのある革です。
+WhiteLeather|🥼 白革|c|白くて、少しツヤのある革です。
+RedLeather|👞 赤革|c|赤くて、少しツヤのある革です。
+Linen|🧺 リネン|c|麻の、ざっくりした布です。
+Candy|🍬 キャンディ|p|ピンクの、つやつやのあめです。
+Jelly|🍮 ゼリー|p|ぷるんと透ける、ピンクのゼリーです。
+Gummy|🐻 グミ|p|黄緑の、半透明のグミです。
+Slime|🦠 スライム|p|ぬるっと光る、緑のスライムです。
+Chocolate|🍫 チョコ|p|こげ茶色の、チョコレートです。
+Marshmallow|🍡 マシュマロ|p|ふわふわの、白いお菓子です。
+Cheese|🧀 チーズ|p|黄色い、なめらかなチーズです。
+Bubblegum|🎀 ガム|p|ピンクの、風船ガムです。
+Balloon|🎈 風船|p|赤くて、ピカッとツヤのある風船です。
+Lemon|🍋 レモン|p|明るい黄色の、レモンです。
+Mint|🥬 ミント|p|さわやかな、うすい緑です。
+Grape|🍇 ぶどう|p|紫の、少し透けたぶどうです。
+Peach|🍑 もも|p|やわらかい、桃色です。
+NeonPink|🩷 ネオンピンク|l|ピンクに強く光るネオンです。
+NeonBlue|🩵 ネオンブルー|l|水色に強く光るネオンです。
+NeonGreen|💚 ネオングリーン|l|緑に強く光るネオンです。
+NeonOrange|🧡 ネオンオレンジ|l|オレンジに強く光るネオンです。
+NeonPurple|💜 ネオンパープル|l|紫に強く光るネオンです。
+NeonRed|❤️ ネオンレッド|l|赤に強く光るネオンです。
+NeonYellow|💛 ネオンイエロー|l|黄色に強く光るネオンです。
+NeonWhite|🤍 ネオンホワイト|l|白く光る、まぶしいネオンです。
+Plasma|⚡ プラズマ|l|紫に、とても強く光ります。
+Magma|🌋 マグマ|l|赤くひび割れて光る、溶岩です。
+Radioactive|☢️ 放射能|l|蛍光の黄緑に、強く光ります。
+Hologram|📡 ホログラム|l|うす水色の、半透明に光る板です。
+Aura|🌟 オーラ|l|ピンクがかった、やわらかい光のバリアです。
+Moonlight|🌙 月あかり|l|青白く、やさしく光ります。
+Sunbeam|🌞 日の光|l|あたたかい金色に、強く光ります。
+]==])
+
+-- ツートン用の素材 (LOOKS の名前)
+CAT.TWO_MATS = {
+	"Metal", "Glass", "Neon", "Marble", "Foil", "Ice", "Rubber", "Leather", "Brick", "Granite", "DiamondPlate", "CrackedLava",
+	"Gold", "Silver", "Copper", "Bronze", "Mirror", "Gunmetal", "Ruby", "Sapphire", "Emerald", "Diamond", "Obsidian", "Oak", "Ebony",
+	"BlackMarble", "Carbon", "RedLacquer", "BlackLacquer", "Velvet", "Candy", "Jelly", "NeonPink", "NeonBlue", "Plasma", "Water", "Cloud", "Chocolate",
+}
+-- ツートンの分け方 (サーバーの TWO_MODE と同じ順)
+CAT.TWO_MODES = {
+	{ "Top", "⬆ 上", "板の上がわのパーツだけを、別の素材にします。" },
+	{ "Bottom", "⬇ 下", "板の下がわのパーツだけを、別の素材にします。" },
+	{ "Half1", "◀ 前半", "板の前半分のパーツだけを、別の素材にします。" },
+	{ "Half2", "▶ 後半", "板の後ろ半分のパーツだけを、別の素材にします。" },
+	{ "Stripe", "▥ 1本おき", "パーツを1本おきに、別の素材にします。縞模様のようになります。" },
+	{ "Outer", "▣ まわり", "板のまわり (ふち) のパーツだけを、別の素材にします。" },
+	{ "Random", "🎲 ランダム", "ランダムに選んだパーツを、別の素材にします。" },
+	{ "Ends", "↔ 両はし", "板の長い方向の、両はしのパーツだけを、別の素材にします。" },
+	{ "Center", "◎ まんなか", "板の長い方向の、まんなかのパーツだけを、別の素材にします。" },
+	{ "Third1", "① 3分割の前", "板を3つに分けた、いちばん前だけを別の素材にします。" },
+	{ "Third2", "② 3分割の中", "板を3つに分けた、まんなかだけを別の素材にします。" },
+	{ "Third3", "③ 3分割の後", "板を3つに分けた、いちばん後ろだけを別の素材にします。" },
+	{ "Every3", "▦ 3本おき", "パーツを3本に1本、別の素材にします。" },
+	{ "Diag", "◢ ななめ", "板をななめに分けて、片がわだけを別の素材にします。" },
+	{ "Inner", "▢ 内がわ", "板の内がわのパーツだけを、別の素材にします。(まわりの反対)" },
+	{ "Checker", "♟ 市松", "市松模様のように、パーツを交互に別の素材にします。" },
+}
+
+---------------------------------------------------------------------
+-- プリセット (PRESETS の名前と同じ)。基本のプリセットは分類 "b"
+---------------------------------------------------------------------
+CAT.PRESET_CATS = {
+	{ "f", "🧚 幻想" }, { "n", "🌿 自然" }, { "h", "🔥 炎・光" }, { "w", "💧 水・氷" }, { "s", "🤖 SF" },
+	{ "p", "🍭 ポップ" }, { "r", "👑 豪華" }, { "d", "🌙 夜" }, { "e", "🎉 イベント" },
+}
+CAT.PRESETS = parse([==[
+Aurora|オーロラ|nf|緑・青・紫の3色が、ゆっくり流れます。ツヤと、やさしい光つきです。
+Galaxy|ギャラクシー|sfd|濃い紺から紫へ、ゆっくり流れる宇宙の色です。キラキラと、ゆっくりした明滅つきです。
+Chrome|クローム|sr|鏡のようにピカピカの、銀色の金属です。
+Hologram|ホログラム|s|半透明で、虹色にゆっくり変わる色です。ツヤと、やさしい明滅つきです。
+LavaFlow|溶岩フロー|h|赤から黄色へ流れる、燃える溶岩です。炎・火の粉・ゆらぐ光つきです。
+Frozen|氷結|w|つめたい色の氷です。雪が舞います。
+SakuraStorm|桜吹雪|ne|うすいピンクの板に、桜の花びらが舞います。
+Cyber|サイバー|sd|黒い金属に、水色の光と縁取りがあります。ドクンと明滅します。
+Fireflies|ほたるの夜|nd|暗い緑の板に、黄緑のほたるが飛びます。ゆらぐ光つきです。
+CandyGloss|キャンディツヤ|p|ピンクから白へのグラデーションに、強いツヤとキラキラがつきます。
+SunsetSky|夕焼け空|n|オレンジ・ピンク・紫が、上から下へ重なる夕焼けです。
+Ocean|海|wn|深い青から水色へ流れる色です。あわが上がります。
+Fairy|妖精|f|ほのかに光る、緑と黄色の板です。ほたると魔法の光がふわふわ飛びます。
+MagicCircle|魔法陣|f|紫に光るガラスです。魔法の粒と後光、光る縁取りつきです。
+Dragon|ドラゴン|fh|緑のうろこ色の金属です。火の粉と黒い煙が上がります。
+CrystalCave|水晶の洞窟|f|紫の水晶です。ひび割れたようなツヤと、キラキラが重なります。
+Phoenix|不死鳥|fh|赤から金色へ流れる、炎の板です。炎と火の粉が舞います。
+Unicorn|ユニコーン|fp|パステルの虹色です。角が虹色に輝いて、キラキラします。
+Celestial|天界|fr|白い大理石に、金の光です。後光と星くずがただよいます。
+Meadow|草原|n|草の板に、緑の葉がひらひら舞います。
+Autumn|紅葉|ne|黄色から赤茶へ変わる板に、落ち葉が舞い落ちます。
+MossyRuins|苔の遺跡|n|こけむした石畳です。うす緑のもやがかかります。
+Desert|砂漠|n|砂色の板に、砂ぼこりとうすいもやがかかります。
+Rainforest|熱帯雨林|nw|濃い緑で、しっとりした板です。しずくともやが出ます。
+Volcano|火山|hn|黒い岩の割れ目が燃えます。炎・火の粉・黒い煙つきです。
+Campfire|たき火|h|焦げた木に、ゆれる炎です。炎・火の粉・煙つきです。
+Torch|たいまつ|h|木のたいまつです。チラチラ揺れる炎つきです。
+Sun|太陽|h|まぶしい黄色です。ゆっくり息をする光と、後光つきです。
+Thunder|雷|hs|青白く光る板です。雷のように光り、電気の火花が飛びます。
+Furnace|溶鉱炉|h|熱した金属です。下から赤く光り、火の粉が舞います。
+NeonTube|ネオン管|hs|ピンクのネオン管です。パチパチ光る縁取りと、後光つきです。
+DeepSea|深海|w|暗い青から水色へ変わる板です。ゆらめく光と、あわ・しずくつきです。
+GlacierBlue|氷河|w|青白い氷です。雪ともやがただよいます。
+RainyDay|雨の日|w|暗いスレートの板に、雨とうす霧が出ます。
+Coral|サンゴ礁|wp|サンゴ色のグラデーションです。あわとキラキラつきです。
+Waterfall|滝|wn|白から青へ流れる水です。しぶきともやがあがります。
+DigitalRain|デジタルレイン|s|黒い板に緑の光です。バグったように点滅し、緑の雨が降ります。
+Spaceship|宇宙船|s|銀色の船体です。青い光の縁取りと、走る光つきです。
+PlasmaBall|プラズマ球|sh|紫に光る球です。色がゆれて、電気の火花が走ります。
+LaserRed|赤レーザー|s|真っ赤に光り、ピカピカ点滅します。
+Stealth|ステルス|sd|黒い板です。夜だけ緑の線が光ります。
+Android|アンドロイド|s|白いボディに水色の光です。ドクドクと光ります。
+Bubblegum|バブルガム|p|ピンクの強いツヤです。あわとキラキラつきです。
+RainbowPop|レインボーポップ|p|ゆっくり虹色に変わる板です。紙吹雪つきです。
+LemonSoda|レモンソーダ|pw|黄色い透明の板です。シュワシュワとあわが出ます。
+PuruJelly|ぷるぷるゼリー|p|ピンクのゼリーです。ぷるぷると光がゆれます。
+CottonCandy|わたあめ|p|ピンク・白・水色のふわふわです。もやとキラキラつきです。
+Party|パーティー|pe|色がランダムに変わって、ドクドク光ります。紙吹雪つきです。
+GoldKing|黄金王|r|ピカピカの金です。光が走り、角が金色に輝きます。
+DiamondKing|ダイヤ王|r|透明なダイヤです。虹色の光が走り、強くキラキラします。
+RubyRed|紅玉|r|赤い宝石です。赤い光が走って、キラキラします。
+EmeraldGreen|翠玉|r|緑の宝石です。緑の光が走って、キラキラします。
+PlatinumMirror|白金ミラー|r|ほぼ鏡のプラチナです。角がするどく光ります。
+BlackGold|黒と金|rd|黒から金色へのグラデーションです。金色に輝きます。
+Moonlight|月光|d|夜だけ青白く光ります。後光ともやつきです。
+Ghost2|幽霊|d|半透明で、ゆらゆら光ります。ほたると霧つきです。
+DarkKnight|暗黒騎士|d|黒い鎧です。紫の光の縁取りと、青い角の輝きつきです。
+Haunted|お化け屋敷|de|古くて焦げた、紫の板です。緑の光がチカチカして、霧が出ます。
+Shadow|影|d|真っ黒な板です。赤い光がゆっくり息をします。
+Christmas|クリスマス|e|赤・白・緑のしましまです。雪とキラキラつきです。
+Halloween|ハロウィン|e|オレンジから紫へ変わる板です。チラチラ光り、霧とほたるが出ます。
+Festival|お祭り|e|赤い布の、ちょうちんです。揺れる光と火の粉つきです。
+NewYear|お正月|er|赤と金の板です。金銀の紙吹雪がふります。
+Valentine|バレンタイン|ep|ピンクのハート色です。ドクンと光り、花びらが舞います。
+NeonBlue|ネオンブルー|b|水色に光るネオンです。
+NeonPink|ネオンピンク|b|ピンクに光るネオンです。
+NeonGreen|ネオングリーン|b|緑に光るネオンです。
+Sunset|サンセット|b|オレンジに光るネオンです。
+Gold|ゴールド|b|金色の金属です。
+Silver|シルバー|b|銀色の金属です。
+Ice|アイス|b|青白く、半透明の氷です。
+Glass|ガラス|b|半透明のガラスです。
+Marble|大理石|b|白い大理石です。
+Lava|ラバ|b|オレンジ色に強く光る、溶岩のネオンです。
+Obsidian|黒曜石|b|黒く光る、ガラスのような石です。
+Candy|キャンディ|b|ピンクの、つるつるした素材です。
+Forest|森|b|緑の布の素材です。
+Ghost|ゴースト|b|うす白くて半透明の、ふわっと光るバリアです。
+Sakura|さくら|b|うすいピンクで、ほんのり光ります。
+Toxic|トキシック|b|毒のような黄緑に光るネオンです。
+Royal|ロイヤル|b|濃い紫の、ガラスのような素材です。
+RoseGold|ローズゴールド|b|ピンクがかった金色の金属です。
+Copper|銅|b|赤みのある銅の金属です。
+Bronze|ブロンズ|b|くすんだ、青銅の金属です。
+Steel|鋼|b|青みのある、かたい鋼の金属です。
+Pearl|パール|b|やさしく光る、真珠色です。
+Emerald|エメラルド|b|緑の、透ける宝石です。
+Ruby|ルビー|b|赤い、透ける宝石です。
+Sapphire|サファイア|b|青い、透ける宝石です。
+Amethyst|アメジスト|b|紫の、透ける宝石です。
+Topaz|トパーズ|b|黄色の、透ける宝石です。
+Mint|ミント|b|さわやかな、うす緑です。
+Peach|もも|b|やわらかい桃色です。
+Lavender|ラベンダー|b|うすい紫の、やさしい色です。
+Cocoa|ココア|b|こげ茶色の、あたたかい色です。
+Midnight|真夜中|b|濃い紺色で、ほんのり光ります。
+Coral2|コーラル|b|サンゴのような、明るいオレンジピンクです。
+Lemon|レモン|b|明るいレモン色です。
+SkyBlue|スカイブルー|b|晴れた空の、うす青です。
+NeonPurple|ネオンパープル|b|紫に光るネオンです。
+NeonOrange|ネオンオレンジ|b|オレンジに光るネオンです。
+NeonRed|ネオンレッド|b|赤に光るネオンです。
+NeonYellow|ネオンイエロー|b|黄色に光るネオンです。
+NeonWhite|ネオンホワイト|b|白く光るネオンです。
+Sunflower|ひまわり|b|ひまわりの、あざやかな黄色に光ります。
+]==])
+
+---------------------------------------------------------------------
+-- 質感 (ツヤ・空・光の走り・角・経年)
+---------------------------------------------------------------------
+CAT.GLOSS = { "くっきり", "やわらか", "ガラス", "メタル", "ウェット", "パール", "ニス", "ダイヤ", "ブラッシュ", "水面", "漆", "琥珀", "蛍光灯", "スパークル", "マジョーラ", "サテン", "しま", "ダブルライン", "ドーム", "ひび氷" }
+CAT.GLOSS_DESC = {
+	"光の帯がはっきり出る、鏡のようなツヤです。(標準)", "広くやわらかい、おだやかなツヤです。", "細くするどい光が2本走る、ガラスのツヤです。", "細かい光の帯が5本ならぶ、金属のツヤです。",
+	"小さな光がたくさん散る、濡れたようなツヤです。", "虹色にうつろう、やさしい真珠のツヤです。", "細くて鋭い光の線が1本走る、ニスのツヤです。", "虹色にきらめく面が、5つならぶダイヤのツヤです。",
+	"細い線が6本ならぶ、ヘアラインの金属のツヤです。", "やわらかな波のような、水面のツヤです。", "するどい1本の光と、広いツヤが重なる漆のツヤです。", "あめ色の、とろんとしたツヤです。",
+	"2本の長い光が走る、蛍光灯が映ったようなツヤです。", "小さな光が6つちらばる、スパークルのツヤです。", "見る角度で色がかわる、マジョーラのツヤです。", "広くてやさしい、サテンの光沢です。",
+	"はっきりした縞が4本ならぶ、ツヤです。", "細い光が2本ならぶ、ツヤです。", "まるくふくらんだ、ドーム状のツヤです。", "細かい光が7本ならぶ、ひび割れた氷のツヤです。",
+}
+CAT.SKIES = { "☀️ 昼", "🌇 夕焼け", "🌙 夜", "🌃 ネオン街", "🌌 オーロラ", "💡 スタジオ", "🌄 朝焼け", "☁️ くもり", "🌲 森", "🏜 砂漠", "🪐 宇宙", "🌊 海", "🌋 火山", "🏔 雪原" }
+CAT.SHEEN_COLS = { "白い光", "金色の光", "虹色の光", "青い光", "ピンクの光", "緑の光", "赤い光", "紫の光" }
+CAT.EDGE_COLS = { "白", "金", "青", "ピンク", "緑", "虹" }
+CAT.WEATHER = { "汚れ", "さび", "こけ", "雪", "焦げ", "砂ぼこり", "緑青", "霜", "泥はね", "すす", "色あせ", "金粉" }
+CAT.WEATHER_DESC = {
+	"全体に、うす茶色のよごれがつきます。", "オレンジ色のさびが、下の方に出ます。", "緑のこけが、下の方に出ます。", "白い雪が、上の方につもります。", "黒いこげが、全体につきます。",
+	"黄土色の砂ぼこりが、全体にかかります。", "緑青 (ろくしょう) の青緑色が、全体に出ます。", "白い霜が、上の方につきます。", "茶色い泥はねが、下の方につきます。", "黒いすすが、上の方につきます。",
+	"色がぬけて、白っぽくあせます。", "金色の粉が、上の方にかかります。",
+}
+
+-- 質感のセット { 名前, 色1, 色2, { refl 反射 / gs ツヤの種類 / sky 空 / sheen 光の走り / sc その色 / edge 角 / ec 角の色 / var 色ムラ / wea 経年 / wk 経年の種類 } }
+-- 素材・色・木目はそのまま。ここに無い項目は初期の値にもどる
+CAT.TEX_SETS = {
+	{ "🪞 鏡面ミラー", C(235, 240, 250), C(120, 140, 170), { refl = 1, gs = 1, sky = 1, edge = 0.3 }, "鏡のようにツルツルにします。" },
+	{ "💧 ウェット", C(150, 210, 255), C(40, 90, 150), { refl = 0.7, gs = 5, sky = 1 }, "濡れたように、小さな光が散ります。" },
+	{ "🍬 あめ玉", C(255, 150, 205), C(255, 230, 245), { refl = 0.55, gs = 7, sky = 6, sheen = 0.3, edge = 0.25 }, "あめ玉のような、つやつやの甘い光です。" },
+	{ "🫧 パール", C(245, 240, 255), C(190, 170, 230), { refl = 0.6, gs = 6, sky = 1, sheen = 0.35, edge = 0.35 }, "真珠のように、虹色にやさしく光ります。" },
+	{ "💎 ダイヤ", C(200, 240, 255), C(255, 200, 250), { refl = 0.85, gs = 8, sky = 6, sheen = 0.6, sc = 3, edge = 0.9 }, "虹色に強くきらめく、ダイヤのツヤです。" },
+	{ "🌃 ネオンナイト", C(255, 90, 210), C(40, 30, 110), { refl = 0.7, gs = 1, sky = 4, sheen = 0.5, sc = 3, edge = 0.8 }, "ネオン街が映り込む、夜のツヤです。" },
+	{ "🌅 夕焼けミラー", C(255, 170, 110), C(120, 80, 170), { refl = 0.8, gs = 2, sky = 2, sheen = 0.2, sc = 2 }, "夕焼け空が映り込む、金色のツヤです。" },
+	{ "🔩 ブラッシュ金属", C(200, 205, 215), C(100, 106, 120), { refl = 0.55, gs = 4, sky = 6, edge = 0.4 }, "金属の、細かい筋の入ったツヤです。" },
+	{ "🧽 つや消し", C(170, 170, 175), C(90, 90, 100), { refl = 0, gs = 2 }, "ツヤを消して、しっとりさせます。" },
+	{ "🧪 さびてボロボロ", C(190, 110, 60), C(80, 50, 35), { var = 0.4, wea = 0.8, wk = 2 }, "さびて、古びた感じにします。" },
+	{ "🌿 こけむす", C(110, 170, 70), C(40, 80, 40), { var = 0.3, wea = 0.7, wk = 3 }, "下の方から、こけがむします。" },
+	{ "❄️ 雪化粧", C(250, 252, 255), C(170, 200, 235), { refl = 0.1, gs = 2, var = 0.1, wea = 0.7, wk = 4 }, "上の方に、雪がつもります。" },
+	{ "🥄 ヘアライン", C(220, 224, 232), C(110, 118, 132), { refl = 0.6, gs = 9, sky = 6, edge = 0.3 }, "細い筋が入った、高級な金属のツヤです。" },
+	{ "🌊 水面", C(120, 210, 255), C(30, 110, 200), { refl = 0.7, gs = 10, sky = 12, sheen = 0.25, sc = 4 }, "海の空が映る、波のようなツヤです。" },
+	{ "🏮 漆塗り", C(200, 40, 40), C(40, 10, 14), { refl = 0.8, gs = 11, sky = 3, edge = 0.2 }, "するどい1本の光が走る、漆のツヤです。" },
+	{ "🍯 あめ色", C(255, 190, 70), C(150, 80, 20), { refl = 0.6, gs = 12, sky = 10, edge = 0.2 }, "とろんとした、琥珀色のツヤです。" },
+	{ "💡 蛍光灯の部屋", C(240, 248, 255), C(150, 170, 200), { refl = 0.75, gs = 13, sky = 6 }, "長い2本の光が映る、明るい部屋のツヤです。" },
+	{ "✨ スパークル", C(255, 245, 190), C(150, 120, 255), { refl = 0.6, gs = 14, sky = 3, sheen = 0.4, sc = 3, edge = 0.5, ec = 6 }, "小さな光がちらばる、きらびやかなツヤです。" },
+	{ "🦋 マジョーラ", C(120, 220, 255), C(255, 120, 230), { refl = 0.7, gs = 15, sky = 4, sheen = 0.3, sc = 3, edge = 0.4, ec = 6 }, "見る角度で色がかわる、不思議なツヤです。" },
+	{ "🎀 サテン", C(255, 200, 220), C(190, 120, 160), { refl = 0.45, gs = 16, sky = 1 }, "広くてやさしい、絹のようなツヤです。" },
+	{ "🦓 しまのツヤ", C(240, 240, 245), C(60, 60, 70), { refl = 0.6, gs = 17, sky = 6 }, "はっきりした縞の光が走ります。" },
+	{ "🔱 ダブルライン", C(200, 220, 255), C(70, 90, 140), { refl = 0.7, gs = 18, sky = 6, edge = 0.3 }, "細い2本の光が走る、シャープなツヤです。" },
+	{ "🔮 ドーム", C(200, 190, 255), C(80, 70, 160), { refl = 0.6, gs = 19, sky = 1 }, "まるくふくらんだ、ドーム状のツヤです。" },
+	{ "🧊 ひび氷", C(210, 240, 255), C(90, 150, 220), { refl = 0.6, gs = 20, sky = 14, sheen = 0.3, sc = 4, edge = 0.5, ec = 3 }, "ひび割れた氷のような、細かい光です。" },
+	{ "🌋 火山岩", C(130, 60, 40), C(30, 20, 20), { refl = 0.15, gs = 2, sky = 13, var = 0.35, wea = 0.5, wk = 10 }, "すすけた、火山の岩のような質感です。" },
+	{ "🏜 砂ぼこり", C(225, 195, 140), C(150, 110, 70), { gs = 2, var = 0.2, wea = 0.7, wk = 6 }, "黄土色の砂ぼこりをかぶせます。" },
+	{ "🗿 緑青 (古い銅)", C(110, 190, 160), C(50, 100, 90), { refl = 0.2, gs = 2, var = 0.3, wea = 0.8, wk = 7 }, "古い銅像のような、青緑のさびです。" },
+	{ "🥶 霜つき", C(225, 240, 255), C(130, 180, 230), { refl = 0.3, gs = 3, sky = 14, var = 0.1, wea = 0.6, wk = 8 }, "上の方に、白い霜がつきます。" },
+	{ "🐾 泥はね", C(150, 110, 70), C(70, 50, 30), { gs = 2, var = 0.3, wea = 0.7, wk = 9 }, "下の方に、泥がはねたようになります。" },
+	{ "🕯 すすけた", C(110, 100, 95), C(30, 28, 28), { refl = 0.1, gs = 2, var = 0.35, wea = 0.75, wk = 10 }, "黒いすすで、くすんだ感じにします。" },
+	{ "🎞 色あせた", C(200, 190, 180), C(140, 130, 120), { gs = 2, var = 0.2, wea = 0.7, wk = 11 }, "日に焼けたように、色があせます。" },
+	{ "👑 金粉", C(255, 220, 120), C(180, 120, 30), { refl = 0.5, gs = 14, sky = 10, sheen = 0.5, sc = 2, edge = 0.6, ec = 2, wea = 0.5, wk = 12 }, "金色の粉をまぶしたような、豪華なツヤです。" },
+	{ "🌌 宇宙のツヤ", C(120, 90, 230), C(20, 14, 70), { refl = 0.75, gs = 3, sky = 11, sheen = 0.5, sc = 8, edge = 0.6, ec = 4 }, "宇宙が映る、紫の光のツヤです。" },
+	{ "🌈 レインボーエッジ", C(255, 200, 240), C(120, 200, 255), { refl = 0.5, gs = 1, sky = 6, sheen = 0.4, sc = 3, edge = 0.9, ec = 6 }, "角が虹色に輝きます。" },
+	{ "🔥 熱した鉄", C(255, 140, 60), C(80, 30, 20), { refl = 0.4, gs = 4, sky = 13, sheen = 0.4, sc = 7, edge = 0.5, ec = 2, var = 0.2 }, "赤く熱した金属のような光です。" },
+	{ "🌸 桜のツヤ", C(255, 190, 215), C(220, 120, 160), { refl = 0.5, gs = 16, sky = 7, sheen = 0.35, sc = 5, edge = 0.4, ec = 4 }, "朝焼けが映る、ピンクのやさしいツヤです。" },
+	{ "🌲 森の朝つゆ", C(150, 220, 150), C(40, 110, 70), { refl = 0.55, gs = 5, sky = 9, var = 0.15, wea = 0.3, wk = 3 }, "朝つゆにぬれた、森の緑のツヤです。" },
+	{ "🥂 シャンパン", C(255, 235, 170), C(200, 150, 60), { refl = 0.7, gs = 14, sky = 7, sheen = 0.35, sc = 2, edge = 0.5, ec = 2 }, "金色の泡が散るような、上品なツヤです。" },
+}
+
+---------------------------------------------------------------------
+-- 光のレシピ { 名前, 分類, 色1, 色2, { ... }, 説明 }
+-- g 強さ / rg 範囲 / h 色相 または c 色 / h2 または c2 (2つ目) / c3 (3つ目) / gm 色の動き (1単色 2ゆっくり 3パッと 4虹 5三色 6ランダム 7炎)
+-- gs 色の速さ / p 明滅の速さ / ps 明滅の型 (1〜18) / pd 深さ / pb 板も明滅 / pw 波 / n 夜だけ / sh 向き (1全方向 2下 3上) / sp スポット幅
+-- oc 縁取りの色 / of オーラ / ot 壁の向こうも見える / ls 光が影を作る
+---------------------------------------------------------------------
+CAT.LIGHT_CATS = { { "f", "🔥 火" }, { "l", "💡 ライト" }, { "c", "🌈 カラフル" }, { "n", "🌌 自然" }, { "s", "🤖 SF" }, { "e", "🎉 イベント" } }
+CAT.LIGHT_RECIPES = {
+	{ "🕯 キャンドル", "f", C(255, 200, 90), C(255, 120, 30), { g = 1.6, rg = 11, h = 0.09, p = 1.4, ps = 3, pd = 0.4 }, "小さな炎のように、ゆらゆら光ります。" },
+	{ "🔥 たいまつ", "f", C(255, 150, 40), C(220, 50, 20), { g = 2.8, rg = 14, h = 0.07, h2 = 0.13, gm = 2, gs = 0.9, p = 2.2, ps = 3, pd = 0.55 }, "赤とオレンジがゆれる、強い炎の光です。" },
+	{ "🏕 たき火", "f", C(255, 160, 60), C(255, 90, 30), { g = 3, rg = 18, h = 0.08, h2 = 0.13, gm = 7, gs = 0.8, p = 1.6, ps = 13, pd = 0.6 }, "炎のようにゆらぐ、大きなたき火の光です。" },
+	{ "🪔 暖炉", "f", C(255, 150, 60), C(255, 90, 30), { g = 2.4, rg = 14, c = C(255, 150, 60), c2 = C(255, 90, 30), gm = 7, gs = 0.6, p = 1.2, ps = 13, pd = 0.5 }, "あたたかく、ゆっくりゆらぐ光です。" },
+	{ "🏮 ちょうちん", "f", C(255, 90, 60), C(255, 160, 80), { g = 2.2, rg = 12, c = C(255, 90, 60), p = 0.5, ps = 5, pd = 0.3 }, "赤い提灯のような、ゆったりした光です。" },
+	{ "🌋 溶岩ランプ", "f", C(255, 90, 30), C(255, 200, 60), { g = 2.4, rg = 14, c = C(255, 90, 30), c2 = C(255, 200, 60), gm = 2, gs = 0.12, p = 0.3, ps = 16, pd = 0.5 }, "赤と黄色が、ゆっくり混ざる光です。" },
+	{ "🚀 ロケット噴射", "f", C(255, 170, 60), C(90, 170, 255), { g = 4, rg = 20, c = C(255, 170, 60), c2 = C(90, 170, 255), gm = 7, gs = 1.6, p = 3, ps = 13, pd = 0.5, sh = 2 }, "下へ向けて、強くゆれる噴射の光です。" },
+	{ "🏭 溶鉱炉", "f", C(255, 120, 40), C(120, 40, 20), { g = 3.4, rg = 18, c = C(255, 120, 40), p = 0.8, ps = 13, pd = 0.5, pb = true }, "板ごと、赤くゆらいで光ります。" },
+	{ "🔦 スポットライト", "l", C(255, 236, 170), C(255, 200, 80), { g = 3.6, rg = 24, h = 0.14, sh = 2, sp = 40 }, "下を、せまく強く照らします。" },
+	{ "🌙 夜のランプ", "l", C(255, 214, 150), C(60, 50, 110), { g = 1.5, rg = 13, h = 0.11, p = 0.4, ps = 5, pd = 0.25, n = true }, "夜だけ、やさしく光ります。" },
+	{ "💡 電球色", "l", C(255, 214, 150), C(255, 180, 90), { g = 2.2, rg = 14, c = C(255, 214, 150) }, "あたたかい、ふつうの電球の光です。" },
+	{ "🏥 白い蛍光灯", "l", C(245, 250, 255), C(190, 215, 255), { g = 2.8, rg = 18, c = C(245, 250, 255), p = 0.3, ps = 3, pd = 0.12 }, "白くて明るい、少しだけチラつく光です。" },
+	{ "🎬 シアター", "l", C(255, 236, 200), C(255, 180, 120), { g = 3.2, rg = 22, c = C(255, 236, 200), sh = 2, sp = 60 }, "広めに下を照らす、劇場の光です。" },
+	{ "🌞 太陽光", "l", C(255, 246, 210), C(255, 220, 120), { g = 4.4, rg = 28, c = C(255, 246, 210), p = 0.15, ps = 5, pd = 0.1 }, "とても強く、広く照らします。" },
+	{ "🌙 月明かり", "l", C(190, 215, 255), C(120, 150, 220), { g = 1.8, rg = 18, c = C(190, 215, 255), p = 0.25, ps = 5, pd = 0.2, n = true }, "夜だけ、青白くやさしく光ります。" },
+	{ "💫 星のまたたき", "l", C(255, 250, 230), C(200, 220, 255), { g = 2.4, rg = 14, c = C(255, 250, 230), p = 1.2, ps = 11, pd = 0.6 }, "星のように、チラチラまたたきます。" },
+	{ "🏟 ナイター", "l", C(250, 252, 255), C(200, 220, 255), { g = 4.6, rg = 30, c = C(250, 252, 255), sh = 2, sp = 100 }, "球場のような、強くて広い光です。" },
+	{ "🌃 ネオンサイン", "c", C(255, 80, 220), C(60, 230, 255), { g = 3, rg = 14, h = 0.88, h2 = 0.5, gm = 2, gs = 0.45, p = 0.8, ps = 7, pd = 0.8, oc = C(255, 80, 220), of = 0.25 }, "ピンクと水色がゆれる、ネオン管の光です。縁取りつき。" },
+	{ "🌈 レインボー", "c", C(255, 90, 90), C(90, 140, 255), { g = 2.4, rg = 14, gm = 4, gs = 0.35 }, "光の色が、虹色にめぐります。" },
+	{ "🪩 ディスコ", "c", C(255, 120, 230), C(120, 255, 255), { g = 3.4, rg = 16, gm = 4, gs = 1.1, p = 2.4, ps = 9, pd = 0.7, pb = true, pw = 1 }, "虹色がはやく変わり、板ごとピカピカします。" },
+	{ "🎆 花火", "c", C(255, 140, 90), C(120, 200, 255), { g = 3.6, rg = 20, gm = 6, gs = 1.4, p = 1.6, ps = 15, pd = 0.9 }, "ポンッと光って、色が次々変わります。" },
+	{ "🎉 パーティー", "c", C(255, 90, 200), C(90, 230, 255), { g = 3.4, rg = 18, gm = 6, gs = 1, p = 2.2, ps = 2, pd = 0.7, pb = true, pw = 0.6 }, "ランダムな色で、ドクドク光ります。" },
+	{ "🍭 キャンディ", "c", C(255, 120, 190), C(120, 230, 255), { g = 2.2, rg = 12, c = C(255, 120, 190), c2 = C(120, 230, 255), gm = 2, gs = 0.5, p = 1, ps = 15, pd = 0.5 }, "ピンクと水色が、ポンポン光ります。" },
+	{ "🚦 信号", "c", C(255, 50, 40), C(40, 230, 90), { g = 2.8, rg = 14, c = C(255, 50, 40), c2 = C(255, 220, 40), c3 = C(40, 230, 90), gm = 5, gs = 0.45 }, "赤・黄・緑を、順番に光らせます。" },
+	{ "🌸 さくら提灯", "c", C(255, 170, 205), C(255, 210, 230), { g = 2, rg = 13, c = C(255, 170, 205), p = 0.3, ps = 5, pd = 0.3 }, "うすいピンクが、ゆっくり息をします。" },
+	{ "🔮 魔法の光", "c", C(160, 90, 255), C(255, 110, 230), { g = 2.6, rg = 16, c = C(160, 90, 255), c2 = C(255, 110, 230), gm = 2, gs = 0.5, p = 1.4, ps = 11, pd = 0.6 }, "紫とピンクが、キラキラまたたきます。" },
+	{ "🌌 オーロラ", "n", C(90, 255, 180), C(170, 90, 255), { g = 2.2, rg = 20, h = 0.42, h2 = 0.78, gm = 2, gs = 0.22, p = 0.35, ps = 5, pd = 0.5 }, "緑と紫が、ゆっくり入れかわります。" },
+	{ "⚡ 雷雲", "n", C(200, 220, 255), C(90, 100, 200), { g = 4.2, rg = 26, h = 0.6, p = 0.9, ps = 6 }, "ときどき、雷のように強く光ります。" },
+	{ "🧊 氷のゆらめき", "n", C(190, 235, 255), C(90, 150, 235), { g = 2.2, rg = 14, h = 0.54, h2 = 0.64, gm = 2, gs = 0.3, p = 0.5, ps = 5, pd = 0.4, oc = Color3.fromHSV(0.56, 0.75, 1), of = 0.2 }, "水色がゆれる、冷たい光です。縁取りつき。" },
+	{ "🌅 夕焼け", "n", C(255, 130, 70), C(255, 70, 140), { g = 2.4, rg = 20, c = C(255, 130, 70), c2 = C(255, 70, 140), gm = 2, gs = 0.1 }, "オレンジとピンクが、とてもゆっくり変わります。" },
+	{ "🌊 海のゆらぎ", "n", C(60, 200, 255), C(30, 90, 220), { g = 2.2, rg = 18, c = C(60, 200, 255), c2 = C(30, 90, 220), gm = 2, gs = 0.3, p = 0.4, ps = 16, pd = 0.4 }, "青がゆらゆら変わる、海の光です。" },
+	{ "🌿 木漏れ日", "n", C(230, 255, 150), C(150, 230, 120), { g = 2.2, rg = 16, c = C(230, 255, 150), c2 = C(150, 230, 120), gm = 2, gs = 0.2, p = 0.3, ps = 17, pd = 0.5 }, "木の間から差す、ふわふわした光です。" },
+	{ "👻 おばけの光", "n", C(150, 255, 200), C(100, 200, 160), { g = 2, rg = 13, c = C(150, 255, 200), p = 0.35, ps = 17, pd = 0.7, n = true }, "夜だけ、ふわふわと光ります。" },
+	{ "🍄 きのこの森", "n", C(120, 255, 220), C(200, 120, 255), { g = 2, rg = 12, c = C(120, 255, 220), c2 = C(200, 120, 255), gm = 2, gs = 0.2, p = 0.3, ps = 5, pd = 0.4, n = true }, "夜だけ、青緑と紫がゆれます。" },
+	{ "🚨 パトランプ", "s", C(255, 60, 60), C(60, 110, 255), { g = 3.4, rg = 18, h = 0, h2 = 0.62, gm = 3, gs = 1.2 }, "赤と青が、パッと入れかわります。" },
+	{ "🚓 パトカー", "s", C(255, 40, 50), C(50, 100, 255), { g = 3.6, rg = 20, c = C(255, 40, 50), c2 = C(50, 100, 255), gm = 3, gs = 3, p = 2, ps = 12, pd = 1 }, "赤と青が、2回ずつパパッと光ります。" },
+	{ "🛸 UFO", "s", C(90, 255, 170), C(200, 120, 255), { g = 3, rg = 18, c = C(90, 255, 170), c2 = C(120, 160, 255), c3 = C(200, 120, 255), gm = 5, gs = 0.5, p = 0.6, ps = 16, pd = 0.4, sh = 2 }, "下を、3色の光でゆっくり照らします。" },
+	{ "🤖 ロボットの目", "s", C(255, 40, 40), C(120, 20, 20), { g = 3, rg = 10, c = C(255, 40, 40), p = 1.5, ps = 14, pd = 0.8, sh = 2, sp = 30 }, "赤い目のように、バグって点滅します。" },
+	{ "💻 ハッカー", "s", C(60, 255, 120), C(10, 80, 40), { g = 2.6, rg = 14, c = C(60, 255, 120), p = 2.4, ps = 14, pd = 0.7, oc = C(60, 255, 120), of = 0.1 }, "緑の光が、バグったように点滅します。縁取りつき。" },
+	{ "🌌 銀河", "s", C(130, 90, 255), C(255, 100, 200), { g = 2.4, rg = 22, c = C(130, 90, 255), c2 = C(255, 100, 200), c3 = C(80, 190, 255), gm = 5, gs = 0.18, p = 0.3, ps = 17, pd = 0.5 }, "紫・ピンク・青が、ゆっくりめぐります。" },
+	{ "🎯 レーザーサイト", "s", C(255, 30, 50), C(120, 10, 20), { g = 3.4, rg = 26, c = C(255, 30, 50), sh = 2, sp = 12 }, "とても細く、赤い光が下へ伸びます。" },
+	{ "❤️ ハートビート", "e", C(255, 90, 140), C(190, 20, 70), { g = 2.4, rg = 12, h = 0.97, p = 1.1, ps = 2, pd = 0.85, pb = true }, "心臓のように、ドクンと光ります。板も一緒です。" },
+	{ "🎄 クリスマス", "e", C(255, 60, 60), C(60, 220, 90), { g = 2.6, rg = 14, c = C(255, 60, 60), c2 = C(60, 220, 90), gm = 3, gs = 0.8, p = 1.2, ps = 11, pd = 0.5 }, "赤と緑が、交互に光ります。" },
+	{ "🎃 ハロウィン", "e", C(255, 130, 30), C(150, 60, 220), { g = 2.6, rg = 14, c = C(255, 130, 30), c2 = C(150, 60, 220), gm = 2, gs = 0.5, p = 1, ps = 3, pd = 0.5 }, "オレンジと紫が、不気味にゆれます。" },
+	{ "💝 バレンタイン", "e", C(255, 80, 150), C(255, 170, 200), { g = 2.4, rg = 12, c = C(255, 80, 150), p = 1.1, ps = 2, pd = 0.8 }, "ピンクが、ドクンと光ります。" },
+}
+CAT.PULSE_IDS = { "Sine", "Beat", "Flicker", "Strobe", "Breath", "Lightning", "Neon", "Saw", "Steps", "SOS", "Twinkle", "Police", "Fire", "Glitch", "Pop", "Wobble", "Drift", "Triple" }
+CAT.PULSE_NAMES = { "なめらか", "ドクン", "ゆらぎ", "ピカピカ", "呼吸", "雷", "ネオン管", "のこぎり", "階段", "SOS", "星のまたたき", "パトライト", "炎のゆらぎ", "バグ点滅", "ポン", "ゆらゆら", "ふわふわ", "ドクドクドク" }
+CAT.PULSE_DESC = {
+	"明るさが、波のようになめらかに変わります。", "ドクン、ドクンと、心臓のように光ります。", "不規則に、ゆらゆらゆれます。", "とても強く、ピカピカ点滅します。", "ゆっくり、息をするように明るさが変わります。",
+	"ときどき、雷のように強く光ります。", "ネオン管のように、ときどきパチッと切れます。", "ゆっくり明るくなって、パッと消えます。", "明るさが、階段のように段々に変わります。", "・・・ーーー・・・ (SOS) の点滅です。",
+	"星のように、明るいままチラチラします。", "パトライトのように、2回パパッと光って休みます。", "炎のように、大きく小さくゆれます。", "バグったように、ときどきガクッと暗くなります。", "ポンと光って、すっと消えます。",
+	"2つの波がまざった、ゆらゆらした明滅です。", "ゆっくり、ふわふわと明るさがただよいます。", "ドクドクドクと3回光って、休みます。",
+}
+CAT.MODE_IDS = { "Solid", "Blend", "Alt", "Hue", "Tri", "Rand", "Flame" }
+CAT.MODE_NAMES = { "単色", "2色ゆっくり", "2色パッと", "虹色", "3色めぐる", "ランダム", "炎ゆらぎ" }
+CAT.MODE_DESC = {
+	"1色のまま光ります。", "1つ目と2つ目の色を、ゆっくり行き来します。", "1つ目と2つ目の色を、パッと入れかえます。", "色が、虹のようにめぐります。",
+	"1つ目・2つ目・3つ目の色を、順番にめぐります。", "ランダムな色へ、次々なめらかに変わります。(見ている人どうしで同じ色です)", "1つ目と2つ目の色のあいだを、炎のようにゆらゆらします。",
+}
+
+---------------------------------------------------------------------
+-- 効果 { id, 名前, 色, 説明 }。FX_NAMES はサーバーの効果と同じ。kind = 命令の種類 (Fire/Smoke/Confetti/Sparkle は専用の命令)
+---------------------------------------------------------------------
+CAT.FX_LIST = {
+	{ "fire", "Fire", "🔥 炎", "板の向きに関係なく、必ず上へ昇る炎です。" },
+	{ "smoke", "Smoke", "💨 煙", "上へ昇る、もくもくした煙です。" },
+	{ "sparkle", "Sparkle", "✨ キラキラ", "板のまわりに、キラキラした光が舞います。" },
+	{ "confetti", "Confetti", "🎊 紙吹雪", "色とりどりの紙が、ひらひら降ります。" },
+	{ "snow", "Snow", "❄️ 雪", "白い雪が、ふわふわ降ります。" },
+	{ "sakura", "Sakura", "🌸 桜", "ピンクの花びらが、ひらひら舞います。" },
+	{ "firefly", "Firefly", "🪲 ほたる", "黄緑の光が、ゆっくり明滅しながら飛びます。" },
+	{ "bubbles", "Bubbles", "🫧 あわ", "青いあわが、ふわっと昇ります。" },
+	{ "embers", "Embers", "🧨 火の粉", "オレンジの火の粉が、パチパチ昇ります。" },
+	{ "electric", "Electric", "⚡ 電気", "青白い火花が、パチパチと四方へ飛びます。" },
+	{ "stardust", "Stardust", "🌠 星くず", "カラフルな小さな星が、ふわふわ昇ります。" },
+	{ "leaves", "Leaves", "🍂 落ち葉", "黄色から茶色へ、くるくる回りながら落ちます。" },
+	{ "droplets", "Droplets", "💧 しずく", "水しぶきが跳ねて、また落ちます。" },
+	{ "magic", "Magic", "🔮 魔法", "紫からピンクへ、きらめきながら昇ります。" },
+	{ "mist", "Mist", "🌫 もや", "板のまわりを、うすい霧がただよいます。" },
+	{ "halo", "Halo", "🔆 後光", "板のまわりに、大きくやわらかい光のかたまりが出ます。" },
+	{ "rain", "Rain", "🌧 雨", "板の上から、真下へ雨がふりそそぎます。" },
+	{ "trail", "Trail", "💫 軌跡", "板が動くと、うしろに光の帯がのびます。(止まっていると見えません)" },
+}
+CAT.FIRE_COLORS = { "通常", "青", "緑", "紫", "ピンク", "金", "白", "地獄", "闇", "虹" }
+CAT.SMOKE_COLORS = { "グレー", "黒", "白", "紫", "ピンク", "青", "緑" }
+CAT.CONF_COLORS = { "にじ色", "金と銀", "パステル", "赤と緑", "雪の色", "ピンク" }
+-- 効果の色 (全部の効果を、この色に)
+CAT.FX_TINTS = {
+	{ "🔴 赤", C(255, 70, 70) }, { "🟠 オレンジ", C(255, 150, 50) }, { "🟡 黄", C(255, 225, 70) }, { "🟢 緑", C(80, 230, 110) },
+	{ "🩵 水色", C(90, 215, 255) }, { "🔵 青", C(80, 120, 255) }, { "🟣 紫", C(170, 100, 255) }, { "🩷 ピンク", C(255, 120, 190) },
+	{ "⚪ 白", C(255, 255, 255) }, { "🟤 金", C(255, 205, 90) },
+}
+-- 効果のレシピ { 名前, 色1, 色2, { fx = {出す効果の id}, fs 炎の大きさ, fc 炎の色, sm 煙の色, cc 紙吹雪の色, sr キラキラの量, ss キラキラの大きさ, mul 量, size 大きさ, speed 速さ, tint 色 }, 説明 }
+CAT.FX_RECIPES = {
+	{ "🏕 キャンプファイヤー", C(255, 170, 60), C(120, 50, 20), { fx = { "fire", "embers", "smoke" }, fs = 5 }, "炎・火の粉・煙が、まとめて出ます。" },
+	{ "🌋 噴火", C(255, 90, 30), C(40, 30, 30), { fx = { "fire", "embers", "smoke" }, fs = 9, sm = 2, mul = 1.5 }, "大きな炎と、黒い煙と、火の粉です。" },
+	{ "🌨 吹雪", C(235, 245, 255), C(130, 170, 230), { fx = { "snow", "mist" }, mul = 2.2, speed = 1.4 }, "雪とうす霧が、たくさん舞います。" },
+	{ "🌸 花吹雪", C(255, 190, 215), C(255, 130, 180), { fx = { "sakura" }, mul = 1.8 }, "桜の花びらが、たくさん舞います。" },
+	{ "🎉 お祝い", C(255, 120, 200), C(255, 215, 90), { fx = { "confetti", "sparkle" }, sr = 40, ss = 0.4 }, "紙吹雪とキラキラです。" },
+	{ "🧚 妖精の森", C(190, 255, 130), C(200, 130, 255), { fx = { "firefly", "magic", "stardust" } }, "ほたると魔法と星くずが、ふわふわ飛びます。" },
+	{ "🌧 大雨", C(180, 210, 255), C(70, 100, 170), { fx = { "rain", "mist" }, mul = 1.6 }, "雨と霧です。" },
+	{ "⚡ 電撃", C(200, 225, 255), C(80, 110, 255), { fx = { "electric", "sparkle" }, sr = 30, mul = 1.3 }, "電気の火花が、パチパチ飛びます。" },
+	{ "🍂 秋", C(255, 190, 70), C(150, 70, 25), { fx = { "leaves" }, mul = 1.4 }, "落ち葉が、くるくる舞います。" },
+	{ "🌊 水中", C(170, 230, 255), C(60, 130, 220), { fx = { "bubbles", "droplets", "mist" }, tint = C(150, 220, 255) }, "あわ・しずく・霧です。水色に染まります。" },
+	{ "🔮 魔法", C(160, 90, 255), C(255, 110, 230), { fx = { "magic", "halo", "stardust" } }, "魔法の粒と、後光と、星くずです。" },
+	{ "👼 神々しい", C(255, 240, 190), C(255, 255, 255), { fx = { "halo", "stardust", "sparkle" }, sr = 20 }, "後光と星くずとキラキラです。" },
+	{ "👻 おばけ", C(160, 255, 210), C(60, 110, 100), { fx = { "mist", "firefly" }, tint = C(160, 255, 210) }, "緑の霧と、ほたるです。" },
+	{ "🌠 星空", C(255, 250, 220), C(120, 120, 255), { fx = { "stardust", "sparkle" }, mul = 2, sr = 30 }, "星くずが、たくさん舞います。" },
+	{ "🌫 霧の朝", C(225, 232, 240), C(160, 175, 195), { fx = { "mist" }, mul = 2.4, size = 1.4 }, "ふかい霧が、板をつつみます。" },
+	{ "🏎 ネオンのしっぽ", C(90, 220, 255), C(255, 110, 200), { fx = { "trail", "sparkle" }, sr = 20 }, "動くと、光の帯が長くのびます。" },
+	{ "💥 お祭りさわぎ", C(255, 120, 120), C(120, 200, 255), { fx = { "confetti", "stardust", "trail" }, cc = 3 }, "紙吹雪・星くず・光の帯です。" },
+	{ "🧨 火の粉まつり", C(255, 160, 60), C(150, 50, 20), { fx = { "embers", "smoke" }, mul = 2.2, sm = 2 }, "火の粉が、たくさん昇ります。" },
+}
+
+return CAT
+end)()
 ---------------------------------------------------------------------
 -- 軽量化エンジン
 --  ・対象はマップだけ。板(PalletLightBrown)と、プレイヤーのキャラクターには一切さわらない
@@ -6338,7 +7593,6 @@ local Opt = (function()
 		mesh = "メッシュを簡単に", material = "素材を単純化", quality = "画質を最低にする",
 	}
 	M.onStatus = nil   -- function(text, 0~1) 進行状況をUIに出すための窓口
-	M.onChange = nil   -- function(key, wantOn) ON/OFFの選択が変わった時に呼ばれる窓口 (GitHub保存が使う)
 
 	local FX_CLASS = { ParticleEmitter = true, Fire = true, Smoke = true, Sparkles = true, Trail = true, Beam = true, Highlight = true }
 	local POST_CLASS = { BlurEffect = true, DepthOfFieldEffect = true, SunRaysEffect = true }   -- ブルームは板のネオンのために残す (「ブルーム・色補正を切る」を選んだ時だけ切る)
@@ -6836,9 +8090,7 @@ local Opt = (function()
 	-- ON/OFFを予約する。すぐ実行されるわけではなく、順番が来たら1個ずつ処理される
 	function M.set(key, wantOn)
 		if not ITEMS[key] then return end
-		local before = desired[key] == true
 		desired[key] = wantOn and true or false
-		if before ~= (desired[key] == true) and M.onChange then pcall(M.onChange, key, desired[key]) end
 		if (desired[key] == true) ~= (on[key] == true) and not queued[key] then
 			queued[key] = true
 			order[#order + 1] = key
@@ -7304,10 +8556,10 @@ local isOpen = false
 local fitScale = 1
 local fit   -- 開閉のところで定義する(UI設定ページからも呼ぶので先に宣言)
 local homeInfo   -- ホームの表示を今の状態に更新する関数 (ホームページの所で定義。板の一覧が変わるたびに呼ぶ)
-local UIs = { set = {}, pv = {}, mk = {}, touch = function() end }   -- ページをまたいで触るUI部品 (質感ページのトグル・スライダーなど)。set[命令の種類] = その値に画面の表示を合わせる関数
+local UIs = { set = {}, pv = {}, mk = {} }   -- ページをまたいで触るUI部品 (質感ページのトグル・スライダーなど)。set[命令の種類] = その値に画面の表示を合わせる関数
 -- pv = プレビューの状態 (pv.model = プレビュー中の板) / mk = 「選んだボタンの印」を付け外しする関数の置き場 (mk.look(i) など。0 で印を消す)
--- touch(名前) = 「GitHubに保存する物が変わった」と知らせる窓口 ("perm" 永久保存 / "presets" プリセット / "ui" UI設定 / "opt" 軽量化)。後ろの GitHub保存 が本物に差し替える
 local gradLive = false   -- グラデーションを適用中か (色タブの設定を変えたら自動で付け直す)
+UIs.all = false         -- 「操作を全部の板に同時に反映」(プリセットページのスイッチ。この画面だけの設定)
 local dirty = {}
 local resetters = {}   -- 板ごとに、UIを初期状態へ戻す関数のリスト
 local function onResettable(fn) resetters[#resetters + 1] = fn end
@@ -7440,7 +8692,7 @@ local function selVisuals()
 	highlight.Adornee = selModel
 	highlight.Enabled = show
 	setSave(isOpen and selModel ~= nil and dirty[selected] == true)
-	badge.Text = selected and ("選択中: 板" .. selected) or "板を出してね"
+	badge.Text = (UIs.all and selected and not UIs.pv.model) and "全部の板" or (selected and ("選択中: 板" .. selected) or "板を出してね")
 end
 
 local refresh
@@ -7532,8 +8784,19 @@ local function record(model, kind, value)
 		return
 	end
 	local r = recipe[model] or {}
+	-- プリセットは「ぜんぶ」「見た目だけ」「光と効果だけ」の3つの入れ方がある。ぜんぶ = 前のプリセットを全部置きかえ / 見た目だけ・光と効果だけ = 同じ入れ方のものだけ置きかえ
+	local slot = nil
+	if kind == "Preset" then slot = (type(value) == "table" and value.part) or "all" end
 	for k = #r, 1, -1 do
-		if r[k][1] == kind then table.remove(r, k) end
+		if r[k][1] == kind then
+			if slot == nil then
+				table.remove(r, k)
+			else
+				local ov = r[k][2]
+				local oslot = (type(ov) == "table" and ov.part) or "all"
+				if slot == "all" or oslot == slot then table.remove(r, k) end
+			end
+		end
 	end
 	r[#r + 1] = { kind, value }
 	recipe[model] = r
@@ -7542,11 +8805,12 @@ end
 -- 操作を送る前に、画面側の状態を合わせる (1つずつ送る時も、まとめて送る時も同じ)
 local function noteKind(kind, value)
 	if UIs.onKind then pcall(UIs.onKind, kind, value) end   -- 「選んだボタンの印」を、いまの状態に合わせる
-	if kind == "Color" or kind == "HSV" or kind == "RGB" or kind == "Look" or kind == "Preset" or kind == "GradientClear" or kind == "Reset" or (kind == "Rainbow" and value == true) then
+	local fxOnly = (kind == "Preset" and type(value) == "table" and value.part == "fx")   -- 「光と効果だけ」のプリセットは、色や素材にさわらない
+	if not fxOnly and (kind == "Color" or kind == "HSV" or kind == "RGB" or kind == "Look" or kind == "Preset" or kind == "GradientClear" or kind == "Reset" or (kind == "Rainbow" and value == true)) then
 		gradLive = false   -- サーバー側でグラデーションが外れる操作
 		if UIs.refHint then UIs.refHint() end
 	end
-	if UIs.rbT and (kind == "Color" or kind == "HSV" or kind == "RGB" or kind == "Look" or kind == "Preset" or kind == "Gradient") then
+	if UIs.rbT and not fxOnly and (kind == "Color" or kind == "HSV" or kind == "RGB" or kind == "Look" or kind == "Preset" or kind == "Gradient") then
 		UIs.rbT:set(false)   -- サーバー側でレインボーが止まるので、スイッチの表示も合わせる
 	end
 end
@@ -7562,6 +8826,15 @@ local function send(kind, value, quiet)
 	record(model, kind, value)
 	selVisuals()
 	doApply(model, kind, value, quiet)
+	if UIs.all and not UIs.pv.model and kind ~= "Reset" then   -- 「全部の板に同時に反映」: ほかの板にも同じ操作を送る
+		for i2, m2 in pairs(seenMap) do
+			if m2 ~= model and m2.Parent then
+				record(m2, kind, value)
+				dirty[i2] = true
+				doApply(m2, kind, value, true)
+			end
+		end
+	end
 end
 -- 複数の操作を、1回の通信にまとめて送る (おまかせ・コピー・永久保存用)。履歴には1つずつ記録する
 local function sendMany(model, ops, quiet)
@@ -7737,13 +9010,27 @@ local function sendBatch(ops)
 	if not UIs.pv.model then dirty[idx] = true end
 	for _, op in ipairs(ops) do noteKind(op[1], op[2]) end
 	sendMany(model, ops, true)
+	if UIs.all and not UIs.pv.model then   -- 「全部の板に同時に反映」
+		local noReset = true
+		for _, op in ipairs(ops) do
+			if op[1] == "Reset" then noReset = false end
+		end
+		if noReset then
+			for i2, m2 in pairs(seenMap) do
+				if m2 ~= model and m2.Parent then
+					sendMany(m2, ops, true)
+					dirty[i2] = true
+				end
+			end
+		end
+	end
 	syncUI(ops)
 	selVisuals()
 	return true
 end
 -- 選んだボタンの解除: 指定した種類の操作を履歴から外して、板を「元に戻す + 残りの操作をもう一度」で作り直す
 -- (ほかの操作の結果は、そのまま残る。作り直しは1回の通信にまとめて送る)
-UIs.replay = function(kinds)
+UIs.replay = function(kinds, pred)   -- pred(op) を渡すと、その種類のうち pred が true のものだけを外す
 	local model = targetModel()
 	if not model or not model.Parent then
 		Lib.notif(gui, "板を選んでください", 1.8)
@@ -7751,12 +9038,192 @@ UIs.replay = function(kinds)
 	end
 	local keep = {}
 	for _, op in ipairs(recipe[model] or {}) do
-		if not kinds[op[1]] then keep[#keep + 1] = { op[1], op[2] } end
+		if not (kinds[op[1]] and (not pred or pred(op))) then keep[#keep + 1] = { op[1], op[2] } end
 	end
 	for _, fn in ipairs(resetters) do pcall(fn) end   -- 画面の表示も、いったん初期へ (残った操作のぶんは、下で合わせ直す)
 	local ops = { { "Reset" } }
 	for _, op in ipairs(keep) do ops[#ops + 1] = op end
-	return sendBatch(ops)
+	local okSend = sendBatch(ops)
+	if okSend and UIs.all and not UIs.pv.model then   -- 「全部の板に同時に反映」中は、ほかの板も同じ操作を外して作りなおす
+		for i2, m2 in pairs(seenMap) do
+			if m2 ~= model and m2.Parent then
+				local ops2 = { { "Reset" } }
+				for _, op in ipairs(recipe[m2] or {}) do
+					if not (kinds[op[1]] and (not pred or pred(op))) then ops2[#ops2 + 1] = { op[1], op[2] } end
+				end
+				sendMany(m2, ops2, true)
+				dirty[i2] = true
+			end
+		end
+	end
+	return okSend
+end
+
+-- ===== 数の多い一覧 (素材・プリセット・レシピ) のための部品 =====
+UIs.lazy = {}                            -- ページ番号 -> そのページを初めて開いた時にする作業 (カードを少しずつ作る)
+UIs.fav = { mat = {}, preset = {} }      -- お気に入り { id = true }。この画面だけのもの (保存はしない)
+UIs.recent = { mat = {}, preset = {} }   -- 最近つかった { id, ... } (新しい順)
+UIs.touchRecent = function(kind, id)
+	local list = UIs.recent[kind]
+	for i = #list, 1, -1 do
+		if list[i] == id then table.remove(list, i) end
+	end
+	table.insert(list, 1, id)
+	while #list > 14 do table.remove(list) end
+end
+UIs.addLazy = function(page, job)
+	UIs.lazy[page] = UIs.lazy[page] or {}
+	table.insert(UIs.lazy[page], job)
+end
+UIs.runLazy = function(page)
+	local jobs = UIs.lazy[page]
+	if not jobs then return end
+	UIs.lazy[page] = nil
+	task.spawn(function()
+		for _, job in ipairs(jobs) do
+			local ok, err = pcall(job)
+			if not ok then warn("[PalletStudio] page build", err) end
+		end
+	end)
+end
+-- n個のものを、1フレームに per 個ずつ作る (一度に作ると、画面が止まって見えるため)。build(i) が作る
+UIs.slice = function(n, per, build)
+	local i = 1
+	while i <= n do
+		for _ = 1, per do
+			if i > n then break end
+			local ok, err = pcall(build, i)
+			if not ok then warn("[PalletStudio] build", err) end
+			i = i + 1
+		end
+		task.wait()
+	end
+end
+-- 「選んだカード」の印 (あとから作られるカードにも効く)。add(番号, ボタン) / mark(番号) (0 で印を消す)
+UIs.lazyMarks = function()
+	local g = { btns = {}, sel = 0, shown = {} }
+	local function paint(b, on, anim)
+		local stk = b:FindFirstChildOfClass("UIStroke")
+		local ck = b:FindFirstChild("Check")
+		if on and not ck then
+			ck = mk("TextLabel", {
+				Name = "Check", BackgroundTransparency = 1, Text = "✔", TextSize = 15, FontFace = FONT, TextColor3 = WHITE, TextTransparency = 1,
+				AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -6, 0, 3), Size = UDim2.fromOffset(20, 20), ZIndex = 5,
+			}, b)
+		end
+		local bp = { BackgroundColor3 = on and Lib.ACCENT or WHITE, BackgroundTransparency = on and 0.2 or 0.84 }
+		local sp = { Thickness = on and 2.5 or 1, Transparency = on and 0 or 0.58, Color = on and WHITE or Lib.GRAY }
+		if anim then
+			Lib.tween(b, bp, 0.2)
+			if stk then Lib.tween(stk, sp, 0.2) end
+			if ck then Lib.tween(ck, { TextTransparency = on and 0 or 1 }, 0.2) end
+		else
+			b.BackgroundColor3, b.BackgroundTransparency = bp.BackgroundColor3, bp.BackgroundTransparency
+			if stk then stk.Thickness, stk.Transparency, stk.Color = sp.Thickness, sp.Transparency, sp.Color end
+			if ck then ck.TextTransparency = on and 0 or 1 end
+		end
+	end
+	function g.add(i, b)
+		g.btns[i] = b
+		if g.sel == i then
+			g.shown[b] = true
+			paint(b, true, false)
+		else
+			g.shown[b] = false
+		end
+	end
+	function g.mark(i)
+		local old = g.sel
+		g.sel = i
+		for _, j in ipairs({ old, i }) do
+			local b = g.btns[j]
+			if b then
+				local on = (j == i)
+				if g.shown[b] ~= on then
+					g.shown[b] = on
+					paint(b, on, true)
+				end
+			end
+		end
+	end
+	Lib.onTheme(function(a) local b = g.btns[g.sel] if b then b.BackgroundColor3 = a end end)
+	return g
+end
+-- 軽いカード (素材・プリセット・レシピ用)。tile = true なら、上に色の帯・下に名前 / false なら、左に色・右に名前
+UIs.card = function(parent, order, ch, label, c1, c2, tile)
+	local b = mk("TextButton", { AutoButtonColor = false, Text = "", LayoutOrder = order, BackgroundColor3 = WHITE, BackgroundTransparency = 0.84, BorderSizePixel = 0 }, parent)
+	corner(b, 14)
+	stroke(b, 0.58)
+	local sw = mk("Frame", { BackgroundColor3 = WHITE, BorderSizePixel = 0, Position = UDim2.fromOffset(6, 6),
+		Size = tile and UDim2.new(1, -12, 0, 44) or UDim2.fromOffset(ch - 12, ch - 12) }, b)
+	corner(sw, 10)
+	mk("UIGradient", { Rotation = tile and 25 or 35, Color = ColorSequence.new(c1, c2) }, sw)
+	if tile then
+		text(b, label, isMobile and 12 or 14, UDim2.fromOffset(0, 54), UDim2.new(1, 0, 0, 24), Enum.TextXAlignment.Center)
+	else
+		local lbl = text(b, label, isMobile and 12 or 14, UDim2.fromOffset(ch, 0), UDim2.new(1, -(ch + 2), 1, 0), Enum.TextXAlignment.Left)
+		lbl.TextWrapped = true
+	end
+	return b
+end
+-- 名前でさがす欄。onChange(小文字にした文字) が、文字が変わるたびに呼ばれる。返す値 = 文字の入る欄
+UIs.searchBox = function(e, placeholder, onChange)
+	local r = e:row(isMobile and 40 or 36)
+	Lib.glass(r, 0.85, 10)
+	local box = mk("TextBox", {
+		Text = "", PlaceholderText = placeholder, PlaceholderColor3 = Color3.fromRGB(190, 185, 225), ClearTextOnFocus = false, TextColor3 = WHITE,
+		TextSize = isMobile and 14 or 15, FontFace = FONT, TextXAlignment = Enum.TextXAlignment.Left, BackgroundTransparency = 1,
+		Position = UDim2.fromOffset(12, 0), Size = UDim2.new(1, -54, 1, 0),
+	}, r)
+	local x = mk("TextButton", { AutoButtonColor = false, Text = "✕", TextSize = 16, FontFace = FONT, TextColor3 = WHITE, BackgroundTransparency = 1,
+		AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -6, 0.5, 0), Size = UDim2.fromOffset(34, 28) }, r)
+	box:GetPropertyChangedSignal("Text"):Connect(function() onChange(string.lower(box.Text)) end)
+	x.MouseButton1Click:Connect(function() box.Text = "" end)
+	return box
+end
+-- 横にならぶボタンの行。defs = { {文字, 押した時の関数, 色(省略可)}, ... }
+UIs.btnRow = function(e, defs)
+	local r = e:row(isMobile and 42 or 36)
+	mk("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder }, r)
+	local btns = {}
+	for i, d in ipairs(defs) do
+		local b = mk("TextButton", { AutoButtonColor = false, Text = d[1], TextSize = isMobile and 12 or 14, FontFace = FONT, TextColor3 = WHITE, TextWrapped = true,
+			LayoutOrder = i, Size = UDim2.new(1 / #defs, -5, 1, 0) }, r)
+		Lib.glass(b, 0.8, 10)
+		if d[3] then
+			b.BackgroundColor3 = d[3]
+			b.BackgroundTransparency = 0.4
+		end
+		Lib.juice(b)
+		b.MouseButton1Click:Connect(function() pcall(d[2], b) end)
+		btns[i] = b
+	end
+	return btns
+end
+-- 色のボタンの列 (押すと色を選ぶ。もう一度押すと外す)。colors = { {色, 名前}, ... } / 返す値 = 印の部品 (mark(番号))
+UIs.swatches = function(e, colors, onPick, onRelease)
+	local cols = isMobile and 5 or 10
+	local row = e:row(gridHeight(#colors, cols, 34, 8))
+	grid(row, isMobile and 42 or 41, 34, 8, 8)
+	local grp = markGroup("swatch")
+	for i, c in ipairs(colors) do
+		local b = mk("TextButton", { AutoButtonColor = false, BorderSizePixel = 0, Text = "", BackgroundColor3 = c[1], LayoutOrder = i }, row)
+		corner(b, 11)
+		stroke(b, 0.3, WHITE, 1.5)
+		Lib.juice(b)
+		grp.add(b)
+		b.MouseButton1Click:Connect(function()
+			grp.click(i, function() grp.mark(i) onPick(i) end, onRelease)
+		end)
+	end
+	return grp
+end
+-- 選んでいるものの名前と説明を出す欄。set(文字) で書きかえる
+UIs.infoRow = function(e, h, initial)
+	local r = e:glass(h)
+	local lbl = text(r, initial or "", isMobile and 12 or 13, UDim2.fromOffset(10, 0), UDim2.new(1, -20, 1, 0), nil, SOFT)
+	lbl.TextWrapped = true
+	return function(t) lbl.Text = t end
 end
 
 local pages = {}
@@ -8072,30 +9539,23 @@ do
 	end)
 end
 
--- 2: 素材 (押すと、その素材らしい色・質感・反射にして、元のテクスチャも外す)
+-- 2: 素材 (152種。押すと、その素材らしい色・質感・反射にして、元のテクスチャも外す)
+-- 数が多いので、カードは「このページを初めて開いた時」に少しずつ作る。検索・分類・お気に入り (この画面だけ)・最近つかった素材つき
 do
+(function()
+	local CAT = ENG.CAT
 	local e = Lib.element(pages[2])
-	e:title("素材 (押すとその素材の見た目になる)")
-	local mats = {
-		{"Plastic", "🧴 プラスチック", Color3.fromRGB(70, 130, 230)}, {"SmoothPlastic", "🫧 つるつる", Color3.fromRGB(245, 245, 250)}, {"Wood", "🪵 木", Color3.fromRGB(150, 100, 60)},
-		{"WoodPlanks", "📏 板木", Color3.fromRGB(190, 140, 85)}, {"Metal", "⚙️ 金属", Color3.fromRGB(150, 158, 170)}, {"DiamondPlate", "🔷 ダイヤ板", Color3.fromRGB(120, 125, 135)},
-		{"Foil", "🪞 ホイル", Color3.fromRGB(215, 220, 230)}, {"Neon", "💡 ネオン", Color3.fromRGB(60, 255, 200)}, {"Glass", "🔮 ガラス", Color3.fromRGB(190, 225, 240)},
-		{"Ice", "🧊 氷", Color3.fromRGB(170, 220, 255)}, {"Marble", "🏛 大理石", Color3.fromRGB(236, 236, 240)}, {"Granite", "🪨 花崗岩", Color3.fromRGB(125, 120, 118)},
-		{"Slate", "⬛ スレート", Color3.fromRGB(75, 82, 95)}, {"Concrete", "🏗 コンクリ", Color3.fromRGB(160, 160, 158)}, {"Brick", "🧱 レンガ", Color3.fromRGB(170, 70, 55)},
-		{"Cobblestone", "🛣 石畳", Color3.fromRGB(130, 125, 120)}, {"Sand", "🏖 砂", Color3.fromRGB(225, 200, 140)}, {"Fabric", "🧵 布", Color3.fromRGB(90, 120, 200)},
-		{"ForceField", "🛡 フォース", Color3.fromRGB(120, 200, 255)},
-		{"Glacier", "🏔 氷河", Color3.fromRGB(190, 230, 245)}, {"Snow", "☃️ 雪", Color3.fromRGB(245, 248, 252)}, {"Mud", "🟤 泥", Color3.fromRGB(95, 70, 50)},
-		{"Rubber", "⚫ ゴム", Color3.fromRGB(40, 40, 46)}, {"Leather", "👜 革", Color3.fromRGB(125, 72, 46)}, {"Plaster", "🧱 しっくい", Color3.fromRGB(232, 225, 212)},
-		{"CeramicTiles", "🚿 タイル", Color3.fromRGB(236, 240, 242)}, {"Carpet", "🟥 カーペット", Color3.fromRGB(150, 60, 72)}, {"Cardboard", "📦 段ボール", Color3.fromRGB(192, 152, 102)},
-		{"Basalt", "🌋 玄武岩", Color3.fromRGB(62, 64, 70)}, {"Pebble", "⚪ 小石", Color3.fromRGB(150, 140, 130)}, {"Limestone", "🦴 石灰岩", Color3.fromRGB(222, 214, 192)},
-		{"Sandstone", "🏜 砂岩", Color3.fromRGB(202, 162, 112)}, {"CorrodedMetal", "🦀 さび金属", Color3.fromRGB(132, 100, 80)}, {"CrackedLava", "🔥 溶岩", Color3.fromRGB(255, 120, 40)},
-	}
-	do   -- この Roblox に無い素材は出さない
-		local have = {}
-		for _, m in ipairs(mats) do
-			if pcall(function() return Enum.Material[m[1]] end) then have[#have + 1] = m end
+	local mats, idxOf = {}, {}
+	for _, m in ipairs(CAT.MATS) do
+		local lk = LOOKS[m.id]
+		if lk then   -- この Roblox に無い素材は出さない (LOOKS に入っていない)
+			local c = lk[1]
+			mats[#mats + 1] = {
+				id = m.id, label = m.label, cats = m.cats, desc = m.desc, c1 = c, c2 = Color3.new(c.R * 0.45, c.G * 0.45, c.B * 0.45),
+				key = string.lower(m.id .. " " .. m.label .. " " .. m.desc),
+			}
+			idxOf[m.id] = #mats
 		end
-		mats = have
 	end
 	local perRow = isMobile and 3 or 4
 	local matCols = isMobile and 2 or 3
@@ -8104,38 +9564,32 @@ do
 	local lookMode = 1
 	local LOOK_KIND = { "Look", "LookRaw", "LookKeep" }
 	local curMat = nil    -- いま印がついている素材の名前
-	local matGrp          -- 素材カードの印 (下でカードを作る時に入る)
-	local function matIndex(name)
-		for i, m in ipairs(mats) do
-			if m[1] == name then return i end
-		end
-		return 0
+	local marks = UIs.lazyMarks()
+	local showInfo, favBtn, countSet
+	local catKey, query = "all", ""
+	local cards, matRow = {}, nil
+
+	e:title("素材 " .. #mats .. "種 (押すとその素材の見た目になる)")
+
+	local function updInfo()
+		if not showInfo then return end
+		local m = curMat and mats[idxOf[curMat] or 0]
+		showInfo(m and (m.label .. " — " .. m.desc) or "素材を押すと、ここに説明が出ます。")
+		if favBtn then favBtn.Text = (curMat and UIs.fav.mat[curMat]) and "★ お気に入りから外す" or "☆ お気に入りに入れる" end
 	end
 	local function pickLook(name)
 		curMat = name
+		UIs.touchRecent("mat", name)
 		send(LOOK_KIND[lookMode], name)
 		if UIs.afterLook then UIs.afterLook(true) end
+		updInfo()
 	end
 	local function releaseLook()   -- 印がついた素材をもう一度押した: 素材と質感を元に戻す (自分で決めた色は残る)
 		curMat = nil
 		send("LookClear", nil)
 		if UIs.afterLook then UIs.afterLook(false) end
 		if UIs.texT and not gradLive then UIs.texT:set(true) end
-	end
-	-- 分類 (1つの素材が、いくつかの分類に入ってもよい): 2 自然 / 3 石・土 / 4 金属 / 5 ガラス・氷 / 6 日用品 / 7 光る
-	local inCat = {}
-	for c, names in pairs({
-		[2] = { "Wood", "WoodPlanks", "Sand", "Mud", "Snow" },
-		[3] = { "Marble", "Granite", "Slate", "Concrete", "Brick", "Cobblestone", "Basalt", "Pebble", "Limestone", "Sandstone", "Plaster", "CeramicTiles" },
-		[4] = { "Metal", "DiamondPlate", "Foil", "CorrodedMetal" },
-		[5] = { "Glass", "Ice", "Glacier", "ForceField" },
-		[6] = { "Plastic", "SmoothPlastic", "Fabric", "Carpet", "Leather", "Rubber", "Cardboard" },
-		[7] = { "Neon", "CrackedLava", "ForceField" },
-	}) do
-		for _, nm in ipairs(names) do
-			inCat[nm] = inCat[nm] or {}
-			inCat[nm][c] = true
-		end
+		updInfo()
 	end
 
 	e:title("素材の入れ方")
@@ -8152,187 +9606,403 @@ do
 		modeLbl.Text = MODE_TEXT[i]
 		if curMat then pickLook(curMat) end   -- もう素材を選んでいたら、新しい入れ方でやり直す
 	end, 1)
-	local cards, matRow
-	local function showCat(c)
-		local n = 0
-		for i, m in ipairs(mats) do
-			local ok = (c == 1) or (inCat[m[1]] ~= nil and inCat[m[1]][c] == true)
-			cards[i].Visible = ok
-			if ok then n = n + 1 end
+
+	-- 絞りこみ: 分類 / ★お気に入り / 🕒最近 / 名前でさがす
+	local function pass(m)
+		if catKey == "fav" then
+			if not UIs.fav.mat[m.id] then return false end
+		elseif catKey == "recent" then
+			local hit = false
+			for _, id in ipairs(UIs.recent.mat) do
+				if id == m.id then hit = true break end
+			end
+			if not hit then return false end
+		elseif catKey ~= "all" and not string.find(m.cats, catKey, 1, true) then
+			return false
 		end
-		matRow.Size = UDim2.new(1, 0, 0, n > 0 and gridHeight(n, matCols, 56, 8) or 0)
+		if query ~= "" and not string.find(m.key, query, 1, true) then return false end
+		return true
 	end
-	local catMark = chipsGrid(e, { "すべて", "🌲 自然", "🪨 石・土", "⚙️ 金属", "🔮 ガラス・氷", "🧴 日用品", "💡 光る" }, perRow, showCat, 1)
-	e:button("🎲 ランダムな素材にする", function()
-		local pool = {}
+	local function refilter()
+		local n = 0
+		local rank = {}
+		if catKey == "recent" then
+			for k, id in ipairs(UIs.recent.mat) do rank[id] = k end
+		end
 		for i, m in ipairs(mats) do
-			if cards[i].Visible then pool[#pool + 1] = m[1] end
+			local ok = pass(m)
+			if ok then n = n + 1 end
+			local b = cards[i]
+			if b then
+				if b.Visible ~= ok then b.Visible = ok end
+				local want = (catKey == "recent" and rank[m.id]) or i
+				if b.LayoutOrder ~= want then b.LayoutOrder = want end
+			end
 		end
-		if #pool > 0 then
-			local nm = pool[math.random(#pool)]
-			pickLook(nm)
-			if matGrp then matGrp.mark(matIndex(nm)) end
+		if matRow then matRow.Size = UDim2.new(1, 0, 0, n > 0 and gridHeight(n, matCols, 56, 8) or 0) end
+		if countSet then
+			local msg = "表示 " .. n .. " / " .. #mats .. "種"
+			if n == 0 then
+				if catKey == "fav" then msg = "★ まだありません。素材を選んで「☆ お気に入りに入れる」を押してね (この画面を閉じるまでの間だけ覚えます)"
+				elseif catKey == "recent" then msg = "🕒 まだ素材を使っていません"
+				else msg = "見つかりません。ほかの言葉でさがしてね" end
+			end
+			countSet(msg)
 		end
-	end, ACCENT)
-	local items = {}
-	for i, m in ipairs(mats) do items[i] = { m[2], m[3] } end
-	matRow, cards, matGrp = cardGrid(e, items, matCols, matCW, 56, function(i) pickLook(mats[i][1]) matGrp.mark(i) end, releaseLook)
-	UIs.mk.look = function(i) matGrp.mark(i) if i == 0 then curMat = nil end end
-	local function setLookMark(v) curMat = v matGrp.mark(matIndex(v)) end   -- まとめて送った時に、素材の印を合わせる
+	end
+
+	local searchBox = UIs.searchBox(e, "🔎 名前でさがす (例: 金 / ルビー / ネオン / oak)", function(q)
+		query = q
+		refilter()
+	end)
+	local CATKEYS, catLabels = { "all", "fav", "recent" }, { "すべて", "★ お気に入り", "🕒 最近" }
+	for _, c in ipairs(CAT.MAT_CATS) do
+		CATKEYS[#CATKEYS + 1] = c[1]
+		catLabels[#catLabels + 1] = c[2]
+	end
+	local catMark = chipsGrid(e, catLabels, perRow, function(i)
+		catKey = CATKEYS[i]
+		refilter()
+	end, 1)
+	countSet = UIs.infoRow(e, isMobile and 42 or 30, "")
+	local btns = UIs.btnRow(e, {
+		{ "🎲 ランダムな素材 (出ている中から)", function()
+			local pool = {}
+			for _, m in ipairs(mats) do
+				if pass(m) then pool[#pool + 1] = m.id end
+			end
+			if #pool > 0 then
+				local nm = pool[math.random(#pool)]
+				pickLook(nm)
+				marks.mark(idxOf[nm])
+			end
+		end, ACCENT },
+		{ "☆ お気に入りに入れる", function()
+			if not curMat then
+				Lib.notif(gui, "先に素材を選んでね", 1.6)
+				return
+			end
+			local fv = UIs.fav.mat
+			fv[curMat] = (not fv[curMat]) or nil
+			updInfo()
+			if catKey == "fav" then refilter() end
+			Lib.notif(gui, fv[curMat] and "★ お気に入りに入れました" or "お気に入りから外しました", 1.2)
+		end },
+	})
+	favBtn = btns[2]
+	showInfo = UIs.infoRow(e, isMobile and 56 or 40, "素材を押すと、ここに説明が出ます。")
+
+	-- 素材のカード (初めてこのページを開いた時に、少しずつ作る)
+	matRow = e:row(gridHeight(#mats, matCols, 56, 8))
+	grid(matRow, matCW, 56, 8, 8)
+	UIs.addLazy(2, function()
+		UIs.slice(#mats, isMobile and 5 or 8, function(i)
+			local m = mats[i]
+			local b = UIs.card(matRow, i, 56, m.label, m.c1, m.c2, false)
+			b.Visible = pass(m)
+			cards[i] = b
+			marks.add(i, b)
+			b.MouseButton1Click:Connect(function()
+				if marks.sel == i then   -- 光っている素材をもう一度 = やめる
+					marks.mark(0)
+					releaseLook()
+				else
+					marks.mark(i)
+					pickLook(m.id)
+				end
+			end)
+		end)
+		refilter()
+	end)
+	refilter()
+	UIs.mk.look = function(i)
+		marks.mark(i)
+		if i == 0 then
+			curMat = nil
+			updInfo()
+		end
+	end
+	local function setLookMark(v)   -- まとめて送った時に、素材の印を合わせる
+		curMat = v
+		marks.mark(idxOf[v] or 0)
+		updInfo()
+	end
 	UIs.set.Look, UIs.set.LookRaw, UIs.set.LookKeep = setLookMark, setLookMark, setLookMark
-	UIs.set.LookClear = function() curMat = nil matGrp.mark(0) end
+	UIs.set.LookClear = function() curMat = nil marks.mark(0) updInfo() end
 
 	-- ツートン: 板の一部だけ、別の素材 (と色) にする
 	e:title("ツートン (板の一部だけ別の素材に)")
-	local TWO_MODES = { "Top", "Bottom", "Half1", "Half2", "Stripe", "Outer", "Random" }
+	local TM = CAT.TWO_MODES
 	local twoMode, twoSame, twoMat = 1, false, nil
+	local twoInfo
 	local function sendTwo()
 		if not twoMat then return end
-		send("TwoTone", { mat = twoMat, mode = TWO_MODES[twoMode], same = twoSame or nil })
+		send("TwoTone", { mat = twoMat, mode = TM[twoMode][1], same = twoSame or nil })
 	end
-	local twoMark = chipsGrid(e, { "⬆ 上", "⬇ 下", "◀ 前半", "▶ 後半", "▥ 1本おき", "▣ まわり", "🎲 ランダム" }, perRow, function(i)
+	local modeLabels = {}
+	for i, t in ipairs(TM) do modeLabels[i] = t[2] end
+	local twoMark = chipsGrid(e, modeLabels, perRow, function(i)
 		twoMode = i
+		if twoInfo then twoInfo(TM[i][2] .. " — " .. TM[i][3]) end
 		sendTwo()
 	end, 1)
+	twoInfo = UIs.infoRow(e, isMobile and 42 or 32, TM[1][2] .. " — " .. TM[1][3])
 	local twoColMark = chipsRow(e, { "その素材の色", "今の色のまま" }, function(i)
 		twoSame = (i == 2)
 		sendTwo()
 	end, 1)
-	e:title("↓ 素材を押すと、選んだ部分だけ変わります")
-	do
-		local twoItems = {}
-		for _, nm in ipairs({ "Metal", "Glass", "Neon", "Marble", "Foil", "Ice", "Rubber", "Leather", "Brick", "Granite", "DiamondPlate", "CrackedLava" }) do
-			for i, m in ipairs(mats) do
-				if m[1] == nm then twoItems[#twoItems + 1] = { items[i], m[1] } end
-			end
+	e:title("↓ 素材を押すと、選んだ部分だけ変わります (" .. #CAT.TWO_MATS .. "種)")
+	local twoList, twoIdx = {}, {}
+	for _, id in ipairs(CAT.TWO_MATS) do
+		local i = idxOf[id]
+		if i then
+			twoList[#twoList + 1] = mats[i]
+			twoIdx[id] = #twoList
 		end
-		if #twoItems > 0 then
-			local list = {}
-			for i, t in ipairs(twoItems) do list[i] = t[1] end
-			local _, _, tg = cardGrid(e, list, matCols, matCW, 56, function(i)
-				twoMat = twoItems[i][2]
-				sendTwo()
-			end, function()   -- もう一度押した = ツートンをやめる
-				twoMat = nil
-				send("TwoToneClear", nil)
+	end
+	local twoRow = e:row(gridHeight(#twoList, matCols, 56, 8))
+	grid(twoRow, matCW, 56, 8, 8)
+	local twoMarks = UIs.lazyMarks()
+	UIs.addLazy(2, function()
+		UIs.slice(#twoList, isMobile and 5 or 8, function(i)
+			local m = twoList[i]
+			local b = UIs.card(twoRow, i, 56, m.label, m.c1, m.c2, false)
+			twoMarks.add(i, b)
+			b.MouseButton1Click:Connect(function()
+				if twoMarks.sel == i then   -- もう一度押した = ツートンをやめる
+					twoMarks.mark(0)
+					twoMat = nil
+					send("TwoToneClear", nil)
+				else
+					twoMarks.mark(i)
+					twoMat = m.id
+					sendTwo()
+				end
 			end)
-			UIs.mk.two = tg.mark
-			UIs.set.TwoTone = function(v)   -- まとめて送った時
-				if type(v) ~= "table" then return end
-				twoMat = v.mat
-				local hit = 0
-				for i, t in ipairs(twoItems) do
-					if t[2] == v.mat then hit = i end
-				end
-				tg.mark(hit)
-				for i, nm in ipairs(TWO_MODES) do
-					if nm == v.mode then twoMode = i twoMark(i) end
-				end
-				twoSame = (v.same == true)
-				twoColMark(twoSame and 2 or 1)
+		end)
+	end)
+	UIs.mk.two = twoMarks.mark
+	UIs.set.TwoTone = function(v)   -- まとめて送った時
+		if type(v) ~= "table" then return end
+		twoMat = v.mat
+		twoMarks.mark(twoIdx[v.mat] or 0)
+		for i, t in ipairs(TM) do
+			if t[1] == v.mode then
+				twoMode = i
+				twoMark(i)
+				if twoInfo then twoInfo(t[2] .. " — " .. t[3]) end
 			end
 		end
+		twoSame = (v.same == true)
+		twoColMark(twoSame and 2 or 1)
 	end
 	e:button("ツートンをやめる (ぜんぶ同じ素材に戻す)", function()
 		twoMat = nil
-		if UIs.mk.two then UIs.mk.two(0) end
+		twoMarks.mark(0)
 		send("TwoToneClear", nil)
 	end)
 	local mtip = e:row(isMobile and 58 or 40)
 	local mtipLbl = text(mtip, "素材のあとに色を変えても大丈夫です (素材は残ります)。光っているボタンをもう一度押すと、その素材をやめられます。", isMobile and 12 or 13, UDim2.fromOffset(4, 0), UDim2.new(1, -8, 1, 0), nil, SOFT)
 	mtipLbl.TextWrapped = true
 
-	UIs.set.TwoToneClear = function() twoMat = nil if UIs.mk.two then UIs.mk.two(0) end end
+	UIs.set.TwoToneClear = function() twoMat = nil twoMarks.mark(0) end
 	onResettable(function()
 		lookMode = 1
 		modeMark(1)
 		modeLbl.Text = MODE_TEXT[1]
 		curMat = nil
-		matGrp.mark(0)
-		if UIs.mk.two then UIs.mk.two(0) end
+		marks.mark(0)
+		twoMarks.mark(0)
+		catKey = "all"
 		catMark(1)
-		showCat(1)
+		if searchBox.Text ~= "" then searchBox.Text = "" else query = "" end
+		refilter()
+		updInfo()
 		twoMode, twoSame, twoMat = 1, false, nil
 		twoMark(1)
 		twoColMark(1)
+		if twoInfo then twoInfo(TM[1][2] .. " — " .. TM[1][3]) end
 	end)
+end)()
 end
 
--- 3: プリセット
+-- 3: プリセット (見た目一式64種 + 基本41種)。入れ方 (ぜんぶ / 見た目だけ / 光と効果だけ)・色違い・◀ ▶・ランダム・お気に入り・全部の板に同時に反映
 do
+(function()
+	local CAT = ENG.CAT
+	local PR = ENG.PRESETS
 	local e = Lib.element(pages[3])
-	local function C(r, g, b) return Color3.fromRGB(r, g, b) end
-	-- { ID, 名前, 色1, 色2(なければ暗い色1), 見た目一式か }  一式のものは、いまの光・動き・効果を消してから付く
-	local fullSets = {
-		{ "Aurora", "オーロラ", C(40, 235, 160), C(190, 80, 255), true }, { "Galaxy", "ギャラクシー", C(110, 50, 190), C(15, 10, 60), true },
-		{ "Chrome", "クローム", C(235, 240, 248), C(120, 130, 150), true }, { "Hologram", "ホログラム", C(120, 220, 255), C(255, 120, 230), true },
-		{ "LavaFlow", "溶岩フロー", C(255, 230, 70), C(255, 40, 0), true }, { "Frozen", "氷結", C(210, 240, 255), C(110, 180, 240), true },
-		{ "SakuraStorm", "桜吹雪", C(255, 190, 215), C(255, 120, 170), true }, { "Cyber", "サイバー", C(0, 255, 230), C(20, 24, 40), true },
-		{ "Fireflies", "ほたるの夜", C(190, 255, 120), C(20, 50, 36), true }, { "CandyGloss", "キャンディツヤ", C(255, 150, 205), C(255, 245, 250), true },
-		{ "SunsetSky", "夕焼け空", C(255, 110, 40), C(110, 60, 200), true }, { "Ocean", "海", C(90, 230, 230), C(10, 40, 120), true },
-	}
-	local basics = {
-		{"NeonBlue", "ネオンブルー", C(56, 189, 248)}, {"NeonPink", "ネオンピンク", C(255, 70, 190)}, {"NeonGreen", "ネオングリーン", C(60, 255, 130)},
-		{"Sunset", "サンセット", C(255, 120, 40)}, {"Gold", "ゴールド", C(255, 200, 60)}, {"Silver", "シルバー", C(200, 205, 215)},
-		{"Ice", "アイス", C(175, 225, 255)}, {"Glass", "ガラス", C(200, 235, 255)}, {"Marble", "大理石", C(235, 235, 240)},
-		{"Lava", "ラバ", C(255, 90, 20)}, {"Obsidian", "黒曜石", C(60, 50, 90)}, {"Candy", "キャンディ", C(255, 150, 200)},
-		{"Forest", "森", C(50, 150, 70)}, {"Ghost", "ゴースト", C(230, 240, 255)}, {"Sakura", "さくら", C(255, 183, 205)},
-		{"Toxic", "トキシック", C(170, 255, 0)}, {"Royal", "ロイヤル", C(88, 60, 200)}, {"RoseGold", "ローズゴールド", C(236, 160, 150)},
-	}
-	local presetCols = isMobile and 2 or 3
-	local presetCW = isMobile and 124 or 154
-	local pGrp, pIdOf, pIdx = markGroup("card"), {}, {}   -- プリセットの印 (「見た目一式」と「基本」を通して、1つだけ)
-	UIs.mk.preset = pGrp.mark
-	UIs.set.Preset = function(id) pGrp.mark(pIdx[id] or 0) end
-	onResettable(function() pGrp.mark(0) end)
-	local function addGrid(list, title)
-		e:title(title)
-		local row = e:row(gridHeight(#list, presetCols, 84, 8))
-		grid(row, presetCW, 84, 8, 8)
-		for i, p in ipairs(list) do
-			local b = mk("TextButton", { AutoButtonColor = false, Text = "", LayoutOrder = i }, row)
-			Lib.glass(b, 0.84, 14)
-			local sw = mk("Frame", { BackgroundColor3 = WHITE, BorderSizePixel = 0, Position = UDim2.fromOffset(6, 6), Size = UDim2.new(1, -12, 0, 44) }, b)
-			corner(sw, 10)
-			local c2 = p[4] or Color3.new(p[3].R * 0.45, p[3].G * 0.45, p[3].B * 0.45)
-			mk("UIGradient", { Rotation = 25, Color = ColorSequence.new(p[3], c2) }, sw)
-			text(b, p[2], isMobile and 12 or 14, UDim2.fromOffset(0, 54), UDim2.new(1, 0, 0, 24), Enum.TextXAlignment.Center)
-			Lib.juice(b)
-			local at = pGrp.add(b)
-			pIdx[p[1]] = at
-			pIdOf[at] = p[1]
-			b.MouseButton1Click:Connect(function()
-				pGrp.click(at, function()
-					if p[5] then for _, fn in ipairs(resetters) do pcall(fn) end end   -- 一式は光・効果も入れ替わるので、画面の表示も初期位置へ
-					send("Preset", p[1])
-					if UIs.afterLook then UIs.afterLook(p[5] == true) end
-					pGrp.mark(at)   -- (画面を初期へ戻した時に印も消えるので、つけ直す)
-				end, function()   -- もう一度押した = そのプリセットをやめる (つける前の見た目に戻る)
-					UIs.replay({ Preset = true })
-				end)
-			end)
+	local list, idxOf = {}, {}
+	for _, p in ipairs(CAT.PRESETS) do
+		local pr = PR[p.id]
+		if pr then
+			local c1 = (pr.Grad and pr.Grad.a) or pr.Color
+			local c2 = (pr.Grad and pr.Grad.b) or pr.GlowColor
+			if not c2 or (math.abs(c1.R - c2.R) + math.abs(c1.G - c2.G) + math.abs(c1.B - c2.B) < 0.15) then
+				c2 = Color3.new(pr.Color.R * 0.45, pr.Color.G * 0.45, pr.Color.B * 0.45)
+			end
+			list[#list + 1] = {
+				id = p.id, name = p.label, label = (pr.Full and "✨ " or "") .. p.label, cats = p.cats, desc = p.desc, full = (pr.Full == true),
+				c1 = c1, c2 = c2, key = string.lower(p.id .. " " .. p.label .. " " .. p.desc),
+			}
+			idxOf[p.id] = #list
 		end
 	end
+	local presetCols = isMobile and 2 or 3
+	local presetCW = isMobile and 124 or 154
+	local perRow = isMobile and 3 or 4
+	local marks = UIs.lazyMarks()
+	local cards, gridRow = {}, nil
+	local curId = nil
+	local partMode, hueVal = 1, 0
+	local catKey, query = "all", ""
+	local showInfo, favBtn, countSet
 
-	-- おまかせ: ランダムに見た目をぜんぶ決める
+	-- 色相をずらす (色違い)
+	local function hs(c, h)
+		if typeof(c) ~= "Color3" or not h or h == 0 then return c end
+		local hh, ss, vv = c:ToHSV()
+		return Color3.fromHSV((hh + h) % 1, ss, vv)
+	end
+	-- プリセットを入れたあとの、画面のスライダー・ボタンの表示 (板に送った中身と同じ値)
+	local FXKIND = {}
+	for _, f in ipairs(CAT.FX_LIST) do FXKIND[f[1]] = f[2] end
+	local function uiOps(pr, part, hue)
+		local ops = {}
+		local function add(k, v) ops[#ops + 1] = { k, v } end
+		local full = (pr.Full == true)
+		if part ~= "fx" then
+			add("Reflectance", pr.Reflectance or 0)
+			add("Transparency", pr.Transparency or 0)
+			if full or pr.GlossStyle then add("GlossStyle", pr.GlossStyle or 1) end
+			if full or pr.Sky then add("GlossSky", pr.Sky or 1) end
+			if full or pr.Sheen or pr.SheenCol then add("Sheen", pr.Sheen or 0) add("SheenColor", pr.SheenCol or 1) end
+			if full or pr.Edge or pr.EdgeCol then add("Edge", pr.Edge or 0) add("EdgeColor", pr.EdgeCol or 1) end
+			if full or pr.Var then add("Variance", pr.Var or 0) end
+			if full or pr.Wk then add("Weather", pr.Wk and pr.Wk[2] or 0) add("WeatherKind", pr.Wk and pr.Wk[1] or 1) end
+		end
+		if part ~= "look" then
+			add("Glow", pr.Glow or 0)
+			add("GlowRange", pr.Range or 12)
+			add("GlowColor", hs(pr.GlowColor or pr.Color, hue))
+			if pr.GCol2 then add("GlowColor2", hs(pr.GCol2, hue)) elseif full then add("GlowHue2", 0.08) end
+			if full or pr.GMode then add("GlowMode", pr.GMode or "Solid") end
+			if full or pr.GSpeed then add("GlowSpeed", pr.GSpeed or 0.3) end
+			if full or pr.Night ~= nil then add("NightGlow", pr.Night == true) end
+			if full or pr.Shape then add("LightShape", pr.Shape or "Point") end
+			if full or pr.Spot then add("SpotAngle", pr.Spot or 120) end
+			if full or pr.Pulse then
+				local p = pr.Pulse
+				add("Pulse", p and p[1] or 0)
+				add("PulseStyle", p and p[2] or "Sine")
+				add("PulseBody", p ~= nil and p[3] == true)
+				add("PulseDepth", p and p[4] or 1)
+				add("PulseWave", p and p[5] or 0)
+			end
+			if pr.OutlineHue or pr.OutlineCol then
+				add("Outline", true)
+				add("OutlineColor", pr.OutlineCol and hs(pr.OutlineCol, hue) or Color3.fromHSV(((pr.OutlineHue or 0) + (hue or 0)) % 1, 0.75, 1))
+				add("OutlineFill", pr.OFill or 0)
+				add("OutlineThru", pr.OThru == true)
+			elseif full then
+				add("Outline", false)
+				add("OutlineFill", 0)
+				add("OutlineThru", false)
+			end
+			if full then
+				for id, kind in pairs(FXKIND) do add(kind, false) end
+				add("FireSize", pr.FireSize or 6)
+				add("FireColor", pr.FireColor or 1)
+				add("SmokeColor", pr.SmokeCol or 1)
+				add("ConfettiColor", pr.ConfCol or 1)
+				add("SparkleRate", pr.Sparkle and pr.Sparkle[1] or 25)
+				add("SparkleSize", pr.Sparkle and pr.Sparkle[2] or 0.35)
+				add("FxAmount", pr.FxMul or 1)
+				add("FxSize", pr.FxSize or 1)
+				add("FxSpeed", pr.FxSpeed or 1)
+				if not pr.FxTint then add("FxColorClear", true) end
+			else
+				if pr.FireSize then add("FireSize", pr.FireSize) end
+				if pr.FireColor then add("FireColor", pr.FireColor) end
+				if pr.SmokeCol then add("SmokeColor", pr.SmokeCol) end
+				if pr.ConfCol then add("ConfettiColor", pr.ConfCol) end
+				if pr.FxMul then add("FxAmount", pr.FxMul) end
+			end
+			if pr.Sparkle then add("Sparkle", true) end
+			for _, id in ipairs(pr.Fx or {}) do
+				if FXKIND[id] then add(FXKIND[id], true) end
+			end
+			if pr.FxTint then add("FxColor", hs(pr.FxTint, hue)) end
+		end
+		return ops
+	end
+
+	local function updInfo()
+		if not showInfo then return end
+		local m = curId and list[idxOf[curId] or 0]
+		showInfo(m and ((m.full and "✨ " or "") .. m.name .. " — " .. m.desc) or "プリセットを押すと、ここに説明が出ます。")
+		if favBtn then favBtn.Text = (curId and UIs.fav.preset[curId]) and "★ お気に入りから外す" or "☆ お気に入りに入れる" end
+	end
+	local function applyPreset(id)
+		local pr = PR[id]
+		if not pr then return end
+		local model = targetModel()
+		if not model or not model.Parent then
+			Lib.notif(gui, "板を選んでください", 1.8)
+			marks.mark(0)
+			return
+		end
+		local part = ({ "all", "look", "fx" })[partMode]
+		local hue = hueVal > 0.004 and hueVal or nil
+		local value = id
+		if hue or part ~= "all" then value = { id = id, hue = hue, part = (part ~= "all") and part or nil } end
+		if pr.Full and part == "all" then   -- 一式は、光・効果も入れ替わるので、画面の表示も初期位置へ戻す
+			for _, fn in ipairs(resetters) do pcall(fn) end
+		end
+		curId = id
+		UIs.touchRecent("preset", id)
+		send("Preset", value)
+		syncUI(uiOps(pr, part, hue))
+		if UIs.afterLook then UIs.afterLook(pr.Full == true and part ~= "fx") end
+		marks.mark(idxOf[id] or 0)
+		updInfo()
+	end
+	local function releasePreset()   -- もう一度押した = そのプリセットをやめる (つける前の見た目に戻る。ほかのプリセットは残る)
+		local id = curId
+		curId = nil
+		UIs.replay({ Preset = true }, function(op)
+			local v = op[2]
+			return (type(v) == "table" and v.id == id) or v == id
+		end)
+		updInfo()
+	end
+
+	-- かんたん
 	local function randomOps()
 		local rnd = math.random
-		local function pick(list) return list[rnd(#list)] end
+		local function pick(l) return l[rnd(#l)] end
 		local h = rnd()
 		local ops = { { "Reset" } }
-		local looks = {}
-		for _, n in ipairs({ "SmoothPlastic", "Plastic", "Metal", "Glass", "Ice", "Marble", "Foil", "Neon", "Wood", "Fabric" }) do
-			if LOOKS[n] then looks[#looks + 1] = n end
+		local pool = {}
+		for _, m in ipairs(CAT.MATS) do
+			if LOOKS[m.id] and not string.find(m.cats, "l", 1, true) then pool[#pool + 1] = m.id end   -- (光る素材は、おまかせには入れない)
 		end
-		if #looks > 0 then ops[#ops + 1] = { "Look", pick(looks) } end
+		if #pool > 0 then ops[#ops + 1] = { "Look", pick(pool) } end
 		ops[#ops + 1] = { "Reflectance", 0.3 + rnd() * 0.7 }
-		ops[#ops + 1] = { "GlossStyle", rnd(8) }
-		ops[#ops + 1] = { "GlossSky", rnd(6) }
+		ops[#ops + 1] = { "GlossStyle", rnd(ENG.GLOSS_STYLES) }
+		ops[#ops + 1] = { "GlossSky", rnd(ENG.SKIES) }
 		if rnd() < 0.4 then
-			ops[#ops + 1] = { "SheenColor", rnd(3) }
+			ops[#ops + 1] = { "SheenColor", rnd(ENG.SHEEN_COLS) }
 			ops[#ops + 1] = { "Sheen", 0.2 + rnd() * 0.6 }
 		end
-		if rnd() < 0.5 then ops[#ops + 1] = { "Edge", 0.3 + rnd() * 0.6 } end
+		if rnd() < 0.5 then
+			ops[#ops + 1] = { "EdgeColor", rnd(ENG.EDGE_COLS) }
+			ops[#ops + 1] = { "Edge", 0.3 + rnd() * 0.6 }
+		end
+		if rnd() < 0.15 then
+			ops[#ops + 1] = { "WeatherKind", rnd(#CAT.WEATHER) }
+			ops[#ops + 1] = { "Weather", 0.3 + rnd() * 0.5 }
+		end
 		if rnd() < 0.75 then
 			local a = Color3.fromHSV(h, 0.75 + rnd() * 0.25, 1)
 			local b = Color3.fromHSV((h + 0.12 + rnd() * 0.5) % 1, 0.75 + rnd() * 0.25, 1)
@@ -8344,14 +10014,14 @@ do
 		if rnd() < 0.6 then
 			ops[#ops + 1] = { "Glow", 0.8 + rnd() * 1.8 }
 			ops[#ops + 1] = { "GlowHue", rnd() }
-			if rnd() < 0.35 then
+			if rnd() < 0.4 then
 				ops[#ops + 1] = { "GlowHue2", rnd() }
-				ops[#ops + 1] = { "GlowMode", pick({ "Blend", "Alt", "Hue" }) }
+				ops[#ops + 1] = { "GlowMode", pick({ "Blend", "Alt", "Hue", "Rand", "Flame" }) }
 				ops[#ops + 1] = { "GlowSpeed", 0.2 + rnd() * 0.7 }
 			end
 			if rnd() < 0.5 then
 				ops[#ops + 1] = { "Pulse", 0.25 + rnd() * 1.2 }
-				ops[#ops + 1] = { "PulseStyle", pick({ "Sine", "Beat", "Flicker", "Breath", "Neon", "Saw", "Steps" }) }   -- (ピカピカ・雷・SOS は、急に強く光るので、おまかせには入れない)
+				ops[#ops + 1] = { "PulseStyle", pick({ "Sine", "Beat", "Flicker", "Breath", "Neon", "Saw", "Steps", "Twinkle", "Fire", "Wobble", "Drift", "Triple" }) }   -- (ピカピカ・雷・SOS・パトライト・バグ点滅は、急に強く光るので、おまかせには入れない)
 				ops[#ops + 1] = { "PulseDepth", 0.4 + rnd() * 0.6 }
 			end
 		end
@@ -8359,7 +10029,14 @@ do
 			ops[#ops + 1] = { "Outline", true }
 			ops[#ops + 1] = { "OutlineHue", rnd() }
 		end
-		if rnd() < 0.55 then ops[#ops + 1] = { pick({ "Sparkle", "Snow", "Sakura", "Firefly", "Bubbles", "Embers" }), true } end
+		if rnd() < 0.6 then
+			local k = pick({ "Sparkle", "Snow", "Sakura", "Firefly", "Bubbles", "Embers", "Electric", "Stardust", "Leaves", "Droplets", "Magic", "Mist", "Halo" })
+			ops[#ops + 1] = { k, true }
+			if rnd() < 0.3 then
+				local k2 = pick({ "Sparkle", "Firefly", "Stardust", "Magic", "Halo" })
+				if k2 ~= k then ops[#ops + 1] = { k2, true } end
+			end
+		end
 		return ops
 	end
 
@@ -8371,11 +10048,11 @@ do
 			return
 		end
 		for _, fn in ipairs(resetters) do pcall(fn) end
+		curId = nil
+		marks.mark(0)
+		updInfo()
 		local ops = randomOps()
-		sendMany(m, ops, true)
-		syncUI(ops)   -- 画面のスライダーやボタンも、決まった値に合わせる
-		if not UIs.pv.model then dirty[selected] = true end
-		selVisuals()
+		sendBatch(ops)   -- (複数の板に同時に反映中なら、ほかの板にも同じものが入る。画面の表示も、決まった値に合わせる)
 		Lib.notif(gui, "おまかせスタイルにしました 🎲 (気に入らなければ、もう一度)", 2)
 		if UIs.afterLook then UIs.afterLook(true) end
 	end, ACCENT)
@@ -8403,17 +10080,184 @@ do
 		selVisuals()
 		Lib.notif(gui, n > 0 and ("ほかの " .. n .. " 枚にコピーしました 📋") or "ほかの板がありません", 2)
 	end)
-	addGrid(fullSets, "✨ 見た目一式 (光・動き・効果つき)")
-	addGrid(basics, "基本のプリセット")
+	e:toggle("全部の板に同時に反映 (いまからの操作)", function(sv)
+		UIs.all = sv
+		selVisuals()
+		Lib.notif(gui, sv and "これからの操作は、出ている全部の板に入ります" or "選んでいる板だけに入ります", 2)
+	end, false)
+
+	e:title("プリセットの入れ方")
+	local PART_TEXT = {
+		"🎁 ぜんぶ: 色・素材・ツヤ・光・動き・効果を、まるごと入れかえます。",
+		"🎨 見た目だけ: 色・素材・ツヤ・経年だけを入れかえます。いまの光・動き・効果はそのまま残ります。",
+		"💡 光と効果だけ: 光・明滅・縁取り・効果だけを入れます。いまの色・素材はそのまま残ります。",
+	}
+	local partNote = e:row(isMobile and 58 or 42)
+	local partLbl = text(partNote, PART_TEXT[1], isMobile and 12 or 13, UDim2.fromOffset(4, 0), UDim2.new(1, -8, 1, 0), nil, SOFT)
+	partLbl.TextWrapped = true
+	chipsRow(e, { "🎁 ぜんぶ", "🎨 見た目だけ", "💡 光と効果だけ" }, function(i)
+		partMode = i
+		partLbl.Text = PART_TEXT[i]
+		if curId then applyPreset(curId) end   -- もうプリセットを選んでいたら、新しい入れ方でやり直す
+	end, 1)
+	e:slider("色違い (色相)", 0, 1, function(v, r)
+		hueVal = v
+		if r and curId then applyPreset(curId) end   -- 離したところで、選んでいるプリセットを、その色相で入れなおす
+	end, 0, nil, nil, hueSeq())
+
+	-- 絞りこみ
+	e:title("プリセット " .. #list .. "種 (✨ = 見た目一式)")
+	local function pass(m)
+		if catKey == "fav" then
+			if not UIs.fav.preset[m.id] then return false end
+		elseif catKey == "recent" then
+			local hit = false
+			for _, id in ipairs(UIs.recent.preset) do
+				if id == m.id then hit = true break end
+			end
+			if not hit then return false end
+		elseif catKey == "full" then
+			if not m.full then return false end
+		elseif catKey ~= "all" and not string.find(m.cats, catKey, 1, true) then
+			return false
+		end
+		if query ~= "" and not string.find(m.key, query, 1, true) then return false end
+		return true
+	end
+	local function refilter()
+		local n = 0
+		local rank = {}
+		if catKey == "recent" then
+			for k, id in ipairs(UIs.recent.preset) do rank[id] = k end
+		end
+		for i, m in ipairs(list) do
+			local ok = pass(m)
+			if ok then n = n + 1 end
+			local b = cards[i]
+			if b then
+				if b.Visible ~= ok then b.Visible = ok end
+				local want = (catKey == "recent" and rank[m.id]) or i
+				if b.LayoutOrder ~= want then b.LayoutOrder = want end
+			end
+		end
+		if gridRow then gridRow.Size = UDim2.new(1, 0, 0, n > 0 and gridHeight(n, presetCols, 84, 8) or 0) end
+		if countSet then
+			local msg = "表示 " .. n .. " / " .. #list .. "種"
+			if n == 0 then
+				if catKey == "fav" then msg = "★ まだありません。プリセットを選んで「☆ お気に入りに入れる」を押してね (この画面を閉じるまでの間だけ覚えます)"
+				elseif catKey == "recent" then msg = "🕒 まだプリセットを使っていません"
+				else msg = "見つかりません。ほかの言葉でさがしてね" end
+			end
+			countSet(msg)
+		end
+	end
+	local function visibleIds()
+		local ids = {}
+		for _, m in ipairs(list) do
+			if pass(m) then ids[#ids + 1] = m.id end
+		end
+		return ids
+	end
+	local searchBox = UIs.searchBox(e, "🔎 名前でさがす (例: 火 / ドラゴン / neon)", function(q)
+		query = q
+		refilter()
+	end)
+	local CATKEYS, catLabels = { "all", "fav", "recent", "full", "b" }, { "すべて", "★ お気に入り", "🕒 最近", "✨ 一式", "🎨 基本" }
+	for _, c in ipairs(CAT.PRESET_CATS) do
+		CATKEYS[#CATKEYS + 1] = c[1]
+		catLabels[#catLabels + 1] = c[2]
+	end
+	local catMark = chipsGrid(e, catLabels, perRow, function(i)
+		catKey = CATKEYS[i]
+		refilter()
+	end, 1)
+	countSet = UIs.infoRow(e, isMobile and 42 or 30, "")
+	local function step(dir)
+		local ids = visibleIds()
+		if #ids == 0 then return end
+		local at = 0
+		for i, id in ipairs(ids) do
+			if id == curId then at = i end
+		end
+		local nxt = (at == 0) and (dir > 0 and 1 or #ids) or ((at - 1 + dir) % #ids + 1)
+		applyPreset(ids[nxt])
+	end
+	UIs.btnRow(e, {
+		{ "◀ 前へ", function() step(-1) end },
+		{ "🎲 ランダム", function()
+			local ids = visibleIds()
+			if #ids > 0 then applyPreset(ids[math.random(#ids)]) end
+		end, ACCENT },
+		{ "次へ ▶", function() step(1) end },
+	})
+	favBtn = UIs.btnRow(e, {
+		{ "☆ お気に入りに入れる", function()
+			if not curId then
+				Lib.notif(gui, "先にプリセットを選んでね", 1.6)
+				return
+			end
+			local fv = UIs.fav.preset
+			fv[curId] = (not fv[curId]) or nil
+			updInfo()
+			if catKey == "fav" then refilter() end
+			Lib.notif(gui, fv[curId] and "★ お気に入りに入れました" or "お気に入りから外しました", 1.2)
+		end },
+	})[1]
+	showInfo = UIs.infoRow(e, isMobile and 56 or 40, "プリセットを押すと、ここに説明が出ます。")
+
+	-- カード (初めてこのページを開いた時に、少しずつ作る)
+	gridRow = e:row(gridHeight(#list, presetCols, 84, 8))
+	grid(gridRow, presetCW, 84, 8, 8)
+	UIs.addLazy(3, function()
+		UIs.slice(#list, isMobile and 4 or 6, function(i)
+			local m = list[i]
+			local b = UIs.card(gridRow, i, 84, m.label, m.c1, m.c2, true)
+			b.Visible = pass(m)
+			cards[i] = b
+			marks.add(i, b)
+			b.MouseButton1Click:Connect(function()
+				if marks.sel == i then
+					marks.mark(0)
+					releasePreset()
+				else
+					applyPreset(m.id)
+				end
+			end)
+		end)
+		refilter()
+	end)
+	refilter()
+	UIs.mk.preset = function(i)
+		marks.mark(i)
+		if i == 0 then
+			curId = nil
+			updInfo()
+		end
+	end
+	UIs.set.Preset = function(v)   -- まとめて送った時 (プリセット名 か { id = ... })
+		local id = type(v) == "table" and v.id or v
+		curId = idxOf[id] and id or nil
+		marks.mark(idxOf[id] or 0)
+		updInfo()
+	end
+	onResettable(function()
+		curId = nil
+		marks.mark(0)
+		updInfo()
+	end)
+end)()
 end
 
--- 4: 質感
+-- 4: 質感 (質感セット38種・ツヤ20種・映り込む空14種・光の走り8色・角の輝き6色・経年劣化12種)
 do
+(function()
+	local CAT = ENG.CAT
 	local e = Lib.element(pages[4])
 	local perRow = isMobile and 3 or 4
 	local curRefl, wthVal = 0, 0
 	local refS, traS, varS, wthS, texT, quickMark, glossMark, axisMark
-	local skyMark, sheenS, scMark, edgeS, wkMark, updateHint
+	local skyMark, sheenS, scMark, edgeS, ecMark, wkMark, updateHint
+	local glossInfo, wkInfo, setInfo
 	local envOrig = nil   -- 「空の映り込み」を強くする前の値 (この画面だけの設定)
 	-- 反射の量に合うチップを光らせる (どれにも当てはまらなければ、どれも光らない)
 	local function qm()
@@ -8422,47 +10266,63 @@ do
 	end
 
 	-- 質感のセット: 素材・色・木目はそのまま。ツヤ・映り込み・光の走り・角・経年だけを、一式で切り替える
-	-- refl 反射 / gs ツヤの種類 / sky 空 / sheen 光の走り / sc その色 / edge 角 / var 色ムラ / wea 経年 / wk 経年の種類
-	do
-		local DEF = { refl = 0, gs = 1, sky = 1, sheen = 0, sc = 1, edge = 0, var = 0, wea = 0, wk = 1 }
-		local function C(r, g, b) return Color3.fromRGB(r, g, b) end
-		local SETS = {
-			{ "🪞 鏡面ミラー", C(235, 240, 250), C(120, 140, 170), { refl = 1, gs = 1, sky = 1, edge = 0.3 } },
-			{ "💧 ウェット", C(150, 210, 255), C(40, 90, 150), { refl = 0.7, gs = 5, sky = 1 } },
-			{ "🍬 キャンディ", C(255, 150, 205), C(255, 230, 245), { refl = 0.55, gs = 7, sky = 6, sheen = 0.3, edge = 0.25 } },
-			{ "🫧 パール", C(245, 240, 255), C(190, 170, 230), { refl = 0.6, gs = 6, sky = 1, sheen = 0.35, edge = 0.35 } },
-			{ "💎 ダイヤ", C(200, 240, 255), C(255, 200, 250), { refl = 0.85, gs = 8, sky = 6, sheen = 0.6, sc = 3, edge = 0.9 } },
-			{ "🌃 ネオンナイト", C(255, 90, 210), C(40, 30, 110), { refl = 0.7, gs = 1, sky = 4, sheen = 0.5, sc = 3, edge = 0.8 } },
-			{ "🌅 夕焼けミラー", C(255, 170, 110), C(120, 80, 170), { refl = 0.8, gs = 2, sky = 2, sheen = 0.2, sc = 2 } },
-			{ "🔩 ブラッシュ金属", C(200, 205, 215), C(100, 106, 120), { refl = 0.55, gs = 4, sky = 6, edge = 0.4 } },
-			{ "🧽 つや消し", C(170, 170, 175), C(90, 90, 100), { refl = 0, gs = 2 } },
-			{ "🧪 さびてボロボロ", C(190, 110, 60), C(80, 50, 35), { refl = 0, gs = 2, var = 0.4, wea = 0.8, wk = 2 } },
-			{ "🌿 こけむす", C(110, 170, 70), C(40, 80, 40), { refl = 0, gs = 2, var = 0.3, wea = 0.7, wk = 3 } },
-			{ "❄️ 雪化粧", C(250, 252, 255), C(170, 200, 235), { refl = 0.1, gs = 2, var = 0.1, wea = 0.7, wk = 4 } },
+	-- refl 反射 / gs ツヤの種類 / sky 空 / sheen 光の走り / sc その色 / edge 角 / ec 角の色 / var 色ムラ / wea 経年 / wk 経年の種類
+	local DEF = { refl = 0, gs = 1, sky = 1, sheen = 0, sc = 1, edge = 0, ec = 1, var = 0, wea = 0, wk = 1 }
+	local function setOps(v)
+		return {
+			{ "Reflectance", v.refl }, { "GlossStyle", v.gs }, { "GlossSky", v.sky }, { "SheenColor", v.sc }, { "Sheen", v.sheen },
+			{ "EdgeColor", v.ec }, { "Edge", v.edge }, { "Variance", v.var }, { "WeatherKind", v.wk }, { "Weather", v.wea },
 		}
-		e:title("質感のセット (素材・色はそのまま。押すだけ)")
-		local items = {}
-		for i, st in ipairs(SETS) do items[i] = { st[1], st[2], st[3] } end
-		local function setOps(v)
-			return {
-				{ "Reflectance", v.refl }, { "GlossStyle", v.gs }, { "GlossSky", v.sky }, { "SheenColor", v.sc }, { "Sheen", v.sheen },
-				{ "Edge", v.edge }, { "Variance", v.var }, { "WeatherKind", v.wk }, { "Weather", v.wea },
-			}
-		end
-		local _, _, sg = cardGrid(e, items, isMobile and 2 or 3, isMobile and 124 or 154, 48, function(i)
-			local v = {}
-			for k, d in pairs(DEF) do v[k] = d end
-			for k, x in pairs(SETS[i][4]) do v[k] = x end
-			if sendBatch(setOps(v)) then
-				Lib.notif(gui, SETS[i][1] .. " にしました", 1.4)
-			end
-		end, function(i)   -- もう一度押した = このセットをやめる (ツヤ・映り込み・光の走り・角・経年が、初期にもどる。素材・色はそのまま)
-			if sendBatch(setOps(DEF)) then
-				Lib.notif(gui, SETS[i][1] .. " をやめました", 1.4)
-			end
-		end)
-		onResettable(function() sg.mark(0) end)
 	end
+	local SETS = CAT.TEX_SETS
+	e:title("質感のセット " .. #SETS .. "種 (素材・色はそのまま。押すだけ)")
+	local sets = UIs.lazyMarks()
+	setInfo = UIs.infoRow(e, isMobile and 44 or 32, "セットを押すと、ここに説明が出ます。")
+	local setRow = e:row(gridHeight(#SETS, isMobile and 2 or 3, 48, 8))
+	grid(setRow, isMobile and 124 or 154, 48, 8, 8)
+	UIs.addLazy(4, function()
+		UIs.slice(#SETS, isMobile and 6 or 9, function(i)
+			local st = SETS[i]
+			local b = UIs.card(setRow, i, 48, st[1], st[2], st[3], false)
+			sets.add(i, b)
+			b.MouseButton1Click:Connect(function()
+				if sets.sel == i then   -- もう一度押した = このセットをやめる (ツヤ・映り込み・光の走り・角・経年が、初期にもどる。素材・色はそのまま)
+					sets.mark(0)
+					setInfo("セットをやめました。")
+					if sendBatch(setOps(DEF)) then Lib.notif(gui, st[1] .. " をやめました", 1.4) end
+				else
+					sets.mark(i)
+					local v = {}
+					for k, d in pairs(DEF) do v[k] = d end
+					for k, x in pairs(st[4]) do v[k] = x end
+					setInfo(st[1] .. " — " .. (st[5] or ""))
+					if sendBatch(setOps(v)) then
+						sets.mark(i)   -- (画面の表示を合わせた時に消えないよう、つけ直す)
+						Lib.notif(gui, st[1] .. " にしました", 1.4)
+					else
+						sets.mark(0)
+					end
+				end
+			end)
+		end)
+	end)
+	UIs.btnRow(e, {
+		{ "🎲 ランダムな質感", function()
+			local rnd = math.random
+			local v = {
+				refl = 0.3 + rnd() * 0.7, gs = rnd(ENG.GLOSS_STYLES), sky = rnd(ENG.SKIES), sc = rnd(ENG.SHEEN_COLS), ec = rnd(ENG.EDGE_COLS),
+				sheen = rnd() < 0.5 and (0.2 + rnd() * 0.6) or 0, edge = rnd() < 0.5 and (0.3 + rnd() * 0.6) or 0,
+				var = rnd() < 0.3 and (rnd() * 0.4) or 0, wea = 0, wk = rnd(#CAT.WEATHER),
+			}
+			if rnd() < 0.25 then v.wea = 0.3 + rnd() * 0.5 end
+			sets.mark(0)
+			if sendBatch(setOps(v)) then Lib.notif(gui, "ランダムな質感にしました 🎲", 1.4) end
+		end, ACCENT },
+		{ "↺ 質感を初期に (素材・色は残す)", function()
+			sets.mark(0)
+			if sendBatch(setOps(DEF)) then Lib.notif(gui, "質感を初期にもどしました", 1.4) end
+		end },
+	})
 
 	e:title("反射・ツヤ (素材や木目はそのまま)")
 	local reflNote = e:row(isMobile and 78 or 54)
@@ -8494,16 +10354,18 @@ do
 	quickMark = chipsRow(e, { "マット 0%", "ツヤ 35%", "ミラー 100%" }, function(i)
 		setRefl(({ 0, 0.35, 1 })[i])
 	end, 1, 1)
-	e:title("ツヤの種類 (8種類)")
-	glossMark = chipsGrid(e, { "くっきり", "やわらか", "ガラス", "メタル", "ウェット", "パール", "ニス", "ダイヤ" }, perRow, function(i)
+	e:title("ツヤの種類 (" .. #CAT.GLOSS .. "種類)")
+	glossMark = chipsGrid(e, CAT.GLOSS, perRow, function(i)
+		glossInfo(CAT.GLOSS[i] .. " — " .. CAT.GLOSS_DESC[i])
 		send("GlossStyle", i)
 	end, 1, 1)
+	glossInfo = UIs.infoRow(e, isMobile and 44 or 32, CAT.GLOSS[1] .. " — " .. CAT.GLOSS_DESC[1])
 	e:title("ツヤの向き")
 	axisMark = chipsRow(e, { "横 (X)", "高さ (Y)", "奥 (Z)" }, function(i)
 		send("GlossAxis", ({ "X", "Y", "Z" })[i])
 	end, 1, 1)
-	e:title("映り込む空")
-	skyMark = chipsGrid(e, { "☀️ 昼", "🌇 夕焼け", "🌙 夜", "🌃 ネオン街", "🌌 オーロラ", "💡 スタジオ" }, 3, function(i)
+	e:title("映り込む空 (" .. #CAT.SKIES .. "種類)")
+	skyMark = chipsGrid(e, CAT.SKIES, 3, function(i)
 		send("GlossSky", i)
 	end, 1, 1)
 	local envT = e:toggle("空の映り込みを最大に (この画面だけ)", function(sv)
@@ -8522,8 +10384,9 @@ do
 
 	e:title("光が走る・角のきらめき")
 	sheenS = e:slider("光の走り", 0, 1, function(v, r) sendThrottled("Sheen", v, r) end, 0, Color3.fromRGB(70, 80, 190), Color3.fromRGB(255, 255, 255))
-	scMark = chipsRow(e, { "白い光", "金色の光", "虹色の光" }, function(i) send("SheenColor", i) end, 1, 1)
+	scMark = chipsGrid(e, CAT.SHEEN_COLS, perRow, function(i) send("SheenColor", i) end, 1, 1)
 	edgeS = e:slider("角の輝き", 0, 1, function(v, r) sendThrottled("Edge", v, r) end, 0, Color3.fromRGB(70, 80, 190), Color3.fromRGB(255, 255, 255))
+	ecMark = chipsGrid(e, CAT.EDGE_COLS, perRow, function(i) send("EdgeColor", i) end, 1, 1)
 
 	e:title("見た目")
 	traS = e:slider("透明度", 0, 0.9, function(v, r) sendThrottled("Transparency", v, r) end, 0)
@@ -8532,14 +10395,16 @@ do
 		wthVal = v
 		sendThrottled("Weather", v, r)
 	end, 0, Color3.fromRGB(120, 100, 70), Color3.fromRGB(60, 50, 40))
-	wkMark = chipsRow(e, { "汚れ", "さび", "こけ", "雪", "焦げ" }, function(i, released)
+	wkMark = chipsGrid(e, CAT.WEATHER, perRow, function(i, released)
 		if not released and wthVal <= 0 then   -- 経年劣化が0だと違いが見えないので、自動で少し付ける
 			wthVal = 0.5
 			wthS:set(0.5)
 			send("Weather", 0.5, true)
 		end
+		wkInfo(CAT.WEATHER[i] .. " — " .. CAT.WEATHER_DESC[i])
 		send("WeatherKind", i)
 	end, 1, 1)
+	wkInfo = UIs.infoRow(e, isMobile and 44 or 32, CAT.WEATHER[1] .. " — " .. CAT.WEATHER_DESC[1])
 	e:title("テクスチャ")
 	texT = e:toggle("元の木目テクスチャ", function(sv) send("Texture", sv) end, true)
 
@@ -8567,40 +10432,51 @@ do
 	end
 	updateHint()
 
-	-- まとめて送った時 (セット・おまかせ) に、画面の表示を合わせる
+	-- まとめて送った時 (セット・おまかせ・プリセット) に、画面の表示を合わせる
 	local S = UIs.set
 	S.Reflectance = function(v) curRefl = v refS:set(v) qm() updateHint() end
-	S.GlossStyle = function(v) glossMark(v) end
+	S.GlossStyle = function(v) glossMark(v) glossInfo(CAT.GLOSS[v] and (CAT.GLOSS[v] .. " — " .. CAT.GLOSS_DESC[v]) or "") end
 	S.GlossAxis = function(v) axisMark(({ X = 1, Y = 2, Z = 3 })[v] or 1) end
 	S.GlossSky = function(v) skyMark(v) end
 	S.Sheen = function(v) sheenS:set(v) end
 	S.SheenColor = function(v) scMark(v) end
 	S.Edge = function(v) edgeS:set(v) end
+	S.EdgeColor = function(v) ecMark(v) end
 	S.Transparency = function(v) traS:set(v) end
 	S.Variance = function(v) varS:set(v) end
 	S.Weather = function(v) wthVal = v wthS:set(v) end
-	S.WeatherKind = function(v) wkMark(v) end
+	S.WeatherKind = function(v) wkMark(v) wkInfo(CAT.WEATHER[v] and (CAT.WEATHER[v] .. " — " .. CAT.WEATHER_DESC[v]) or "") end
 	S.Texture = function(v) texT:set(v == true) end
 
 	onResettable(function()
 		curRefl, wthVal = 0, 0
 		refS:set(0) traS:set(0) varS:set(0) wthS:set(0) texT:set(true)
-		glossMark(1) axisMark(1) skyMark(1) scMark(1) wkMark(1)
+		glossMark(1) axisMark(1) skyMark(1) scMark(1) ecMark(1) wkMark(1)
+		glossInfo(CAT.GLOSS[1] .. " — " .. CAT.GLOSS_DESC[1])
+		wkInfo(CAT.WEATHER[1] .. " — " .. CAT.WEATHER_DESC[1])
 		sheenS:set(0) edgeS:set(0)
+		sets.mark(0)
+		setInfo("セットを押すと、ここに説明が出ます。")
 		qm()
 		updateHint()
 	end)
+end)()
 end
 
--- 5: 光
+-- 5: 光 (光のレシピ45種・明滅18種・色の動き7種・光の色/こさ/3色目・縁取りの色・壁の向こう・光が影を作る・時刻)
 do
+(function()
+	local CAT = ENG.CAT
 	local e = Lib.element(pages[5])
 	local glowVal, pulseVal, bodyOn = 0, 0, false
-	local glowS, rangeS, glowHueS, hue2S, gspS, modeMark, pulseS, tempoMark, styleMark, depthS, bodyT, waveS, nightT
-	local shapeMark, spotS, neonT, ot, outHueS, auraS, shadowT
-	local PULSE_IDS = { "Sine", "Beat", "Flicker", "Strobe", "Breath", "Lightning", "Neon", "Saw", "Steps", "SOS" }
-	local MODE_IDS = { "Solid", "Blend", "Alt", "Hue" }
+	local satVal = 0.8
+	local c3Touched = false
+	local glowS, rangeS, glowHueS, satS, hue2S, hue3S, gspS, modeMark, pulseS, tempoMark, styleMark, depthS, bodyT, waveS, nightT
+	local shapeMark, spotS, neonT, ot, outHueS, auraS, shadowT, lshadowT, thruT, gcGrp, ocGrp
+	local modeInfo, styleInfo, recInfo
+	local PULSE_IDS, MODE_IDS = CAT.PULSE_IDS, CAT.MODE_IDS
 	local SHAPE_IDS = { "Point", "Down", "Up" }
+	local perRow = isMobile and 3 or 4
 	local function idxOf(list, v)
 		for i, x in ipairs(list) do
 			if x == v then return i end
@@ -8620,85 +10496,179 @@ do
 		if v > 0 then ensureGlow() end
 		sendThrottled("Pulse", v, r)
 	end
+	local function hueOf(c)
+		local h = c:ToHSV()
+		return h
+	end
+	local function infoTxt(names, descs, i) return (names[i] or "") .. " — " .. (descs[i] or "") end
 
-	-- 光のレシピ: 光の設定を一式で切り替える (縁取りは ol がある時だけ)
-	-- g 強さ / rg 範囲 / h 色 / h2 2つ目の色 / gm 色の動き(1単色 2ゆっくり 3パッと 4虹) / gs 色の速さ / p 明滅の速さ / ps 明滅の型(1〜10)
-	-- pd 深さ / pb 板も明滅 / pw 波 / n 夜だけ / sh 向き(1全方向 2下 3上) / sp スポット幅 / ol 縁取りの色 / of オーラ
-	do
-		local DEF = { g = 0, rg = 8, h = 0.58, h2 = 0.08, gm = 1, gs = 0.3, p = 0, ps = 1, pd = 1, pb = false, pw = 0, n = false, sh = 1, sp = 120 }
-		local function C(r, g, b) return Color3.fromRGB(r, g, b) end
-		local RECIPES = {
-			{ "🕯 キャンドル", C(255, 200, 90), C(255, 120, 30), { g = 1.6, rg = 11, h = 0.09, p = 1.4, ps = 3, pd = 0.4 } },
-			{ "🔥 たいまつ", C(255, 150, 40), C(220, 50, 20), { g = 2.8, rg = 14, h = 0.07, h2 = 0.13, gm = 2, gs = 0.9, p = 2.2, ps = 3, pd = 0.55 } },
-			{ "💓 ハートビート", C(255, 90, 140), C(190, 20, 70), { g = 2.4, rg = 12, h = 0.97, p = 1.1, ps = 2, pd = 0.85, pb = true } },
-			{ "🚨 パトランプ", C(255, 60, 60), C(60, 110, 255), { g = 3.4, rg = 18, h = 0, h2 = 0.62, gm = 3, gs = 1.2 } },
-			{ "🌃 ネオンサイン", C(255, 80, 220), C(60, 230, 255), { g = 3, rg = 14, h = 0.88, h2 = 0.5, gm = 2, gs = 0.45, p = 0.8, ps = 7, pd = 0.8, ol = 0.88, of = 0.25 } },
-			{ "🌌 オーロラ", C(90, 255, 180), C(170, 90, 255), { g = 2.2, rg = 20, h = 0.42, h2 = 0.78, gm = 2, gs = 0.22, p = 0.35, ps = 5, pd = 0.5 } },
-			{ "🌈 レインボー", C(255, 90, 90), C(90, 140, 255), { g = 2.4, rg = 14, gm = 4, gs = 0.35 } },
-			{ "🪩 ディスコ", C(255, 120, 230), C(120, 255, 255), { g = 3.4, rg = 16, gm = 4, gs = 1.1, p = 2.4, ps = 9, pd = 0.7, pb = true, pw = 1 } },
-			{ "⚡ 雷雲", C(200, 220, 255), C(90, 100, 200), { g = 4.2, rg = 26, h = 0.6, p = 0.9, ps = 6 } },
-			{ "🔦 スポットライト", C(255, 236, 170), C(255, 200, 80), { g = 3.6, rg = 24, h = 0.14, sh = 2, sp = 40 } },
-			{ "🌙 夜のランプ", C(255, 214, 150), C(60, 50, 110), { g = 1.5, rg = 13, h = 0.11, p = 0.4, ps = 5, pd = 0.25, n = true } },
-			{ "🧊 氷のゆらめき", C(190, 235, 255), C(90, 150, 235), { g = 2.2, rg = 14, h = 0.54, h2 = 0.64, gm = 2, gs = 0.3, p = 0.5, ps = 5, pd = 0.4, ol = 0.56, of = 0.2 } },
+	-- 光のレシピ: 光の設定を一式で切り替える (縁取りは oc がある時だけ)
+	-- g 強さ / rg 範囲 / h 色相 または c 色 / h2 または c2 (2つ目の色) / c3 (3つ目の色) / gm 色の動き / gs 色の速さ / p 明滅の速さ / ps 明滅の型
+	-- pd 深さ / pb 板も明滅 / pw 波 / n 夜だけ / sh 向き (1全方向 2下 3上) / sp スポット幅 / oc 縁取りの色 / of オーラ
+	local DEF = { g = 0, rg = 8, h = 0.58, h2 = 0.08, gm = 1, gs = 0.3, p = 0, ps = 1, pd = 1, pb = false, pw = 0, n = false, sh = 1, sp = 120 }
+	local RECIPES = CAT.LIGHT_RECIPES
+	local function recipeOps(v)
+		local ops = {
+			{ "Glow", v.g }, { "GlowRange", v.rg }, { "GlowSat", 0.8 },
+			v.c and { "GlowColor", v.c } or { "GlowHue", v.h },
+			v.c2 and { "GlowColor2", v.c2 } or { "GlowHue2", v.h2 },
+			{ "GlowSpeed", v.gs }, { "GlowMode", MODE_IDS[v.gm] },
+			{ "Pulse", v.p }, { "PulseStyle", PULSE_IDS[v.ps] }, { "PulseDepth", v.pd }, { "PulseBody", v.pb }, { "PulseWave", v.pw },
+			{ "NightGlow", v.n }, { "LightShape", SHAPE_IDS[v.sh] }, { "SpotAngle", v.sp },
 		}
-		e:title("光のレシピ (押すだけで、光り方が一式で変わる)")
-		local items = {}
-		for i, r in ipairs(RECIPES) do items[i] = { r[1], r[2], r[3] } end
-		local function recipeOps(v)
-			local ops = {
-				{ "Glow", v.g }, { "GlowRange", v.rg }, { "GlowHue", v.h }, { "GlowHue2", v.h2 }, { "GlowSpeed", v.gs }, { "GlowMode", MODE_IDS[v.gm] },
-				{ "Pulse", v.p }, { "PulseStyle", PULSE_IDS[v.ps] }, { "PulseDepth", v.pd }, { "PulseBody", v.pb }, { "PulseWave", v.pw },
-				{ "NightGlow", v.n }, { "LightShape", SHAPE_IDS[v.sh] }, { "SpotAngle", v.sp },
-			}
-			if v.ol then
-				ops[#ops + 1] = { "Outline", true }
-				ops[#ops + 1] = { "OutlineHue", v.ol }
-				ops[#ops + 1] = { "OutlineFill", v.of or 0 }
-			end
-			return ops
+		if v.c3 then ops[#ops + 1] = { "GlowColor3", v.c3 } end
+		if v.oc then
+			ops[#ops + 1] = { "Outline", true }
+			ops[#ops + 1] = { "OutlineColor", v.oc }
+			ops[#ops + 1] = { "OutlineFill", v.of or 0 }
+			ops[#ops + 1] = { "OutlineThru", v.ot == true }
 		end
-		local _, _, rg = cardGrid(e, items, isMobile and 2 or 3, isMobile and 124 or 154, 48, function(i)
+		return ops
+	end
+	e:title("光のレシピ " .. #RECIPES .. "種 (押すだけで、光り方が一式で変わる)")
+	local rcKeys, rcLabels = { "all" }, { "すべて" }
+	for _, c in ipairs(CAT.LIGHT_CATS) do
+		rcKeys[#rcKeys + 1] = c[1]
+		rcLabels[#rcLabels + 1] = c[2]
+	end
+	local rcKey = "all"
+	local rcCards, rcRow = {}, nil
+	local rcCols = isMobile and 2 or 3
+	local function rcFilter()
+		local n = 0
+		for i, r in ipairs(RECIPES) do
+			local ok = (rcKey == "all") or (r[2] == rcKey)
+			if ok then n = n + 1 end
+			local b = rcCards[i]
+			if b and b.Visible ~= ok then b.Visible = ok end
+		end
+		if rcRow then rcRow.Size = UDim2.new(1, 0, 0, n > 0 and gridHeight(n, rcCols, 48, 8) or 0) end
+	end
+	local rcMark = chipsGrid(e, rcLabels, perRow, function(i)
+		rcKey = rcKeys[i]
+		rcFilter()
+	end, 1)
+	recInfo = UIs.infoRow(e, isMobile and 44 or 32, "レシピを押すと、ここに説明が出ます。")
+	local rec = UIs.lazyMarks()
+	rcRow = e:row(gridHeight(#RECIPES, rcCols, 48, 8))
+	grid(rcRow, isMobile and 124 or 154, 48, 8, 8)
+	UIs.addLazy(5, function()
+		UIs.slice(#RECIPES, isMobile and 6 or 9, function(i)
+			local r = RECIPES[i]
+			local b = UIs.card(rcRow, i, 48, r[1], r[3], r[4], false)
+			b.Visible = (rcKey == "all") or (r[2] == rcKey)
+			rcCards[i] = b
+			rec.add(i, b)
+			b.MouseButton1Click:Connect(function()
+				if rec.sel == i then   -- もう一度押した = このレシピをやめる (光が消えて、光り方も初期にもどる)
+					rec.mark(0)
+					recInfo("レシピをやめました。")
+					local ops = recipeOps(DEF)
+					if r[5].oc then   -- 縁取りがあるレシピは、縁取りも消す
+						ops[#ops + 1] = { "Outline", false }
+						ops[#ops + 1] = { "OutlineFill", 0 }
+					end
+					if sendBatch(ops) then Lib.notif(gui, r[1] .. " をやめました", 1.4) end
+				else
+					rec.mark(i)
+					local v = {}
+					for k, d in pairs(DEF) do v[k] = d end
+					for k, x in pairs(r[5]) do v[k] = x end
+					recInfo(r[1] .. " — " .. (r[6] or ""))
+					if sendBatch(recipeOps(v)) then
+						rec.mark(i)
+						Lib.notif(gui, r[1] .. " にしました", 1.4)
+					else
+						rec.mark(0)
+					end
+				end
+			end)
+		end)
+		rcFilter()
+	end)
+	UIs.btnRow(e, {
+		{ "🎲 ランダムな光", function()
+			local rnd = math.random
+			local pick = function(l) return l[rnd(#l)] end
+			local safe = { 1, 2, 3, 5, 7, 8, 9, 11, 13, 15, 16, 17, 18 }   -- (ピカピカ・雷・SOS・パトライト・バグ点滅は、急に強く光るので入れない)
 			local v = {}
 			for k, d in pairs(DEF) do v[k] = d end
-			for k, x in pairs(RECIPES[i][4]) do v[k] = x end
-			if sendBatch(recipeOps(v)) then
-				Lib.notif(gui, RECIPES[i][1] .. " にしました", 1.4)
+			v.g = 1 + rnd() * 2.4
+			v.rg = 10 + rnd() * 14
+			v.h = rnd()
+			v.h2 = (v.h + 0.15 + rnd() * 0.5) % 1
+			v.gm = pick({ 1, 1, 2, 3, 4, 5, 6, 7 })
+			v.gs = 0.15 + rnd() * 0.8
+			if rnd() < 0.7 then
+				v.p = 0.3 + rnd() * 1.6
+				v.ps = pick(safe)
+				v.pd = 0.3 + rnd() * 0.7
 			end
-		end, function(i)   -- もう一度押した = このレシピをやめる (光が消えて、光り方も初期にもどる)
-			local ops = recipeOps(DEF)
-			if RECIPES[i][4].ol then   -- 縁取りがあるレシピは、縁取りも消す
-				ops[#ops + 1] = { "Outline", false }
-				ops[#ops + 1] = { "OutlineFill", 0 }
-			end
-			if sendBatch(ops) then
-				Lib.notif(gui, RECIPES[i][1] .. " をやめました", 1.4)
-			end
-		end)
-		onResettable(function() rg.mark(0) end)
-	end
+			if v.gm == 5 then v.c3 = Color3.fromHSV((v.h + 0.66) % 1, 0.8, 1) end
+			rec.mark(0)
+			if sendBatch(recipeOps(v)) then Lib.notif(gui, "ランダムな光にしました 🎲", 1.4) end
+		end, ACCENT },
+		{ "💡 光を消す", function()
+			rec.mark(0)
+			recInfo("光を消しました。")
+			if sendBatch(recipeOps(DEF)) then Lib.notif(gui, "光を消しました", 1.4) end
+		end },
+	})
 
 	e:title("発光")
 	glowS = e:slider("発光の強さ", 0, 5, function(v, r) glowVal = v sendThrottled("Glow", v, r) end, 0, Color3.fromRGB(120, 80, 20), Color3.fromRGB(255, 240, 120))
 	rangeS = e:slider("発光の範囲", 4, 30, function(v, r) sendThrottled("GlowRange", v, r) end, 8)
-	glowHueS = e:slider("発光の色", 0, 1, function(v, r) sendThrottled("GlowHue", v, r) end, 0.58, nil, nil, hueSeq())
-	e:title("光の色の動き")
-	modeMark = chipsGrid(e, { "単色", "2色ゆっくり", "2色パッと", "虹色" }, isMobile and 2 or 4, function(i)
+	glowHueS = e:slider("発光の色", 0, 1, function(v, r)
+		if gcGrp then gcGrp.mark(0) end
+		sendThrottled("GlowHue", v, r)
+	end, 0.58, nil, nil, hueSeq())
+	satS = e:slider("色のこさ (0 = 白)", 0, 1, function(v, r)
+		satVal = v
+		if gcGrp then gcGrp.mark(0) end
+		sendThrottled("GlowSat", v, r)
+	end, 0.8, WHITE, Color3.fromRGB(255, 70, 70))
+	local GC = {
+		{ Color3.fromRGB(255, 255, 255) }, { Color3.fromRGB(255, 220, 160) }, { Color3.fromRGB(255, 70, 70) }, { Color3.fromRGB(255, 150, 50) }, { Color3.fromRGB(255, 230, 70) },
+		{ Color3.fromRGB(170, 255, 60) }, { Color3.fromRGB(60, 235, 120) }, { Color3.fromRGB(70, 225, 255) }, { Color3.fromRGB(70, 120, 255) }, { Color3.fromRGB(170, 100, 255) },
+		{ Color3.fromRGB(255, 110, 200) }, { Color3.fromRGB(255, 60, 160) },
+	}
+	gcGrp = UIs.swatches(e, GC, function(i)
+		ensureGlow()
+		send("GlowColor", GC[i][1])
+	end)
+
+	e:title("光の色の動き (" .. #MODE_IDS .. "種類)")
+	modeMark = chipsGrid(e, CAT.MODE_NAMES, isMobile and 2 or 4, function(i)
 		if i > 1 then ensureGlow() end
+		if i == 5 and not c3Touched then   -- 3色めぐる: 3つ目の色が決まっていなければ、いまのスライダーの色で決める
+			send("GlowColor3", Color3.fromHSV(hue3S and hue3S.get and hue3S.get() or 0.75, satVal, 1), true)
+		end
+		modeInfo(infoTxt(CAT.MODE_NAMES, CAT.MODE_DESC, i))
 		send("GlowMode", MODE_IDS[i])
 	end, 1, 1)
+	modeInfo = UIs.infoRow(e, isMobile and 44 or 32, infoTxt(CAT.MODE_NAMES, CAT.MODE_DESC, 1))
 	hue2S = e:slider("2つ目の色", 0, 1, function(v, r) sendThrottled("GlowHue2", v, r) end, 0.08, nil, nil, hueSeq())
+	local hue3Val = 0.75
+	hue3S = e:slider("3つ目の色", 0, 1, function(v, r)
+		hue3Val = v
+		c3Touched = true
+		sendThrottled("GlowColor3", Color3.fromHSV(v, satVal, 1), r)
+	end, 0.75, nil, nil, hueSeq())
+	hue3S.get = function() return hue3Val end
 	gspS = e:slider("色の速さ", 0.05, 1.5, function(v, r) sendThrottled("GlowSpeed", v, r) end, 0.3)
 
-	e:title("光り方 (明滅はなめらかに動きます)")
+	e:title("光り方 (明滅は " .. #PULSE_IDS .. "種類。なめらかに動きます)")
 	pulseS = e:slider("明滅の速さ", 0, 4, pulseTo, 0, Color3.fromRGB(99, 102, 241), CYAN)
 	tempoMark = chipsRow(e, { "ゆっくり", "ふつう", "はやい", "超はやい" }, function(i)
 		local v = ({ 0.5, 1.2, 2.4, 4 })[i] or 0   -- (光っているボタンをもう一度押した時は i=0 → 明滅を止める)
 		pulseS:set(v)
 		pulseTo(v, true)
 	end, 0, 0)
-	styleMark = chipsGrid(e, { "なめらか", "ドクン", "ゆらぎ", "ピカピカ", "呼吸", "雷", "ネオン管", "のこぎり", "階段", "SOS" }, isMobile and 4 or 5, function(i)
+	styleMark = chipsGrid(e, CAT.PULSE_NAMES, isMobile and 3 or 5, function(i)
+		styleInfo(infoTxt(CAT.PULSE_NAMES, CAT.PULSE_DESC, i))
 		send("PulseStyle", PULSE_IDS[i])
 	end, 1, 1)
+	styleInfo = UIs.infoRow(e, isMobile and 44 or 32, infoTxt(CAT.PULSE_NAMES, CAT.PULSE_DESC, 1))
 	depthS = e:slider("明滅の深さ", 0, 1, function(v, r) sendThrottled("PulseDepth", v, r) end, 1)
 	bodyT = e:toggle("板も一緒に明滅 (板の明るさも変わる)", function(sv)
 		bodyOn = sv
@@ -8733,23 +10703,102 @@ do
 		UIs.neonOn = sv
 		send("Neon", sv)
 	end, false)
+
 	e:title("縁取り・オーラ")
 	ot = e:toggle("縁取り", function(sv) send("Outline", sv) end, false)
-	outHueS = e:slider("縁取りの色", 0, 1, function(v, r) ot:set(true) sendThrottled("OutlineHue", v, r) end, 0.55, nil, nil, hueSeq())
+	outHueS = e:slider("縁取りの色", 0, 1, function(v, r)
+		ot:set(true)
+		if ocGrp then ocGrp.mark(0) end
+		sendThrottled("OutlineHue", v, r)
+	end, 0.55, nil, nil, hueSeq())
+	ocGrp = UIs.swatches(e, GC, function(i)
+		ot:set(true)
+		send("OutlineColor", GC[i][1])
+	end)
 	auraS = e:slider("オーラ", 0, 1, function(v, r) ot:set(true) sendThrottled("OutlineFill", v, r) end, 0)
+	thruT = e:toggle("壁の向こうでも縁取りが見える", function(sv)
+		if sv then ot:set(true) end
+		send("OutlineThru", sv)
+	end, false)
+
 	e:title("影")
 	shadowT = e:toggle("板が影を落とす", function(sv) send("Shadow", sv) end, true)
+	lshadowT = e:toggle("光が影を作る (まわりに影が落ちる。少し重くなります)", function(sv)
+		if sv then ensureGlow() end
+		send("LightShadows", sv)
+	end, false)
 
-	-- まとめて送った時 (レシピ・おまかせ) に、画面の表示を合わせる
+	-- 時刻 (この画面だけ。ゲーム全体の明るさが変わります。「夜だけ光る」の確認に)
+	e:title("時刻 (この画面だけ)")
+	local clockNote = e:row(isMobile and 58 or 40)
+	local clockLbl = text(clockNote, "ゲームの時刻を、この画面だけで変えます。「夜だけ光る」の確認に便利です。サーバーが時刻を変えた時は、そちらが優先されます。", isMobile and 12 or 13, UDim2.fromOffset(4, 0), UDim2.new(1, -8, 1, 0), nil, SOFT)
+	clockLbl.TextWrapped = true
+	local origClock = nil
+	local function setClock(v)
+		local L = game:GetService("Lighting")
+		if origClock == nil then
+			local ok, c = pcall(function() return L.ClockTime end)
+			origClock = ok and c or 14
+		end
+		pcall(function() L.ClockTime = v end)
+	end
+	local clockS
+	clockS = e:slider("時刻", 0, 24, function(v) setClock(v) end, 14)
+	chipsRow(e, { "🌅 朝", "☀️ 昼", "🌇 夕方", "🌙 夜" }, function(i)
+		local v = ({ 7, 13, 18, 0 })[i] or 14
+		clockS:set(v)
+		setClock(v)
+	end, 0, 0)
+	e:button("↺ 元の時刻にもどす", function()
+		if origClock ~= nil then
+			local L = game:GetService("Lighting")
+			pcall(function() L.ClockTime = origClock end)
+			clockS:set(origClock)
+			origClock = nil
+		end
+	end)
+
+	-- まとめて送った時 (レシピ・おまかせ・プリセット) に、画面の表示を合わせる
 	local S = UIs.set
 	S.Glow = function(v) glowVal = v glowS:set(v) end
 	S.GlowRange = function(v) rangeS:set(v) end
-	S.GlowHue = function(v) glowHueS:set(v) end
+	S.GlowHue = function(v) glowHueS:set(v) if gcGrp then gcGrp.mark(0) end end
+	S.GlowColor = function(c)
+		if typeof(c) ~= "Color3" then return end
+		local h, sa = c:ToHSV()
+		glowHueS:set(h)
+		if sa > 0.02 then satVal = sa satS:set(sa) end
+		if gcGrp then
+			local hit = 0
+			for i, x in ipairs(GC) do
+				local y = x[1]
+				if math.abs(y.R - c.R) + math.abs(y.G - c.G) + math.abs(y.B - c.B) < 0.01 then hit = i break end
+			end
+			gcGrp.mark(hit)
+		end
+	end
+	S.GlowSat = function(v) satVal = v satS:set(v) end
 	S.GlowHue2 = function(v) hue2S:set(v) end
+	S.GlowColor2 = function(c) if typeof(c) == "Color3" then hue2S:set(hueOf(c)) end end
+	S.GlowColor3 = function(c)
+		if typeof(c) == "Color3" then
+			hue3Val = hueOf(c)
+			hue3S:set(hue3Val)
+			c3Touched = true
+		end
+	end
 	S.GlowSpeed = function(v) gspS:set(v) end
-	S.GlowMode = function(v) modeMark(idxOf(MODE_IDS, v)) end
+	S.GlowMode = function(v)
+		local i = idxOf(MODE_IDS, v)
+		modeMark(i)
+		modeInfo(infoTxt(CAT.MODE_NAMES, CAT.MODE_DESC, i))
+	end
 	S.Pulse = function(v) pulseVal = v pulseS:set(v) tempoMark(0) end
-	S.PulseStyle = function(v) styleMark(idxOf(PULSE_IDS, v)) end
+	S.PulseStyle = function(v)
+		local i = idxOf(PULSE_IDS, v)
+		styleMark(i)
+		styleInfo(infoTxt(CAT.PULSE_NAMES, CAT.PULSE_DESC, i))
+	end
 	S.PulseDepth = function(v) depthS:set(v) end
 	S.PulseBody = function(v) bodyOn = (v == true) bodyT:set(v == true) end
 	S.PulseWave = function(v) waveS:set(v) end
@@ -8757,57 +10806,287 @@ do
 	S.LightShape = function(v) shapeMark(idxOf(SHAPE_IDS, v)) end
 	S.SpotAngle = function(v) spotS:set(v) end
 	S.Outline = function(v) ot:set(v == true) end
-	S.OutlineHue = function(v) outHueS:set(v) end
+	S.OutlineHue = function(v) outHueS:set(v) if ocGrp then ocGrp.mark(0) end end
+	S.OutlineColor = function(c)
+		if typeof(c) ~= "Color3" then return end
+		outHueS:set(hueOf(c))
+		if ocGrp then
+			local hit = 0
+			for i, x in ipairs(GC) do
+				local y = x[1]
+				if math.abs(y.R - c.R) + math.abs(y.G - c.G) + math.abs(y.B - c.B) < 0.01 then hit = i break end
+			end
+			ocGrp.mark(hit)
+		end
+	end
 	S.OutlineFill = function(v) auraS:set(v) end
+	S.OutlineThru = function(v) thruT:set(v == true) end
 	S.Neon = function(v) UIs.neonOn = (v == true) neonT:set(v == true) end
 	S.Shadow = function(v) shadowT:set(v == true) end
+	S.LightShadows = function(v) lshadowT:set(v == true) end
 
 	onResettable(function()
-		glowVal, pulseVal, bodyOn = 0, 0, false
-		glowS:set(0) rangeS:set(8) glowHueS:set(0.58) ot:set(false) outHueS:set(0.55) auraS:set(0)
-		modeMark(1) hue2S:set(0.08) gspS:set(0.3)
-		pulseS:set(0) tempoMark(0) styleMark(1) depthS:set(1) bodyT:set(false) waveS:set(0) nightT:set(false)
-		shapeMark(1) spotS:set(120) neonT:set(false) shadowT:set(true)
+		glowVal, pulseVal, bodyOn, satVal, c3Touched = 0, 0, false, 0.8, false
+		glowS:set(0) rangeS:set(8) glowHueS:set(0.58) satS:set(0.8) ot:set(false) outHueS:set(0.55) auraS:set(0) thruT:set(false)
+		if gcGrp then gcGrp.mark(0) end
+		if ocGrp then ocGrp.mark(0) end
+		modeMark(1) modeInfo(infoTxt(CAT.MODE_NAMES, CAT.MODE_DESC, 1))
+		hue2S:set(0.08) hue3Val = 0.75 hue3S:set(0.75) gspS:set(0.3)
+		pulseS:set(0) tempoMark(0) styleMark(1) styleInfo(infoTxt(CAT.PULSE_NAMES, CAT.PULSE_DESC, 1))
+		depthS:set(1) bodyT:set(false) waveS:set(0) nightT:set(false)
+		shapeMark(1) spotS:set(120) neonT:set(false) shadowT:set(true) lshadowT:set(false)
+		rec.mark(0)
+		recInfo("レシピを押すと、ここに説明が出ます。")
 		UIs.neonOn = false
 	end)
+end)()
 end
 
--- 6: 効果
+-- 6: 効果 (効果18種・レシピ18種・全体の量/大きさ/速さ/色・炎10色・煙7色・紙吹雪6色・キラキラ・レインボー)
 do
+(function()
+	local CAT = ENG.CAT
 	local e = Lib.element(pages[6])
-	e:title("🌈 レインボー (なめらかに動きます)")
-	local rt = e:toggle("レインボー", function(sv) send("Rainbow", sv) end, false)
-	UIs.rbT = rt
-	local rbSpeedS = e:slider("虹の速さ", 0.02, 1, function(v, r) rt:set(true) sendThrottled("RainbowSpeed", v, r) end, 0.15)
-	local rbSatS = e:slider("鮮やかさ", 0, 1, function(v, r) sendThrottled("RainbowSat", v, r) end, 0.85, WHITE, PINK)
-	local rbSpreadS = e:slider("虹の波", 0, 1, function(v, r) rt:set(true) sendThrottled("RainbowSpread", v, r) end, 0, Color3.fromRGB(99, 102, 241), PINK)
-	e:title("✨ キラキラ")
-	local st_ = e:toggle("キラキラ", function(sv) send("Sparkle", sv) end, false)
-	local spRateS = e:slider("キラキラの量", 1, 120, function(v, r) st_:set(true) sendThrottled("SparkleRate", v, r) end, 25, Color3.fromRGB(99, 102, 241), CYAN)
-	local spSizeS = e:slider("キラキラの大きさ", 0.05, 2, function(v, r) st_:set(true) sendThrottled("SparkleSize", v, r) end, 0.35, Color3.fromRGB(99, 102, 241), CYAN)
+	local FXL = CAT.FX_LIST
+	local perRow = isMobile and 3 or 4
+	local FXKIND, kindIdx, fxLabels = {}, {}, {}
+	for i, f in ipairs(FXL) do
+		FXKIND[f[1]] = f[2]   -- id -> 命令の名前 (Fire など)
+		kindIdx[f[2]] = i
+		fxLabels[i] = f[3]
+	end
+	local fxState = {}
+	local setChip, fxInfo, recInfo, fireMark, smokeMark, confMark, tintMark
+	local amountS, sizeS, speedS, fireSizeS, spRateS, spSizeS
+	local rt, rbSpeedS, rbSatS, rbSpreadS
+
+	-- 効果のスイッチ (いくつでも同時に入れられる)
+	local function multiChips(labels, per, onToggle)
+		local btns, state = {}, {}
+		local function paint(k, on, anim)
+			local b = btns[k]
+			if not b then return end
+			local goal = { BackgroundColor3 = on and Lib.ACCENT or WHITE, BackgroundTransparency = on and 0.15 or 0.88 }
+			if anim then
+				Lib.tween(b, goal, 0.2)
+			else
+				b.BackgroundColor3, b.BackgroundTransparency = goal.BackgroundColor3, goal.BackgroundTransparency
+			end
+		end
+		local n, i = #labels, 0
+		for _ = 1, math.ceil(n / per) do
+			local r = e:row(isMobile and 34 or 32)
+			mk("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder }, r)
+			for _ = 1, math.min(per, n - i) do
+				i = i + 1
+				local k = i
+				local b = mk("TextButton", { AutoButtonColor = false, Text = labels[k], TextSize = isMobile and 12 or 14, FontFace = FONT, TextColor3 = WHITE, TextWrapped = true, LayoutOrder = k, Size = UDim2.new(1 / per, -5, 1, 0) }, r)
+				Lib.glass(b, 0.88, 10)
+				Lib.juice(b)
+				b.MouseButton1Click:Connect(function()
+					local m = targetModel()
+					if not m or not m.Parent then
+						Lib.notif(gui, "板を選んでください", 1.8)
+						return
+					end
+					state[k] = not state[k]
+					paint(k, state[k], true)
+					onToggle(k, state[k])
+				end)
+				btns[k] = b
+			end
+		end
+		Lib.onTheme(function(a)
+			for j, b in ipairs(btns) do
+				if state[j] then b.BackgroundColor3 = a end
+			end
+		end)
+		return function(k, on)
+			if k < 1 or k > n then return end
+			if (state[k] == true) ~= (on == true) then
+				state[k] = (on == true)
+				paint(k, state[k], true)
+			end
+		end, state
+	end
+
+	-- 効果のレシピ: 出ている効果を消して、その効果と量・大きさ・速さ・色を一式で入れる
+	-- (炎・煙・紙吹雪・キラキラの設定は、その効果を出してしまうので、先に送ってから「効果を消す」でそろえる)
+	local RECIPES = CAT.FX_RECIPES
+	local function recipeOps(v)
+		local ops = {
+			{ "FireSize", v.fs or 6 }, { "FireColor", v.fc or 1 }, { "SmokeColor", v.sm or 1 }, { "ConfettiColor", v.cc or 1 },
+			{ "SparkleRate", v.sr or 25 }, { "SparkleSize", v.ss or 0.35 },
+			{ "FxClear", true },
+			{ "FxAmount", v.mul or 1 }, { "FxSize", v.size or 1 }, { "FxSpeed", v.speed or 1 },
+		}
+		if v.tint then ops[#ops + 1] = { "FxColor", v.tint } else ops[#ops + 1] = { "FxColorClear", true } end
+		for _, id in ipairs(v.fx or {}) do
+			local kind = FXKIND[id]
+			if kind then ops[#ops + 1] = { kind, true } end
+		end
+		return ops
+	end
+	e:title("効果のレシピ " .. #RECIPES .. "種 (押すだけで、効果が一式で変わる)")
+	recInfo = UIs.infoRow(e, isMobile and 44 or 32, "レシピを押すと、ここに説明が出ます。")
+	local rec = UIs.lazyMarks()
+	local recCols = isMobile and 2 or 3
+	local recRow = e:row(gridHeight(#RECIPES, recCols, 48, 8))
+	grid(recRow, isMobile and 124 or 154, 48, 8, 8)
+	UIs.addLazy(6, function()
+		UIs.slice(#RECIPES, isMobile and 6 or 9, function(i)
+			local r = RECIPES[i]
+			local b = UIs.card(recRow, i, 48, r[1], r[2], r[3], false)
+			rec.add(i, b)
+			b.MouseButton1Click:Connect(function()
+				if rec.sel == i then   -- もう一度押した = 効果をぜんぶ消す
+					rec.mark(0)
+					recInfo("レシピをやめました。")
+					if sendBatch(recipeOps({})) then Lib.notif(gui, r[1] .. " をやめました", 1.4) end
+				else
+					rec.mark(i)
+					recInfo(r[1] .. " — " .. (r[5] or ""))
+					if sendBatch(recipeOps(r[4])) then
+						rec.mark(i)
+						Lib.notif(gui, r[1] .. " にしました", 1.4)
+					else
+						rec.mark(0)
+					end
+				end
+			end)
+		end)
+	end)
+
+	-- 効果を選ぶ
+	e:title("効果 " .. #FXL .. "種 (いくつでも同時に出せます)")
+	fxInfo = UIs.infoRow(e, isMobile and 44 or 32, "効果を押すと、ここに説明が出ます。")
+	local fxStateRef
+	setChip, fxStateRef = multiChips(fxLabels, perRow, function(k, on)
+		fxInfo(FXL[k][3] .. " — " .. FXL[k][4])
+		rec.mark(0)
+		send(FXL[k][2], on)
+	end)
+	UIs.btnRow(e, {
+		{ "🎲 ランダムな効果", function()
+			local rnd = math.random
+			local ops = {
+				{ "FxClear", true },
+				{ "FxAmount", 0.8 + rnd() * 1.2 }, { "FxSize", 0.8 + rnd() * 0.9 }, { "FxSpeed", 0.8 + rnd() * 0.8 },
+			}
+			if rnd() < 0.3 then
+				ops[#ops + 1] = { "FxColor", Color3.fromHSV(rnd(), 0.6 + rnd() * 0.4, 1) }
+			else
+				ops[#ops + 1] = { "FxColorClear", true }
+			end
+			local pool = {}
+			for i = 1, #FXL do pool[i] = i end
+			for _ = 1, rnd(1, 3) do
+				local at = rnd(#pool)
+				ops[#ops + 1] = { FXL[pool[at]][2], true }
+				table.remove(pool, at)
+			end
+			rec.mark(0)
+			if sendBatch(ops) then Lib.notif(gui, "ランダムな効果にしました 🎲", 1.4) end
+		end, ACCENT },
+		{ "🚫 効果をぜんぶ消す", function()
+			rec.mark(0)
+			recInfo("効果を消しました。")
+			if sendBatch({ { "FxClear", true } }) then Lib.notif(gui, "効果を消しました", 1.4) end
+		end },
+	})
+
+	-- 全部の効果にきく設定
+	e:title("全部の効果の調整")
+	amountS = e:slider("効果の量", 0.2, 3, function(v, r) sendThrottled("FxAmount", v, r) end, 1, Color3.fromRGB(99, 102, 241), CYAN)
+	sizeS = e:slider("効果の大きさ", 0.3, 3, function(v, r) sendThrottled("FxSize", v, r) end, 1, Color3.fromRGB(99, 102, 241), CYAN)
+	speedS = e:slider("効果の速さ", 0.3, 3, function(v, r) sendThrottled("FxSpeed", v, r) end, 1, Color3.fromRGB(99, 102, 241), CYAN)
+	local TINT = {}
+	for i, t in ipairs(CAT.FX_TINTS) do TINT[i] = { t[2], t[1] } end
+	local tintNote = e:row(isMobile and 44 or 30)
+	local tintLbl = text(tintNote, "効果の色 (全部の効果を、この色にそめます。もう一度押すと元の色)", isMobile and 12 or 13, UDim2.fromOffset(4, 0), UDim2.new(1, -8, 1, 0), nil, SOFT)
+	tintLbl.TextWrapped = true
+	tintMark = UIs.swatches(e, TINT, function(i)
+		send("FxColor", TINT[i][1])
+	end, function()
+		send("FxColorClear", true)
+	end)
+
+	-- 炎
 	e:title("🔥 炎 (板の向きに関係なく、必ず上へ昇ります)")
-	local fireT = e:toggle("炎", function(sv) send("Fire", sv) end, false)
-	local fireSizeS = e:slider("炎の大きさ", 2, 30, function(v, r) fireT:set(true) sendThrottled("FireSize", v, r) end, 6, Color3.fromRGB(120, 40, 10), Color3.fromRGB(255, 190, 60))
-	local fireMark = chipsRow(e, { "通常", "青", "緑", "紫", "ピンク" }, function(i, released)
-		if not released then fireT:set(true) end
+	fireSizeS = e:slider("炎の大きさ", 2, 30, function(v, r) setChip(kindIdx.Fire, true) sendThrottled("FireSize", v, r) end, 6, Color3.fromRGB(120, 40, 10), Color3.fromRGB(255, 190, 60))
+	fireMark = chipsGrid(e, CAT.FIRE_COLORS, isMobile and 5 or 5, function(i)
+		setChip(kindIdx.Fire, true)   -- (炎の色を決めると、サーバー側で炎も出るので、スイッチも合わせる)
 		send("FireColor", i)
 	end, 1, 1)
-	e:title("💨 煙・紙吹雪")
-	local smokeT = e:toggle("煙", function(sv) send("Smoke", sv) end, false)
-	local confT = e:toggle("紙吹雪", function(sv) send("Confetti", sv) end, false)
-	e:title("🌸 ふわふわ")
-	local snowT = e:toggle("❄️ 雪", function(sv) send("Snow", sv) end, false)
-	local sakuraT = e:toggle("🌸 桜", function(sv) send("Sakura", sv) end, false)
-	local fireflyT = e:toggle("✨ ほたる", function(sv) send("Firefly", sv) end, false)
-	local bubbleT = e:toggle("🫧 あわ", function(sv) send("Bubbles", sv) end, false)
-	local emberT = e:toggle("🔥 火の粉", function(sv) send("Embers", sv) end, false)
-	local amountS = e:slider("効果の量 (全部)", 0.2, 3, function(v, r) sendThrottled("FxAmount", v, r) end, 1, Color3.fromRGB(99, 102, 241), CYAN)
+	-- 煙・紙吹雪
+	e:title("💨 煙の色")
+	smokeMark = chipsGrid(e, CAT.SMOKE_COLORS, isMobile and 4 or 7, function(i)
+		setChip(kindIdx.Smoke, true)
+		send("SmokeColor", i)
+	end, 1, 1)
+	e:title("🎊 紙吹雪の色")
+	confMark = chipsGrid(e, CAT.CONF_COLORS, isMobile and 3 or 6, function(i)
+		setChip(kindIdx.Confetti, true)
+		send("ConfettiColor", i)
+	end, 1, 1)
+	-- キラキラ
+	e:title("✨ キラキラ")
+	spRateS = e:slider("キラキラの量", 1, 120, function(v, r) setChip(kindIdx.Sparkle, true) sendThrottled("SparkleRate", v, r) end, 25, Color3.fromRGB(99, 102, 241), CYAN)
+	spSizeS = e:slider("キラキラの大きさ", 0.05, 2, function(v, r) setChip(kindIdx.Sparkle, true) sendThrottled("SparkleSize", v, r) end, 0.35, Color3.fromRGB(99, 102, 241), CYAN)
+
+	-- レインボー
+	e:title("🌈 レインボー (なめらかに動きます)")
+	rt = e:toggle("レインボー", function(sv) send("Rainbow", sv) end, false)
+	UIs.rbT = rt
+	rbSpeedS = e:slider("虹の速さ", 0.02, 1, function(v, r) rt:set(true) sendThrottled("RainbowSpeed", v, r) end, 0.15)
+	rbSatS = e:slider("鮮やかさ", 0, 1, function(v, r) sendThrottled("RainbowSat", v, r) end, 0.85, WHITE, PINK)
+	rbSpreadS = e:slider("虹の波", 0, 1, function(v, r) rt:set(true) sendThrottled("RainbowSpread", v, r) end, 0, Color3.fromRGB(99, 102, 241), PINK)
+
+	-- まとめて送った時 (レシピ・おまかせ・プリセット) に、画面の表示を合わせる
+	local S = UIs.set
+	for i, f in ipairs(FXL) do
+		local k = i
+		S[f[2]] = function(v) setChip(k, v == true) end
+	end
+	S.FxClear = function()
+		for i = 1, #FXL do setChip(i, false) end
+	end
+	S.FxAmount = function(v) amountS:set(v) end
+	S.FxSize = function(v) sizeS:set(v) end
+	S.FxSpeed = function(v) speedS:set(v) end
+	S.FxColor = function(c)
+		if typeof(c) ~= "Color3" then return end
+		local hit = 0
+		for i, t in ipairs(TINT) do
+			local y = t[1]
+			if math.abs(y.R - c.R) + math.abs(y.G - c.G) + math.abs(y.B - c.B) < 0.01 then hit = i break end
+		end
+		tintMark.mark(hit)
+	end
+	S.FxColorClear = function() tintMark.mark(0) end
+	S.FireSize = function(v) fireSizeS:set(v) end
+	S.FireColor = function(v) fireMark(math.clamp(math.floor((tonumber(v) or 1) + 0.5), 1, #CAT.FIRE_COLORS)) end
+	S.SmokeColor = function(v) smokeMark(math.clamp(math.floor((tonumber(v) or 1) + 0.5), 1, #CAT.SMOKE_COLORS)) end
+	S.ConfettiColor = function(v) confMark(math.clamp(math.floor((tonumber(v) or 1) + 0.5), 1, #CAT.CONF_COLORS)) end
+	S.SparkleRate = function(v) spRateS:set(v) end
+	S.SparkleSize = function(v) spSizeS:set(v) end
+	S.Rainbow = function(v) rt:set(v == true) end
+	S.RainbowSpeed = function(v) rbSpeedS:set(v) end
+	S.RainbowSat = function(v) rbSatS:set(v) end
+	S.RainbowSpread = function(v) rbSpreadS:set(v) end
+
 	onResettable(function()
+		for i = 1, #FXL do setChip(i, false) end
+		amountS:set(1) sizeS:set(1) speedS:set(1)
+		tintMark.mark(0)
+		fireSizeS:set(6) fireMark(1) smokeMark(1) confMark(1)
+		spRateS:set(25) spSizeS:set(0.35)
 		rt:set(false) rbSpeedS:set(0.15) rbSatS:set(0.85) rbSpreadS:set(0)
-		st_:set(false) spRateS:set(25) spSizeS:set(0.35)
-		fireT:set(false) fireSizeS:set(6) fireMark(1) smokeT:set(false) confT:set(false)
-		snowT:set(false) sakuraT:set(false) fireflyT:set(false) bubbleT:set(false) emberT:set(false) amountS:set(1)
+		rec.mark(0)
+		recInfo("レシピを押すと、ここに説明が出ます。")
+		fxInfo("効果を押すと、ここに説明が出ます。")
 	end)
+end)()
 end
 
 -- 「選んだボタンの印」を、板に送った操作に合わせて付け外しする (どのボタンから送っても、同じ決まりで動く)
@@ -8839,8 +11118,10 @@ do
 				clr("swatch", "gradp")
 			end
 		elseif kind == "Preset" then
-			userCol = true
-			clr("swatch", "gradp", "look")
+			if not (type(value) == "table" and value.part == "fx") then   -- 「光と効果だけ」は、色や素材にさわらない
+				userCol = true
+				clr("swatch", "gradp", "look")
+			end
 		elseif kind == "LookRaw" or (kind == "Look" and not userCol) then
 			userCol = false
 			clr("swatch", "gradp", "preset")
@@ -8922,39 +11203,12 @@ do
 		ANIMCFG.sheenFar = animOn.noSheen and 0 or (animOn.eco and 60 or animDef.sheenFar)
 		ANIMCFG.flowFace = (not animOn.still) and animDef.flowFace or false
 	end
-	local ecoT = e:toggle("流れ・光の更新を控えめに", function(sv) animOn.eco = sv applyAnimCfg() UIs.touch("opt") end, false)
-	local stillT = e:toggle("流れる色を止める (いちばん軽い)", function(sv) animOn.still = sv applyAnimCfg() UIs.touch("opt") end, false)
-	local sheenT = e:toggle("光の帯を止める", function(sv) animOn.noSheen = sv applyAnimCfg() UIs.touch("opt") end, false)
+	e:toggle("流れ・光の更新を控えめに", function(sv) animOn.eco = sv applyAnimCfg() end, false)
+	e:toggle("流れる色を止める (いちばん軽い)", function(sv) animOn.still = sv applyAnimCfg() end, false)
+	e:toggle("光の帯を止める", function(sv) animOn.noSheen = sv applyAnimCfg() end, false)
 	local tip2 = e:row(isMobile and 92 or 60)
 	local tip2Lbl = text(tip2, "「控えめに」は、遠い板や数の多い板の流れ・光の更新を減らします。「流れる色を止める」は、流れる色が止まって見えます (板は元のまま)。", isMobile and 12 or 13, UDim2.fromOffset(4, 0), UDim2.new(1, -8, 1, 0), nil, SOFT)
 	tip2Lbl.TextWrapped = true
-
-	-- GitHub保存用: 選んでいる項目の取り出し / 保存してあった選択の反映 (画面のスイッチも合わせる。反映した分は、順番に1個ずつ実行される)
-	UIs.optIO = {
-		get = function()
-			local items = {}
-			for _, key in ipairs(Opt.ORDER) do
-				if Opt.isWanted(key) then items[#items + 1] = key end
-			end
-			return { items = items, eco = animOn.eco, still = animOn.still, noSheen = animOn.noSheen }
-		end,
-		set = function(t)
-			local want = {}
-			if type(t.items) == "table" then
-				for _, key in ipairs(t.items) do
-					if type(key) == "string" and Opt.LABEL[key] then want[key] = true end
-				end
-			end
-			for _, key in ipairs(Opt.ORDER) do
-				local w = want[key] == true
-				togs[key]:set(w)
-				if Opt.isWanted(key) ~= w then Opt.set(key, w) end
-			end
-			animOn.eco, animOn.still, animOn.noSheen = (t.eco == true), (t.still == true), (t.noSheen == true)
-			ecoT:set(animOn.eco) stillT:set(animOn.still) sheenT:set(animOn.noSheen)
-			applyAnimCfg()
-		end,
-	}
 end
 
 -- 9: UI設定 (「その他」タブの中の3つめ)
@@ -8964,17 +11218,14 @@ do
 	local alphaS = e:slider("透明度", 0, 0.6, function(v)
 		uiCfg.alpha = v
 		if isOpen then win.GroupTransparency = v end
-		UIs.touch("ui")
 	end, 0)
 	local bgAlphaS = e:slider("背景透け", 0, 0.85, function(v)
 		uiCfg.bgAlpha = v
 		bg.BackgroundTransparency = v
-		UIs.touch("ui")
 	end, 0)
 	-- 大きさは、動かしている最中に画面が拡大縮小すると操作しにくいので、離した時に反映する
 	local sizeS = e:slider("大きさ", 0.6, 1.4, function(v, released)
 		uiCfg.size = v
-		UIs.touch("ui")
 		if released and isOpen then
 			fit()
 			Lib.tween(winScale, { Scale = fitScale }, 0.35)
@@ -9020,23 +11271,21 @@ do
 		Lib.juice(b)
 		b.MouseButton1Click:Connect(function() applyStyle(i) end)
 	end
-	local amountS = e:slider("量", 0, 1, function(v) UIFX.setAmount(v) UIs.touch("ui") end, 0.6, Color3.fromRGB(99, 102, 241), CYAN)
-	local speedS = e:slider("速さ", 0.3, 2.5, function(v) UIFX.setSpeed(v) UIs.touch("ui") end, 1, Color3.fromRGB(99, 102, 241), CYAN)
+	local amountS = e:slider("量", 0, 1, function(v) UIFX.setAmount(v) end, 0.6, Color3.fromRGB(99, 102, 241), CYAN)
+	local speedS = e:slider("速さ", 0.3, 2.5, function(v) UIFX.setSpeed(v) end, 1, Color3.fromRGB(99, 102, 241), CYAN)
 
 	e:title("動き")
 	local blobT = e:toggle("ふわふわ光", function(s)
 		blobEnabled = s
 		blobsOn(isOpen)
-		UIs.touch("ui")
 	end, true)
 	local spinT = e:toggle("回転アニメ", function(s)
 		spinOn = s
 		for k, t in ipairs(spinTw) do
 			if not s then t:Pause() elseif k == 1 or isOpen then t:Play() end   -- (タイトルの回転は、窓が開いている間だけ)
 		end
-		UIs.touch("ui")
 	end, true)
-	local juiceT = e:toggle("ぽよぽよ拡大", function(s) Lib.juiceOn = s UIs.touch("ui") end, true)
+	local juiceT = e:toggle("ぽよぽよ拡大", function(s) Lib.juiceOn = s end, true)
 
 	e:button("UI設定を初期に戻す", function() resetUISettings() end)
 
@@ -9063,7 +11312,6 @@ do
 		end
 		juiceT:set(true) Lib.juiceOn = true
 		blobsOn(isOpen)
-		UIs.touch("ui")
 	end
 
 	-- 選択中のテーマ色・背景スタイルに枠をつける
@@ -9088,7 +11336,6 @@ do
 		end
 		Lib.setAccent(a, b)
 		mark()
-		UIs.touch("ui")
 	end
 	applyStyle = function(i)
 		styleIdx = i
@@ -9119,123 +11366,8 @@ do
 		blobsOn(isOpen)
 		UIFX.setStyle(st.fx)
 		mark()
-		UIs.touch("ui")
 	end
 	mark()
-	-- GitHub保存用: UI設定の取り出し / 保存してあった値の反映 (形と範囲を確かめた値だけ使う。足りない項目は、いまのまま)
-	UIs.uiIO = {
-		get = function()
-			return {
-				alpha = uiCfg.alpha, bgAlpha = uiCfg.bgAlpha, size = uiCfg.size,
-				accent = accIdx, hue = hueS:get(), style = styleIdx,
-				amount = amountS:get(), speed = speedS:get(),
-				blobs = blobT:get(), spin = spinT:get(), juice = juiceT:get(),
-			}
-		end,
-		set = function(t)
-			local function num(v, lo, hi)
-				if type(v) ~= "number" or v ~= v then return nil end
-				return math.clamp(v, lo, hi)
-			end
-			local v = num(t.alpha, 0, 0.6)
-			if v then
-				uiCfg.alpha = v
-				alphaS:set(v)
-				if isOpen then win.GroupTransparency = v end
-			end
-			v = num(t.bgAlpha, 0, 0.85)
-			if v then
-				uiCfg.bgAlpha = v
-				bgAlphaS:set(v)
-				bg.BackgroundTransparency = v
-			end
-			v = num(t.size, 0.6, 1.4)
-			if v then
-				uiCfg.size = v
-				sizeS:set(v)
-				if isOpen then
-					fit()
-					Lib.tween(winScale, { Scale = fitScale }, 0.35)
-				end
-			end
-			local hue = num(t.hue, 0, 1)
-			if hue then hueS:set(hue) end
-			local ai = num(t.accent, 0, #ACCENTS)
-			if ai then
-				ai = math.floor(ai)
-				if ai > 0 then
-					applyAccent(ai)
-				else
-					local h = hue or 0.58
-					applyAccent(0, Color3.fromHSV(h, 0.55, 1), Color3.fromHSV((h + 0.12) % 1, 0.6, 1))
-				end
-			end
-			local si = num(t.style, 1, #STYLES)
-			if si then applyStyle(math.floor(si)) end
-			v = num(t.amount, 0, 1)
-			if v then amountS:set(v) UIFX.setAmount(v) end
-			v = num(t.speed, 0.3, 2.5)
-			if v then speedS:set(v) UIFX.setSpeed(v) end
-			if type(t.blobs) == "boolean" then
-				blobT:set(t.blobs)
-				blobEnabled = t.blobs
-				blobsOn(isOpen)
-			end
-			if type(t.spin) == "boolean" then
-				spinT:set(t.spin)
-				spinOn = t.spin
-				for k, tw in ipairs(spinTw) do
-					if not t.spin then tw:Pause() elseif k == 1 or isOpen then tw:Play() end
-				end
-			end
-			if type(t.juice) == "boolean" then
-				juiceT:set(t.juice)
-				Lib.juiceOn = t.juice
-			end
-		end,
-	}
-
-	-- ☁ GitHub保存の欄 (設定だけを、自分の GitHub に自動で保存して、次に起動した時にそのまま反映する。動き本体は、後ろの GitHub保存 の部分が受け持つ)
-	e:title("☁ GitHub保存 (設定だけ・自動)")
-	do
-		local KCOL = {
-			off = Color3.fromRGB(148, 163, 184), wait = Color3.fromRGB(250, 204, 21), load = Color3.fromRGB(250, 204, 21),
-			save = Color3.fromRGB(56, 189, 248), ok = Color3.fromRGB(52, 211, 153), err = Color3.fromRGB(244, 63, 94),
-		}
-		local box = e:glass(isMobile and 96 or 72)
-		local dot = mk("Frame", { BackgroundColor3 = KCOL.off, BorderSizePixel = 0, Position = UDim2.fromOffset(12, 14), Size = UDim2.fromOffset(12, 12) }, box)
-		corner(dot, 6)
-		local lbl = text(box, "準備中…", isMobile and 13 or 14, UDim2.fromOffset(32, 6), UDim2.new(1, -44, 1, -12))
-		lbl.TextWrapped = true
-		lbl.TextYAlignment = Enum.TextYAlignment.Top
-		local autoT
-		UIs.cloudUI = {
-			status = function(txt, kind)
-				lbl.Text = txt
-				dot.BackgroundColor3 = KCOL[kind] or KCOL.off
-			end,
-			setAuto = function(v) autoT:set(v) end,
-		}
-		autoT = e:toggle("自動で保存する", function(sv) if UIs.cloud then UIs.cloud.setAuto(sv) end end, true)
-		e:button("💾 いま保存する", function() if UIs.cloud then UIs.cloud.saveNow() end end)
-		local armedAt = 0
-		e:button("⬇ GitHubの保存を読み直して反映", function()
-			if not UIs.cloud then return end
-			if os.clock() - armedAt < 3 then
-				armedAt = 0
-				UIs.cloud.reload()
-			else
-				armedAt = os.clock()
-				Lib.notif(gui, "もう一度押すと、いまの設定を GitHub の保存で置きかえます", 2.4)
-			end
-		end)
-		local repoName = (type(GITHUB) == "table" and tostring(GITHUB.repo or "") ~= "") and tostring(GITHUB.repo) or nil
-		local where = repoName and (repoName .. " の " .. ((GITHUB.folder or "") ~= "" and (tostring(GITHUB.folder) .. "/") or "") .. lp.Name .. ".json") or "(まだ未設定)"
-		local tip = e:row(isMobile and 190 or 118)
-		local tipLbl = text(tip, "保存するのは設定だけ (永久保存の見た目・プリセット・UI設定・軽量化の選択)。変えてから数秒で自動で保存され、次に起動した時に、そのまま反映されます。\n保存先: " .. where .. "\n使うには、このファイルの先頭の GITHUB に repo を書き、サーバー側にトークンを置きます (ファイルの先頭の説明を見てね)。", isMobile and 12 or 13, UDim2.fromOffset(4, 0), UDim2.new(1, -8, 1, 0), nil, SOFT)
-		tipLbl.TextWrapped = true
-		tipLbl.TextYAlignment = Enum.TextYAlignment.Top
-	end
 end
 
 -- ページ切り替え
@@ -9338,6 +11470,7 @@ local function showTab(i)
 	curTab = i
 	local want = tabs[i][3]
 	for _, j in ipairs(PAGE_TABS) do pages[j].Visible = (j == want) end
+	if want > 0 then UIs.runLazy(want) end   -- 数の多い一覧は、そのページを初めて開いた時に少しずつ作る
 	navBar.Visible = (i == OTHER)
 	showSub(curSub)
 	if want > 0 and changed then
@@ -9440,13 +11573,12 @@ saveBtn.MouseButton1Click:Connect(function()
 	Lib.notif(gui, "保存しました ✔", 1.6)
 end)
 
--- 永久保存の「保存する / 解除する」。📌ボタンと、GitHubからの復元で、同じ処理を使う
-UIs.permIO = {
-	get = function() return permanentOps end,   -- (読むだけに使う)
-	release = function()
+permBtn.MouseButton1Click:Connect(function()
+	if permanentOps then   -- 保存中にもう一度押すと解除
 		permanentOps = nil
 		permServer = false
 		updatePerm()
+		Lib.notif(gui, "永久保存を解除しました (これから出す板には反映しません)", 2.2)
 		local pr = RS:FindFirstChild("PalletStudioPerm_v3")
 		if pr then   -- サーバーに預けていた分も、確実に解除する (失敗したら少し待って、もう一度)
 			task.spawn(function()
@@ -9457,34 +11589,6 @@ UIs.permIO = {
 				end
 			end)
 		end
-	end,
-	hold = function(copy, toBoards)
-		permanentOps = copy
-		permServer = false
-		updatePerm()
-		-- サーバーに預けておくと、板が出たのと同じ瞬間にサーバーが付けてくれる (ここから送り直すより速い)。預けられるまでは、この画面から送る
-		local pr = RS:FindFirstChild("PalletStudioPerm_v3")
-		if pr then
-			task.spawn(function()
-				local ok, res = pcall(function() return pr:InvokeServer(copy) end)
-				if ok and res == "saved" and permanentOps == copy then permServer = true end
-			end)
-		end
-		if toBoards then   -- いま出ている板にも付ける (起動時の復元用。これから出る板には、上の仕組みが付ける)
-			for _, m in ipairs(myPallets()) do
-				local ops = {}
-				for k, op in ipairs(copy) do ops[k] = { op[1], op[2] } end
-				sendMany(m, ops, true)
-			end
-		end
-	end,
-}
-
-permBtn.MouseButton1Click:Connect(function()
-	if permanentOps then   -- 保存中にもう一度押すと解除
-		UIs.permIO.release()
-		UIs.touch("perm")
-		Lib.notif(gui, "永久保存を解除しました (これから出す板には反映しません)", 2.2)
 		return
 	end
 	if UIs.pv.model then   -- プレビュー中のプレビューの板は、本物の板ではないので、永久保存にはできない
@@ -9499,9 +11603,18 @@ permBtn.MouseButton1Click:Connect(function()
 	end
 	local copy = {}
 	for k, op in ipairs(r) do copy[k] = { op[1], op[2] } end
-	UIs.permIO.hold(copy)
-	UIs.touch("perm")
+	permanentOps = copy
+	permServer = false
+	updatePerm()
 	Lib.notif(gui, "永久保存しました 📌 これから出す板に自動で反映します (もう一度押すと解除)", 2.6)
+	-- サーバーに預けておくと、板が出たのと同じ瞬間にサーバーが付けてくれる (ここから送り直すより速い)。預けられるまでは、この画面から送る
+	local pr = RS:FindFirstChild("PalletStudioPerm_v3")
+	if pr then
+		task.spawn(function()
+			local ok, res = pcall(function() return pr:InvokeServer(copy) end)
+			if ok and res == "saved" and permanentOps == copy then permServer = true end
+		end)
+	end
 end)
 
 ringGrad.Rotation = 0
@@ -9579,6 +11692,353 @@ local HELP_DATA = (function()
 -- ヘルプの中身 (ページごとの説明 → 機能ひとつずつの説明)
 -- { id, icon, name, sum(一覧に出る短い説明), intro = { 段落, ... }, groups = { { 見出し, { { 名前, 説明 }, ... } }, ... } }
 -- 「その他」(視野・軽量化・UI設定) は、ヘルプに入れない。
+local CAT = ENG.CAT
+-- ヘルプの「素材・プリセット・質感・光・効果」の5ページは、画面と同じ一覧データ (ENG.CAT) から作る (数が多いので、手で書かない)。
+-- 並べかたは help_data.lua と同じ { id, icon, name, sum, intro, groups }。groups の { 見出し, { {名前, 説明}, ... }, 個数, 一覧の要約 } は、個数と要約を足せる。
+-- 名前が "" の項目は、名前を出さずに説明だけを出す (名前と説明を1行ずつ並べる長い一覧用)。
+local HP = {}
+local function lineOf(m, labelOf) return (labelOf and labelOf(m) or m.label) .. " — " .. m.desc end
+local function lines(list, labelOf)
+	local out = {}
+	for _, m in ipairs(list) do out[#out + 1] = lineOf(m, labelOf) end
+	return table.concat(out, "\n")
+end
+local function ofCat(list, key)   -- いちばん最初の分類の文字が key のもの
+	local r = {}
+	for _, m in ipairs(list) do
+		if string.sub(m.cats, 1, 1) == key then r[#r + 1] = m end
+	end
+	return r
+end
+local function sample(list, k, labelOf)   -- 一覧のはじめの数個の名前 (グループの要約に使う)
+	local out = {}
+	for i = 1, math.min(k, #list) do out[i] = labelOf and labelOf(list[i]) or list[i].label end
+	return table.concat(out, "・") .. (#list > k and " ほか" or "")
+end
+local function pairLines(names, descs)   -- 名前の配列と説明の配列を、1行ずつの文にする
+	local out = {}
+	for i, nm in ipairs(names) do out[#out + 1] = nm .. " — " .. (descs[i] or "") end
+	return table.concat(out, "\n")
+end
+local function itemsOf(names, descs)   -- 名前の配列と説明の配列を、項目の並びにする
+	local out = {}
+	for i, nm in ipairs(names) do out[i] = { nm, descs[i] or "" } end
+	return out
+end
+
+---------------------------------------------------------------------
+-- 素材
+---------------------------------------------------------------------
+function HP.material()
+	local mats = {}
+	for _, m in ipairs(CAT.MATS) do
+		if LOOKS[m.id] then mats[#mats + 1] = m end
+	end
+	local n = #mats
+	local groups = {
+		{ "素材の入れ方", {
+			{ "🎨 色は残す", "自分で決めた色・グラデーションはそのままで、素材と質感だけ変わります。色をまだ決めていない板は、素材の色になります。" },
+			{ "🧱 素材の色に", "素材ごとの色・質感・光にします。いまの色・グラデーションは消えます。" },
+			{ "🔒 素材だけ", "色も光もそのままで、素材の模様と質感だけ変わります。" },
+		} },
+		{ "さがす・えらぶ", {
+			{ "🔎 名前でさがす", "名前・英語の名前・説明の中の文字で、素材をしぼりこみます。文字を消す (✕) と、ぜんぶ戻ります。" },
+			{ "すべて", "ぜんぶの素材を出します。" },
+			{ "★ お気に入り", "「☆ お気に入りに入れる」で入れた素材だけを出します。お気に入りは、この画面を閉じるまでの間だけ覚えます。" },
+			{ "🕒 最近", "最近つかった素材を、新しい順に出します。この画面を閉じるまでの間だけ覚えます。" },
+			{ "表示 " .. n .. " / " .. n .. "種", "いま出ている素材の数 / ぜんぶの数です。さがすと、数が減ります。" },
+			{ "🎲 ランダムな素材 (出ている中から)", "いま出ている素材の中から、ランダムに1つ選んで付けます。分類をしぼると、その中から選びます。" },
+			{ "☆ お気に入りに入れる", "選んでいる素材を、お気に入りに入れます。入れたあとは「★ お気に入りから外す」に変わり、押すと外せます。" },
+		} },
+	}
+	for _, c in ipairs(CAT.MAT_CATS) do
+		local list = ofCat(mats, c[1])
+		if #list > 0 then
+			groups[#groups + 1] = { c[2], { { "", lines(list) } }, #list, sample(list, 6) }
+		end
+	end
+	groups[#groups + 1] = { "素材 " .. n .. "種 (押すとその素材の見た目になる)", {
+		{ "分類ボタン", "上の分類 (" .. table.concat((function() local t = {} for i, c in ipairs(CAT.MAT_CATS) do t[i] = c[2] end return t end)(), "・") .. ") は、その分類の素材だけを出します。ひとつの素材が、いくつかの分類に入ることもあります (下の一覧は、いちばんの分類ごとに並べています)。光っている素材をもう一度押すと、その素材をやめます。" },
+	} }
+	local two = {}
+	for i, t in ipairs(CAT.TWO_MODES) do two[i] = { t[2], t[3] } end
+	local ntwo = 0
+	for _, id in ipairs(CAT.TWO_MATS) do
+		if LOOKS[id] then ntwo = ntwo + 1 end
+	end
+	local twoItems = {}
+	for i, t in ipairs(CAT.TWO_MODES) do twoItems[i] = { t[2], t[3] } end
+	twoItems[#twoItems + 1] = { "その素材の色", "別の素材にした部分を、その素材らしい色にします。" }
+	twoItems[#twoItems + 1] = { "今の色のまま", "別の素材にした部分も、いまの色のままにします。" }
+	twoItems[#twoItems + 1] = { "↓ 素材を押すと、選んだ部分だけ変わります (" .. #CAT.TWO_MATS .. "種)", "ツートンの素材のボタンの上に出る見出しです。部分を決めてから、下の素材を押すと、選んだ部分だけが、その素材になります。同じ素材をもう一度押すと、ツートンをやめます。" }
+	twoItems[#twoItems + 1] = { "ツートンをやめる (ぜんぶ同じ素材に戻す)", "ツートンをやめて、ぜんぶ同じ素材に戻します。" }
+	groups[#groups + 1] = { "ツートン (板の一部だけ別の素材に)", twoItems }
+	return { id = "material", icon = "🧱", name = "素材", sum = "素材" .. n .. "種・検索・ツートン" .. #CAT.TWO_MODES .. "種",
+		intro = {
+			"板の素材 (木・金属・ガラス・石・宝石・布・光る素材など" .. n .. "種) を変えるページです。押すと、素材の模様・質感・反射が変わります。",
+			"押した素材のボタンは光ります。もう一度押すと、その素材をやめて元に戻ります。数が多いので、「🔎 名前でさがす」と分類で、しぼりこめます。",
+			"「☆ お気に入りに入れる」と「🕒 最近」は、この画面を閉じるまでの間だけ覚えます (保存はしません)。",
+		},
+		groups = groups }
+end
+
+---------------------------------------------------------------------
+-- プリセット
+---------------------------------------------------------------------
+function HP.preset()
+	local PR = ENG.PRESETS
+	local list = {}
+	for _, p in ipairs(CAT.PRESETS) do
+		if PR[p.id] then list[#list + 1] = { id = p.id, label = (PR[p.id].Full and "✨ " or "") .. p.label, cats = p.cats, desc = p.desc } end
+	end
+	local n = #list
+	local groups = {
+		{ "かんたん", {
+			{ "🎲 おまかせスタイル (ぜんぶランダム)", "色・素材・ツヤ・光・効果を、ランダムにぜんぶ決めて付けます。気に入らなければ、もう一度押すと別のスタイルになります。" },
+			{ "📋 この板の見た目を、ほかの全部の板にコピー", "選んでいる板の見た目を、出ているほかの板ぜんぶにコピーします。先に、この板の色や素材を変えておいてください。" },
+			{ "全部の板に同時に反映 (いまからの操作)", "ONにすると、これからの操作 (色・素材・プリセット・光・効果など) が、出ている全部の板に同じように入ります。OFFで、選んでいる板だけに戻ります。" },
+		} },
+		{ "プリセットの入れ方", {
+			{ "🎁 ぜんぶ", "色・素材・ツヤ・光・動き・効果を、まるごと入れかえます。" },
+			{ "🎨 見た目だけ", "色・素材・ツヤ・経年だけを入れかえます。いまの光・動き・効果は、そのまま残ります。" },
+			{ "💡 光と効果だけ", "光・明滅・縁取り・効果だけを入れます。いまの色・素材は、そのまま残ります。" },
+			{ "色違い (色相)", "選んでいるプリセットの色を、ぐるっとずらした色違いにします。スライダーを離した時に、入れなおします。0に戻すと元の色です。" },
+		} },
+		{ "さがす・えらぶ", {
+			{ "🔎 名前でさがす", "名前や説明の中の文字で、プリセットをしぼりこみます。文字を消す (✕) と、ぜんぶ戻ります。" },
+			{ "すべて", "ぜんぶのプリセットを出します。" },
+			{ "★ お気に入り", "「☆ お気に入りに入れる」で入れたプリセットだけを出します。この画面を閉じるまでの間だけ覚えます。" },
+			{ "🕒 最近", "最近つかったプリセットを、新しい順に出します。この画面を閉じるまでの間だけ覚えます。" },
+			{ "✨ 一式", "「見た目一式」のプリセットだけを出します。" },
+			{ "🎨 基本", "「基本」のプリセットだけを出します。" },
+			{ "表示 " .. n .. " / " .. n .. "種", "いま出ているプリセットの数 / ぜんぶの数です。" },
+			{ "◀ 前へ", "出ているプリセットの、ひとつ前のものを入れます。" },
+			{ "次へ ▶", "出ているプリセットの、ひとつ次のものを入れます。" },
+			{ "🎲 ランダム", "出ているプリセットの中から、ランダムに1つ入れます。" },
+			{ "☆ お気に入りに入れる", "選んでいるプリセットを、お気に入りに入れます。入れたあとは「★ お気に入りから外す」に変わります。" },
+		} },
+	}
+	local nFull = 0
+	for _, m in ipairs(list) do
+		if string.sub(m.label, 1, 3) == "✨" then nFull = nFull + 1 end
+	end
+	local catItems = {}
+	for _, c in ipairs(CAT.PRESET_CATS) do
+		catItems[#catItems + 1] = { c[2], "この分類のプリセットだけを出します。" }
+	end
+	groups[#groups + 1] = { "プリセット " .. n .. "種 (✨ = 見た目一式)", {
+		{ "✨ ・ 🎨", "✨ がついたものは「見た目一式」(" .. nFull .. "種) で、光・動き・効果までまとめて入ります。ついていないものは「基本」(" .. (n - nFull) .. "種) です。" },
+		table.unpack(catItems),
+	} }
+	for _, c in ipairs(CAT.PRESET_CATS) do
+		local sub = ofCat(list, c[1])
+		if #sub > 0 then groups[#groups + 1] = { c[2], { { "", lines(sub) } }, #sub, sample(sub, 6) } end
+	end
+	local basic = ofCat(list, "b")
+	if #basic > 0 then groups[#groups + 1] = { "🎨 基本のプリセット", { { "", lines(basic) } }, #basic, sample(basic, 6) } end
+	return { id = "preset", icon = "✨", name = "プリセット", sum = "見た目一式" .. nFull .. "種・基本" .. (n - nFull) .. "種・色違い",
+		intro = {
+			"ボタンひとつで、色・素材・光などをまとめて決めるページです。押したプリセットは光ります。もう一度押すと、そのプリセットだけをやめます。",
+			"✨ がついたものは「見た目一式」で、光・動き・効果までまとめて入ります。「プリセットの入れ方」で、見た目だけ / 光と効果だけ、にもできます。「色違い」で、色をずらせます。",
+			"数が多いので、「🔎 名前でさがす」と分類で、しぼりこめます。「全部の板に同時に反映」をONにすると、出ている全部の板に同じ操作が入ります。",
+		},
+		groups = groups }
+end
+
+---------------------------------------------------------------------
+-- 質感
+---------------------------------------------------------------------
+function HP.texture()
+	local sets = CAT.TEX_SETS
+	local setLines = {}
+	for i, st in ipairs(sets) do setLines[i] = st[1] .. " — " .. (st[5] or "") end
+	local setGroups, per = {}, 13
+	for from = 1, #sets, per do
+		local chunk = {}
+		for i = from, math.min(from + per - 1, #sets) do chunk[#chunk + 1] = setLines[i] end
+		setGroups[#setGroups + 1] = { table.concat(chunk, "\n"), from, math.min(from + per - 1, #sets) }
+	end
+	local groups = {
+		{ "質感のセット " .. #sets .. "種 (素材・色はそのまま。押すだけ)", {
+			{ "質感のセット", "ツヤ・映り込み・光の走り・角の輝き・色ムラ・経年を、まとめて決めます。素材・色・木目・透明度にはさわりません。押したセットは光り、もう一度押すと、質感が初期に戻ります。" },
+		} },
+	}
+	for k, g in ipairs(setGroups) do
+		groups[#groups + 1] = { "質感のセット " .. g[2] .. "〜" .. g[3] .. "番", { { "", g[1] } }, g[3] - g[2] + 1, sample((function()
+			local t = {}
+			for i = g[2], g[3] do t[#t + 1] = { label = sets[i][1] } end
+			return t
+		end)(), 5) }
+	end
+	groups[#groups + 1] = { "ランダム・初期に", {
+		{ "🎲 ランダムな質感", "反射・ツヤ・空・光の走り・角の輝き・経年を、ランダムに決めます。" },
+		{ "↺ 質感を初期に (素材・色は残す)", "質感だけを初期の値に戻します。素材と色はそのままです。" },
+	} }
+	groups[#groups + 1] = { "反射・ツヤ (素材や木目はそのまま)", {
+		{ "反射・ツヤ", "右へ動かすほど、ツルツルでテカテカになります。素材・色・木目は変わらず、光の帯と空の映り込みでツヤを出します。" },
+		{ "マット 0%", "反射をなくします。" },
+		{ "ツヤ 35%", "ほどよいツヤにします。" },
+		{ "ミラー 100%", "鏡のようにピカピカにします。" },
+	} }
+	groups[#groups + 1] = { "ツヤの種類 (" .. #CAT.GLOSS .. "種類)", itemsOf(CAT.GLOSS, CAT.GLOSS_DESC) }
+	groups[#groups + 1] = { "ツヤの向き", {
+		{ "横 (X)", "ツヤの光の帯が、横へ走ります。" },
+		{ "高さ (Y)", "ツヤの光の帯が、上下へ走ります。" },
+		{ "奥 (Z)", "ツヤの光の帯が、奥の方向へ走ります。" },
+	} }
+	local skyItems = { { "空のボタン", "ツヤに映り込む空を選びます。昼・夕焼け・夜・ネオン街などで、映り込む色が変わります。" } }
+	for _, nm in ipairs(CAT.SKIES) do skyItems[#skyItems + 1] = { nm, "ツヤに映り込む空を「" .. nm .. "」にします。" } end
+	skyItems[#skyItems + 1] = { "空の映り込みを最大に (この画面だけ)", "ゲームの空の映り込みを、いちばん強くします。この画面だけの設定で、OFFで元に戻ります。" }
+	groups[#groups + 1] = { "映り込む空 (" .. #CAT.SKIES .. "種類)", skyItems }
+	local sheen = { { "光の走り", "板の上を、帯のような光が走ります。右へ動かすほど強くなります。" } }
+	for _, nm in ipairs(CAT.SHEEN_COLS) do sheen[#sheen + 1] = { nm, "光の走りの色を「" .. nm .. "」にします。" } end
+	sheen[#sheen + 1] = { "角の輝き", "板の角が、きらっと光ります。右へ動かすほど強くなります。" }
+	for _, nm in ipairs(CAT.EDGE_COLS) do sheen[#sheen + 1] = { nm, "角の輝きの色を「" .. nm .. "」にします。(「虹」は、角が虹色に光ります)" } end
+	groups[#groups + 1] = { "光が走る・角のきらめき", sheen }
+	local look = {
+		{ "透明度", "板を透けさせます。" },
+		{ "色ムラ", "色にむらをつけて、自然な感じにします。" },
+		{ "経年劣化", "古びた感じを足します。種類は下から選びます。種類を選んだ時に劣化が0なら、自動で少し足します。" },
+	}
+	for i, nm in ipairs(CAT.WEATHER) do look[#look + 1] = { nm, CAT.WEATHER_DESC[i] } end
+	groups[#groups + 1] = { "見た目", look }
+	groups[#groups + 1] = { "テクスチャ", {
+		{ "元の木目テクスチャ", "板がもともと持っている木目を、出す / 消す。素材やプリセットを押すと、素材らしく見えるよう自動で消えます。" },
+	} }
+	return { id = "texture", icon = "💎", name = "質感", sum = "セット" .. #sets .. "種・ツヤ" .. #CAT.GLOSS .. "種・空" .. #CAT.SKIES .. "種・経年" .. #CAT.WEATHER .. "種",
+		intro = {
+			"板の「ツヤ」や「よごれ」を決めるページです。素材や色、木目はそのままで、反射・光の帯・角の輝き・経年などを重ねます。",
+			"「質感のセット」は、押すだけで一式が決まります。押したセットは光り、もう一度押すと、ツヤなどが初期にもどります。ツヤの種類・空・光の色・経年は、1つずつ選べます。",
+		},
+		groups = groups }
+end
+
+---------------------------------------------------------------------
+-- 光
+---------------------------------------------------------------------
+function HP.light()
+	local RC = CAT.LIGHT_RECIPES
+	local groups = {}
+	local head = { "光のレシピ " .. #RC .. "種 (押すだけで、光り方が一式で変わる)", {
+		{ "光のレシピ", "光の強さ・範囲・色・色の動き・明滅・向きを、まとめて決めます。押したレシピは光り、もう一度押すと、光が消えます。縁取りつきのレシピは、縁取りも付きます。" },
+		{ "すべて", "ぜんぶのレシピを出します。" },
+	} }
+	for _, c in ipairs(CAT.LIGHT_CATS) do head[2][#head[2] + 1] = { c[2], "この分類のレシピだけを出します。" } end
+	head[2][#head[2] + 1] = { "🎲 ランダムな光", "光の強さ・色・色の動き・明滅を、ランダムに決めます。(急に強く光る明滅は入れません)" }
+	head[2][#head[2] + 1] = { "💡 光を消す", "光を消して、光り方も初期に戻します。" }
+	groups[1] = head
+	for _, c in ipairs(CAT.LIGHT_CATS) do
+		local sub = {}
+		for _, r in ipairs(RC) do
+			if r[2] == c[1] then sub[#sub + 1] = { label = r[1], desc = r[6] or "" } end
+		end
+		if #sub > 0 then groups[#groups + 1] = { c[2], { { "", lines(sub) } }, #sub, sample(sub, 6) } end
+	end
+	groups[#groups + 1] = { "発光", {
+		{ "発光の強さ", "板が出す光の強さです。0で、光りません。" },
+		{ "発光の範囲", "光がとどく広さです。" },
+		{ "発光の色", "光の色合いです。下の色ボタンで、白や電球色なども選べます。" },
+		{ "色のこさ (0 = 白)", "光の色のこさです。0にすると白に近づきます。" },
+	} }
+	groups[#groups + 1] = { "光の色の動き (" .. #CAT.MODE_NAMES .. "種類)", (function()
+		local t = itemsOf(CAT.MODE_NAMES, CAT.MODE_DESC)
+		t[#t + 1] = { "2つ目の色", "「2色」「炎ゆらぎ」の時の、2つ目の色です。" }
+		t[#t + 1] = { "3つ目の色", "「3色めぐる」の時の、3つ目の色です。" }
+		t[#t + 1] = { "色の速さ", "色が変わる速さです。" }
+		return t
+	end)() }
+	groups[#groups + 1] = { "光り方 (明滅は " .. #CAT.PULSE_NAMES .. "種類。なめらかに動きます)", (function()
+		local t = { { "明滅の速さ", "光の強さが変わる速さです。0で、明滅しません。0のままで型を選んでも、動きません。" },
+			{ "ゆっくり", "明滅の速さを、ゆっくりにします。" }, { "ふつう", "明滅の速さを、ふつうにします。" },
+			{ "はやい", "明滅の速さを、はやくします。" }, { "超はやい", "明滅の速さを、とてもはやくします。" } }
+		for i, nm in ipairs(CAT.PULSE_NAMES) do t[#t + 1] = { nm, CAT.PULSE_DESC[i] } end
+		t[#t + 1] = { "明滅の深さ", "明滅で、どれだけ暗くなるかです。右へ動かすほど、強くへこみます。" }
+		t[#t + 1] = { "板も一緒に明滅 (板の明るさも変わる)", "光だけでなく、板そのものの明るさも一緒に明滅します。" }
+		t[#t + 1] = { "光の波", "板の場所によって、明滅のタイミングをずらします。板も一緒に明滅している時に見えます。上げると、必要な設定が自動で入ります。" }
+		t[#t + 1] = { "夜だけ光る", "ゲームの時刻が夜の間だけ光ります。昼は、なめらかに消えます。" }
+		t[#t + 1] = { "全方向", "光が、まわり全部を照らします。" }
+		t[#t + 1] = { "下を照らす", "光が、下だけを照らします (スポットライト)。" }
+		t[#t + 1] = { "上を照らす", "光が、上だけを照らします。" }
+		t[#t + 1] = { "スポット幅", "「下を照らす」「上を照らす」の時の、光の広がりです。小さいほど細くなります。" }
+		t[#t + 1] = { "ネオン発光 (素材をネオンに)", "板の素材を、ネオンにします。" }
+		return t
+	end)() }
+	groups[#groups + 1] = { "縁取り・オーラ", {
+		{ "縁取り", "板のまわりに、色つきのふちどりを付けます。" },
+		{ "縁取りの色", "ふちどりの色合いです。下の色ボタンで、好きな色も選べます。" },
+		{ "オーラ", "ふちどりの内がわを、ぼんやり光らせます。" },
+		{ "壁の向こうでも縁取りが見える", "壁のうしろにかくれても、ふちどりが見えます。" },
+	} }
+	groups[#groups + 1] = { "影", {
+		{ "板が影を落とす", "板が、地面などに影を落とします。" },
+		{ "光が影を作る (まわりに影が落ちる。少し重くなります)", "板の光が、まわりのものに影を落とします。少し重くなります。" },
+	} }
+	groups[#groups + 1] = { "時刻 (この画面だけ)", {
+		{ "時刻", "ゲームの時刻を、この画面だけで変えます。「夜だけ光る」の確認に便利です。" },
+		{ "🌅 朝", "時刻を朝にします。" }, { "☀️ 昼", "時刻を昼にします。" }, { "🌇 夕方", "時刻を夕方にします。" }, { "🌙 夜", "時刻を夜にします。" },
+		{ "↺ 元の時刻にもどす", "変える前の時刻に戻します。" },
+	} }
+	return { id = "light", icon = "💡", name = "光", sum = "レシピ" .. #RC .. "種・明滅" .. #CAT.PULSE_NAMES .. "種・色の動き" .. #CAT.MODE_NAMES .. "種",
+		intro = {
+			"板を光らせるページです。「光のレシピ」は、押すだけで、光の強さ・色・動き・向きが一式で決まります。押したレシピは光り、もう一度押すと、光が消えます。",
+			"レシピのあとで、強さ・色・色の動き・明滅の型・向き・縁取りを、1つずつ変えられます。光が0の時に、色の動きや明滅を選ぶと、自動で光がつきます。",
+		},
+		groups = groups }
+end
+
+---------------------------------------------------------------------
+-- 効果
+---------------------------------------------------------------------
+function HP.fx()
+	local RC = CAT.FX_RECIPES
+	local FXL = CAT.FX_LIST
+	local groups = {}
+	local rl = {}
+	for _, r in ipairs(RC) do rl[#rl + 1] = { label = r[1], desc = r[5] or "" } end
+	groups[1] = { "効果のレシピ " .. #RC .. "種 (押すだけで、効果が一式で変わる)", {
+		{ "効果のレシピ", "出ている効果をぜんぶ消してから、そのレシピの効果・量・大きさ・速さ・色を一式で入れます。押したレシピは光り、もう一度押すと、効果がぜんぶ消えます。" },
+		{ "", lines(rl) },
+	}, #RC, sample(rl, 6) }
+	local fxItems = {}
+	for i, f in ipairs(FXL) do fxItems[i] = { f[3], f[4] } end
+	groups[#groups + 1] = { "効果 " .. #FXL .. "種 (いくつでも同時に出せます)", fxItems }
+	groups[#groups + 1] = { "ランダム・消す", {
+		{ "🎲 ランダムな効果", "1〜3種類の効果を、ランダムに選んで、量・大きさ・速さ・色もランダムに決めます。" },
+		{ "🚫 効果をぜんぶ消す", "出ている効果を、ぜんぶ消します。" },
+	} }
+	groups[#groups + 1] = { "全部の効果の調整", {
+		{ "効果の量", "全部の効果の、粒の量です。" },
+		{ "効果の大きさ", "全部の効果の、粒の大きさです。" },
+		{ "効果の速さ", "全部の効果の、動く速さです。" },
+		{ "効果の色", "下の色ボタンを押すと、全部の効果が、その色にそまります。光っているボタンをもう一度押すと、元の色に戻ります。" },
+	} }
+	local fire = { { "炎の大きさ", "炎の大きさです。動かすと、炎が出ます。" } }
+	for i, nm in ipairs(CAT.FIRE_COLORS) do fire[#fire + 1] = { nm, "炎の色を「" .. nm .. "」にします。" } end
+	groups[#groups + 1] = { "🔥 炎 (板の向きに関係なく、必ず上へ昇ります)", fire }
+	local smoke = {}
+	for i, nm in ipairs(CAT.SMOKE_COLORS) do smoke[#smoke + 1] = { nm, "煙の色を「" .. nm .. "」にします。" } end
+	groups[#groups + 1] = { "💨 煙の色", smoke }
+	local conf = {}
+	for i, nm in ipairs(CAT.CONF_COLORS) do conf[#conf + 1] = { nm, "紙吹雪の色を「" .. nm .. "」にします。" } end
+	groups[#groups + 1] = { "🎊 紙吹雪の色", conf }
+	groups[#groups + 1] = { "✨ キラキラ", {
+		{ "キラキラの量", "キラキラの粒の量です。" },
+		{ "キラキラの大きさ", "キラキラの粒の大きさです。" },
+	} }
+	groups[#groups + 1] = { "🌈 レインボー (なめらかに動きます)", {
+		{ "レインボー", "板の色が、虹のようにめぐります。色や素材を選ぶと、止まります。" },
+		{ "虹の速さ", "虹がめぐる速さです。" },
+		{ "鮮やかさ", "虹の色のこさです。" },
+		{ "虹の波", "板の場所によって、虹の色をずらします。" },
+	} }
+	return { id = "fx", icon = "🌈", name = "効果", sum = "効果" .. #FXL .. "種・レシピ" .. #RC .. "種・色と大きさ",
+		intro = {
+			"炎・雪・桜・雨・電気などの「粒の効果」を、板に出すページです。ボタンを押すと出て、もう一度押すと消えます。いくつでも同時に出せます。",
+			"「効果のレシピ」は、効果・量・大きさ・速さ・色を一式で入れます。「全部の効果の調整」で、量・大きさ・速さ・色をまとめて変えられます。",
+		},
+		groups = groups }
+end
+
 return {
 	{ id = "start", icon = "🔰", name = "はじめに", sum = "基本の使いかたと、画面の見かた",
 		intro = {
@@ -9666,297 +12126,11 @@ return {
 			} },
 		} },
 
-	{ id = "material", icon = "🧱", name = "素材", sum = "素材34種・入れ方・ツートン",
-		intro = {
-			"板の素材 (木・金属・ガラス・石など) を変えるページです。押すと、素材の模様・質感・反射が変わります。",
-			"押した素材のボタンは光ります。もう一度押すと、その素材をやめて元に戻ります。「素材の入れ方」で、色をどうするか選べます。",
-		},
-		groups = {
-			{ "素材の入れ方", {
-				{ "🎨 色は残す", "自分で決めた色・グラデーションはそのままで、素材と質感だけ変わります。色をまだ決めていない板は、素材の色になります。" },
-				{ "🧱 素材の色に", "素材ごとの色・質感・光にします。いまの色・グラデーションは消えます。" },
-				{ "🔒 素材だけ", "色も光もそのままで、素材の模様と質感だけ変わります。" },
-			} },
-			{ "分類 (絞りこみ)", {
-				{ "すべて", "34種類ぜんぶを出します。" },
-				{ "🌲 自然", "木・板木・砂・泥・雪を出します。" },
-				{ "🪨 石・土", "大理石・花崗岩・スレート・コンクリ・レンガ・石畳・玄武岩・小石・石灰岩・砂岩・しっくい・タイルを出します。" },
-				{ "⚙️ 金属", "金属・ダイヤ板・ホイル・さび金属を出します。" },
-				{ "🔮 ガラス・氷", "ガラス・氷・氷河・フォースフィールドを出します。" },
-				{ "🧴 日用品", "プラスチック・つるつる・布・カーペット・革・ゴム・段ボールを出します。" },
-				{ "💡 光る", "ネオン・溶岩・フォースフィールドを出します。" },
-				{ "🎲 ランダムな素材にする", "いま出ている素材の中から、ランダムに1つ選んで付けます。" },
-			} },
-			{ "素材 (押すとその素材の見た目になる)", {
-				{ "プラスチック", "ふつうのプラスチック。ほどよい質感の青い板になります。" },
-				{ "つるつる", "表面がなめらかで、少しだけツヤのある白い板です。" },
-				{ "木", "木目のある茶色い板です。" },
-				{ "板木", "板を並べたような木目の、明るい茶色の板です。" },
-				{ "金属", "グレーの金属で、反射があります。" },
-				{ "ダイヤ板", "ひし形の凹凸がある、鉄板のような素材です。" },
-				{ "ホイル", "アルミホイルのような、ピカピカした銀色です。" },
-				{ "ネオン", "自分で光る素材です。水色に光ります。" },
-				{ "ガラス", "透明感のあるガラスで、反射があります。" },
-				{ "氷", "青白くて半透明の氷です。" },
-				{ "大理石", "白くて、石の模様と少しのツヤがあります。" },
-				{ "花崗岩", "ざらざらした、グレーの石です。" },
-				{ "スレート", "暗い灰色の、平らな石板です。" },
-				{ "コンクリ", "コンクリートの灰色です。" },
-				{ "レンガ", "赤茶色のレンガの模様です。" },
-				{ "石畳", "丸い石を敷き詰めたような模様です。" },
-				{ "砂", "さらさらした砂の色と質感です。" },
-				{ "布", "布のあらい織り目の質感です。" },
-				{ "フォース", "フォースフィールド。うすく光る、バリアのような素材です。" },
-				{ "氷河", "青みのある、厚い氷のような素材です。" },
-				{ "雪", "ふわっとした白い雪です。" },
-				{ "泥", "こげ茶色の泥です。" },
-				{ "ゴム", "黒くてマットな、ゴムの質感です。" },
-				{ "革", "茶色い革の質感です。" },
-				{ "しっくい", "かべのような、ざらっとしたクリーム色です。" },
-				{ "タイル", "つるっとした白いタイルです。" },
-				{ "カーペット", "赤いカーペットの毛足の質感です。" },
-				{ "段ボール", "段ボールの紙の質感です。" },
-				{ "玄武岩", "黒っぽい、火山の石です。" },
-				{ "小石", "小さな石が集まったような質感です。" },
-				{ "石灰岩", "うすいクリーム色の、やわらかな石です。" },
-				{ "砂岩", "黄土色の、砂が固まった石です。" },
-				{ "さび金属", "さびて、茶色くなった金属です。" },
-				{ "溶岩", "ひび割れから、オレンジ色の光がもれる岩です。" },
-			} },
-			{ "ツートン (板の一部だけ別の素材に)", {
-				{ "⬆ 上", "板の上がわのパーツだけを、別の素材にします。" },
-				{ "⬇ 下", "板の下がわのパーツだけを、別の素材にします。" },
-				{ "◀ 前半", "板の前半分のパーツだけを、別の素材にします。" },
-				{ "▶ 後半", "板の後ろ半分のパーツだけを、別の素材にします。" },
-				{ "▥ 1本おき", "パーツを1本おきに、別の素材にします。縞模様のようになります。" },
-				{ "▣ まわり", "板のまわり (ふち) のパーツだけを、別の素材にします。" },
-				{ "🎲 ランダム", "ランダムに選んだパーツを、別の素材にします。" },
-				{ "その素材の色", "別の素材にした部分を、その素材らしい色にします。" },
-				{ "今の色のまま", "別の素材にした部分も、いまの色のままにします。" },
-				{ "↓ 素材を押すと、選んだ部分だけ変わります", "ツートンの素材のボタンの上に出る見出しです。部分を決めてから、下の素材を押すと、選んだ部分だけが、その素材になります。" },
-				{ "ツートンの素材のボタン", "金属・ガラス・ネオン・大理石・ホイル・氷・ゴム・革・レンガ・花崗岩・ダイヤ板・溶岩の12種類です。部分を決めてから素材を押すと、その部分だけ変わります。押した素材をもう一度押すと、ツートンをやめます。" },
-				{ "ツートンをやめる (ぜんぶ同じ素材に戻す)", "ツートンをやめて、ぜんぶ同じ素材に戻します。" },
-			} },
-		} },
-
-	{ id = "preset", icon = "✨", name = "プリセット", sum = "おまかせ・コピー・見た目一式30種",
-		intro = {
-			"ボタンひとつで、色・素材・光などをまとめて決めるページです。押したプリセットは光ります。もう一度押すと、そのプリセットをやめて、つける前の見た目に戻ります。",
-		},
-		groups = {
-			{ "かんたん", {
-				{ "🎲 おまかせスタイル (ぜんぶランダム)", "色・素材・ツヤ・光・効果を、ランダムにぜんぶ決めて付けます。気に入らなければ、もう一度押すと別のスタイルになります。" },
-				{ "📋 この板の見た目を、ほかの全部の板にコピー", "選んでいる板の見た目を、出ているほかの板ぜんぶにコピーします。先に、この板の色や素材を変えておいてください。" },
-			} },
-			{ "✨ 見た目一式 (光・動き・効果つき)", {
-				{ "オーロラ", "緑・青・紫の3色が、ゆっくり流れます。ツヤと、やさしい光つきです。" },
-				{ "ギャラクシー", "濃い紺から紫へ、ゆっくり流れる宇宙の色です。キラキラと、ゆっくりした明滅つきです。" },
-				{ "クローム", "鏡のようにピカピカの、銀色の金属です。" },
-				{ "ホログラム", "半透明で、虹色にゆっくり変わる色です。ツヤと、やさしい明滅つきです。" },
-				{ "溶岩フロー", "赤から黄色へ流れる、燃える溶岩です。炎・火の粉・ゆらぐ光つきです。" },
-				{ "氷結", "つめたい色の氷です。雪が舞います。" },
-				{ "桜吹雪", "うすいピンクの板に、桜の花びらが舞います。" },
-				{ "サイバー", "黒い金属に、水色の光と縁取りがあります。ドクンと明滅します。" },
-				{ "ほたるの夜", "暗い緑の板に、黄緑のほたるが飛びます。ゆらぐ光つきです。" },
-				{ "キャンディツヤ", "ピンクから白へのグラデーションに、強いツヤとキラキラがつきます。" },
-				{ "夕焼け空", "オレンジ・ピンク・紫が、上から下へ重なる夕焼けです。" },
-				{ "海", "深い青から水色へ流れる色です。あわが上がります。" },
-			} },
-			{ "基本のプリセット", {
-				{ "ネオンブルー", "水色に光るネオンです。" },
-				{ "ネオンピンク", "ピンクに光るネオンです。" },
-				{ "ネオングリーン", "緑に光るネオンです。" },
-				{ "サンセット", "オレンジに光るネオンです。" },
-				{ "ゴールド", "金色の金属です。" },
-				{ "シルバー", "銀色の金属です。" },
-				{ "アイス", "青白く、半透明の氷です。" },
-				{ "ガラス", "半透明のガラスです。" },
-				{ "大理石", "白い大理石です。" },
-				{ "ラバ", "オレンジ色に強く光る、溶岩のネオンです。" },
-				{ "黒曜石", "黒く光る、ガラスのような石です。" },
-				{ "キャンディ", "ピンクの、つるつるした素材です。" },
-				{ "森", "緑の布の素材です。" },
-				{ "ゴースト", "うす白くて半透明の、ふわっと光るバリアです。" },
-				{ "さくら", "うすいピンクで、ほんのり光ります。" },
-				{ "トキシック", "毒のような黄緑に光るネオンです。" },
-				{ "ロイヤル", "濃い紫の、ガラスのような素材です。" },
-				{ "ローズゴールド", "ピンクがかった金色の金属です。" },
-			} },
-		} },
-
-	{ id = "texture", icon = "💎", name = "質感", sum = "ツヤ・映り込み・光の走り・経年劣化",
-		intro = {
-			"板の「ツヤ」や「よごれ」を決めるページです。素材や色、木目はそのままで、反射・光の帯・角の輝きなどを重ねます。",
-			"「質感のセット」は、押すだけで一式が決まります。押したセットは光り、もう一度押すと、ツヤなどが初期にもどります。",
-		},
-		groups = {
-			{ "質感のセット (素材・色はそのまま。押すだけ)", {
-				{ "鏡面ミラー", "反射100%の、鏡のようにツルツルな板です。角が少し輝きます。" },
-				{ "ウェット", "雨にぬれたような、小さな光がたくさんあるツヤです。" },
-				{ "キャンディ", "ニスをぬったような、あまいツヤです。光の帯と、角の輝きもつきます。" },
-				{ "パール", "真珠のような、虹色のやさしい光沢です。" },
-				{ "ダイヤ", "虹色に、きらめく面です。光の帯が走り、角が強く輝きます。" },
-				{ "ネオンナイト", "ネオン街の空を映して、虹色の光が走ります。角もよく輝きます。" },
-				{ "夕焼けミラー", "夕焼けの空を映す、鏡のようなツヤです。" },
-				{ "ブラッシュ金属", "ブラシをかけた金属のような、すじのあるツヤです。" },
-				{ "つや消し", "反射をなくして、マットにします。" },
-				{ "さびてボロボロ", "色ムラと、さびの経年劣化をつけます。" },
-				{ "こけむす", "色ムラと、下のほうに濃いこけをつけます。" },
-				{ "雪化粧", "上のほうに、白い雪がつもったようにします。" },
-			} },
-			{ "反射・ツヤ (素材や木目はそのまま)", {
-				{ "反射・ツヤ", "右へ動かすほど、ツルツル・テカテカになります。100%で鏡のようになります。素材や木目は変わりません。" },
-				{ "マット 0%", "反射をなくします。" },
-				{ "ツヤ 35%", "ほどよいツヤにします。" },
-				{ "ミラー 100%", "いちばんテカテカの、鏡のような反射にします。" },
-			} },
-			{ "ツヤの種類 (8種類)", {
-				{ "くっきり", "はっきりした光の帯が走る、ふつうの鏡のようなツヤです。" },
-				{ "やわらか", "ぼんやりした、やさしいツヤです。" },
-				{ "ガラス", "細い光の線が何本も走る、ガラスのようなツヤです。" },
-				{ "メタル", "等間隔の帯が並ぶ、金属のようなツヤです。" },
-				{ "ウェット", "ぬれたように、小さな光がたくさん出ます。" },
-				{ "パール", "虹色にうつろう、真珠のようなツヤです。" },
-				{ "ニス", "細くて鋭い光と、うすい映り込みの、ニスのようなツヤです。" },
-				{ "ダイヤ", "虹色に、きらきらきらめくツヤです。" },
-			} },
-			{ "ツヤの向き", {
-				{ "横 (X)", "光の帯が、横方向に並びます。" },
-				{ "高さ (Y)", "光の帯が、高さの方向に並びます。" },
-				{ "奥 (Z)", "光の帯が、奥行きの方向に並びます。" },
-			} },
-			{ "映り込む空", {
-				{ "☀️ 昼", "昼の空を映します。" },
-				{ "🌇 夕焼け", "夕焼けの空を映します。" },
-				{ "🌙 夜", "夜の空を映します。" },
-				{ "🌃 ネオン街", "ネオンのピンク色を映します。" },
-				{ "🌌 オーロラ", "オーロラの緑色を映します。" },
-				{ "💡 スタジオ", "白いスタジオの光を映します。" },
-				{ "空の映り込みを最大に (この画面だけ)", "ONにすると、ゲーム全体の空の映り込みを最大にして、反射がよく見えるようにします。この画面だけの設定で、他の人には影響しません。" },
-			} },
-			{ "光が走る・角のきらめき", {
-				{ "光の走り", "板の上を、光の帯がすーっと走ります。右へ動かすほど強く、はやくなります。0で止まります。" },
-				{ "白い光 / 金色の光 / 虹色の光", "走る光の色を選びます。" },
-				{ "角の輝き", "板の角 (ふち) が、きらっと輝きます。" },
-			} },
-			{ "見た目", {
-				{ "透明度", "板を透明にします。右へ動かすほど透けます。" },
-				{ "色ムラ", "板1枚ごとに、色を少しずつ変えます。" },
-				{ "経年劣化", "古びたよごれを、板につけます。右へ動かすほど、ひどくなります。" },
-				{ "汚れ", "全体が、くすんだようになります。" },
-				{ "さび", "茶色いさびがつきます。" },
-				{ "こけ", "下のほうに、緑のこけがつきます。" },
-				{ "雪", "上のほうに、白い雪がつもります。" },
-				{ "焦げ", "黒く焦げたようになります。" },
-			} },
-			{ "テクスチャ", {
-				{ "元の木目テクスチャ", "ONだと、元の板の木目が見えます。OFFにすると、木目が消えて、色がはっきり出ます。素材を選ぶと、自動でOFFになります。" },
-			} },
-		} },
-
-	{ id = "light", icon = "💡", name = "光", sum = "光るレシピ・明滅・色の動き・縁取り",
-		intro = {
-			"板が光る (まわりを照らす) ようにするページです。光の強さ・色・明滅のしかたを決められます。",
-			"「光のレシピ」は、押すだけで一式が決まります。押したレシピは光り、もう一度押すと、光がやみます。",
-		},
-		groups = {
-			{ "光のレシピ (押すだけで、光り方が一式で変わる)", {
-				{ "キャンドル", "あたたかい色で、ろうそくのようにゆらぎます。" },
-				{ "たいまつ", "オレンジから赤へ変わる炎の色が、はげしくゆらぎます。" },
-				{ "ハートビート", "ドクン、ドクンと、板ごと脈打ちます。" },
-				{ "パトランプ", "赤と青が、パッと交互に切り替わります。" },
-				{ "ネオンサイン", "ピンクと水色が変わり、切れかけたネオン管のようにちらつきます。縁取りもつきます。" },
-				{ "オーロラ", "緑と紫が、ゆっくり変わります。" },
-				{ "レインボー", "光の色が、虹色に変わり続けます。" },
-				{ "ディスコ", "虹色が、はやく変わります。明滅と、光の波もつきます。" },
-				{ "雷雲", "ふだんは暗く、ときどきバリッと強く光ります。" },
-				{ "スポットライト", "下を、せまい範囲で明るく照らします。" },
-				{ "夜のランプ", "ゲームの時刻が夜の間だけ、ほんのり光ります。" },
-				{ "氷のゆらめき", "うす青く、ゆらゆら光ります。縁取りもつきます。" },
-			} },
-			{ "発光", {
-				{ "発光の強さ", "光の強さです。0で光りません。" },
-				{ "発光の範囲", "光がとどく広さです。" },
-				{ "発光の色", "光の色を、色あいで決めます。" },
-			} },
-			{ "光の色の動き", {
-				{ "単色", "光の色が変わらず、ずっと同じ色です。" },
-				{ "2色ゆっくり", "「発光の色」と「2つ目の色」のあいだを、ゆっくり行き来します。" },
-				{ "2色パッと", "2つの色が、パッと交互に切り替わります。" },
-				{ "虹色", "光の色が、虹色に変わり続けます。" },
-				{ "2つ目の色", "2色の動きで使う、もうひとつの色です。" },
-				{ "色の速さ", "色が変わる速さです。" },
-			} },
-			{ "光り方 (明滅はなめらかに動きます)", {
-				{ "明滅の速さ", "光がつく・消えるを、くり返す速さです。0で止まります。" },
-				{ "ゆっくり", "ゆっくり明滅します。" },
-				{ "ふつう", "ふつうの速さで明滅します。" },
-				{ "はやい", "はやく明滅します。" },
-				{ "超はやい", "とてもはやく明滅します。" },
-				{ "なめらか", "なめらかに、強くなったり弱くなったりします。" },
-				{ "ドクン", "心臓のように、ドクン、ドクンと光ります。" },
-				{ "ゆらぎ", "ろうそくのように、ゆらゆらします。" },
-				{ "ピカピカ", "ピカッ、ピカッと、はっきり光ります。" },
-				{ "呼吸", "すぅっと明るくなって、ゆっくり暗くなります。" },
-				{ "雷", "ふだんは暗く、ときどきバリッと光ります。" },
-				{ "ネオン管", "切れかけのネオン管のように、ジジッとちらつきます。" },
-				{ "のこぎり", "だんだん明るくなって、パッと消えます。" },
-				{ "階段", "4段階で、だんだん明るくなります。" },
-				{ "SOS", "モールス信号の「SOS」の長さで光ります。" },
-				{ "明滅の深さ", "明滅の強さです。1で完全に暗くなり、0でほとんど変わりません。" },
-				{ "板も一緒に明滅 (板の明るさも変わる)", "ONにすると、光だけでなく、板そのものの明るさも一緒に明滅します。" },
-				{ "光の波", "板の端から端へ、明滅がずれて走ります。「板も一緒に明滅」がONの時に見えます (動かすと自動でONになります)。" },
-				{ "夜だけ光る", "ゲームの時刻が夜の間だけ光ります。昼はなめらかに消えます。" },
-				{ "全方向", "光が、まわり全体に広がります。" },
-				{ "下を照らす", "光が、下だけを照らします。" },
-				{ "上を照らす", "光が、上だけを照らします。" },
-				{ "スポット幅", "「下を照らす」「上を照らす」の時の、光の広がりの角度です。小さいほど細い光になります。" },
-				{ "ネオン発光 (素材をネオンに)", "ONにすると、板の素材がネオンになって、自分でも光ります。OFFで元の素材にもどります。" },
-			} },
-			{ "縁取り・オーラ", {
-				{ "縁取り", "板のまわりに、色つきの線を出します。" },
-				{ "縁取りの色", "縁取りの色です。動かすと自動でONになります。" },
-				{ "オーラ", "縁取りの内側を、ぼんやり光らせます。動かすと自動で縁取りがONになります。" },
-			} },
-			{ "影", {
-				{ "板が影を落とす", "OFFにすると、板の影が出なくなります。" },
-			} },
-		} },
-
-	{ id = "fx", icon = "🌈", name = "効果", sum = "レインボー・炎・雪・桜・キラキラなど",
-		intro = {
-			"板に、動く色や、粒の効果 (炎・雪・桜など) をつけるページです。スイッチをONにすると、すぐ出ます。",
-		},
-		groups = {
-			{ "🌈 レインボー (なめらかに動きます)", {
-				{ "レインボー", "ONにすると、板の色が虹色に、なめらかに変わり続けます。色やグラデーションを決めると、自動でOFFになります。" },
-				{ "虹の速さ", "虹色が変わる速さです。動かすと自動でONになります。" },
-				{ "鮮やかさ", "虹色の鮮やかさです。左へ動かすほど、うすい色になります。" },
-				{ "虹の波", "板の端から端へ、色がずれて並びます。0だと、板ぜんぶが同じ色で変わります。" },
-			} },
-			{ "✨ キラキラ", {
-				{ "キラキラ", "ONにすると、板のまわりにキラキラの粒が出ます。" },
-				{ "キラキラの量", "粒の数です。動かすと自動でONになります。" },
-				{ "キラキラの大きさ", "粒の大きさです。" },
-			} },
-			{ "🔥 炎 (板の向きに関係なく、必ず上へ昇ります)", {
-				{ "炎", "ONにすると、板から炎が上へ昇ります。" },
-				{ "炎の大きさ", "炎の大きさです。動かすと自動でONになります。" },
-				{ "通常 / 青 / 緑 / 紫 / ピンク", "炎の色です。" },
-			} },
-			{ "💨 煙・紙吹雪", {
-				{ "煙", "ONにすると、板から煙が上へ昇ります。" },
-				{ "紙吹雪", "ONにすると、カラフルな紙吹雪が舞います。" },
-			} },
-			{ "🌸 ふわふわ", {
-				{ "❄️ 雪", "ONにすると、雪が舞います。" },
-				{ "🌸 桜", "ONにすると、桜の花びらが舞います。" },
-				{ "✨ ほたる", "ONにすると、ほたるのような光が飛びます。" },
-				{ "🫧 あわ", "ONにすると、あわが上へ昇ります。" },
-				{ "🔥 火の粉", "ONにすると、火の粉が上へ飛びます。" },
-				{ "効果の量 (全部)", "雪・桜・ほたる・あわ・火の粉・煙・紙吹雪など、すべての粒の量をまとめて変えます。" },
-			} },
-		} },
+	HP.material(),
+	HP.preset(),
+	HP.texture(),
+	HP.light(),
+	HP.fx(),
 
 	{ id = "preview", icon = "👁", name = "プレビュー", sum = "3Dの板で見ながら試して、保存する",
 		intro = {
@@ -10066,7 +12240,7 @@ do
 	end
 	local function countOf(s)
 		local n = 0
-		for _, g in ipairs(s.groups) do n = n + #g[2] end
+		for _, g in ipairs(s.groups) do n = n + (g[3] or #g[2]) end
 		return n
 	end
 
@@ -10123,10 +12297,12 @@ do
 		titleBar(40, "このページの中身 (押すと、その部分の説明へ)")
 		for gi, g in ipairs(s.groups) do
 			local names = {}
-			for _, f in ipairs(g[2]) do names[#names + 1] = f[1] end
+			for _, f in ipairs(g[2]) do
+				if f[1] ~= "" then names[#names + 1] = f[1] end
+			end
 			local c = box(40 + gi, 0.86, true)
-			para(c, g[1] .. "  (" .. #g[2] .. ")", 15, CYAN, 1)
-			para(c, table.concat(names, "・"), isMobile and 12 or 13, SOFT, 2)
+			para(c, g[1] .. "  (" .. (g[3] or #g[2]) .. ")", 15, CYAN, 1)
+			para(c, g[4] or table.concat(names, "・"), isMobile and 12 or 13, SOFT, 2)
 			c.MouseButton1Click:Connect(function() go(2, si, gi) end)
 		end
 		bigButton(100, "❓ 機能をひとつずつ見る (" .. n .. "個)", function() go(2, si) end)
@@ -10166,11 +12342,13 @@ do
 			end
 		end
 		for k, g in ipairs(s.groups) do
-			hdrs[k] = titleBar(k * 100, g[1] .. "  (" .. #g[2] .. ")")
+			hdrs[k] = titleBar(k * 100, g[1] .. "  (" .. (g[3] or #g[2]) .. ")")
 			for fi, f in ipairs(g[2]) do
 				local c = box(k * 100 + fi, 0.88)
-				local nameL = para(c, f[1], 15, CYAN, 1)
-				nameL.LineHeight = 1
+				if f[1] ~= "" then   -- 名前が "" の項目は、説明 (名前と説明を1行ずつ並べた一覧) だけを出す
+					local nameL = para(c, f[1], 15, CYAN, 1)
+					nameL.LineHeight = 1
+				end
 				para(c, f[2], FS_BODY, WHITE, 2)
 			end
 		end
@@ -11368,10 +13546,9 @@ return PVM
 			Lib.tween(b, { BackgroundTransparency = 1 }, 0.25)
 			task.delay(0.28, function() b:Destroy() end)
 		end
-		UIs.touch("presets")
 	end
 
-	local function addPresetButton(pr, quiet)
+	local function addPresetButton(pr)
 		local H = isMobile and 48 or 34
 		local b = mk("TextButton", { Name = "Preset" .. pr.n, AutoButtonColor = false, Text = "", LayoutOrder = 100 + pr.n, Size = UDim2.new(1, 0, 0, H) }, side)
 		Lib.glass(b, 0.8, 13)
@@ -11401,7 +13578,6 @@ return PVM
 		end)
 		b.MouseButton1Click:Connect(function() applyPreset(pr) end)
 		pr.btn = b
-		if quiet then return end   -- (GitHubからの復元: 静かに並べるだけ)
 		-- ぽんっと出る
 		local sc = b:FindFirstChildOfClass("UIScale")
 		if sc then
@@ -11440,7 +13616,6 @@ return PVM
 		presets[#presets + 1] = pr
 		table.sort(presets, function(a, b) return a.n < b.n end)
 		addPresetButton(pr)
-		UIs.touch("presets")
 		Lib.notif(gui, "プリセット" .. n .. " に保存しました ⭐ (左の「その他」の下に出ます)", 2.4)
 		-- ボタンの文字も、ちょっとだけ「保存したよ」に変わる
 		UI.save.Text = "✔ プリセット" .. n .. " に保存しました"
@@ -11451,466 +13626,9 @@ return PVM
 		end)
 	end
 
-	-- GitHub保存用: プリセット一覧の取り出し / 入れ替え (入れ替えは、いまのボタンを全部消して、渡された一覧で静かに作り直す)
-	pv.getPresets = function()
-		local list = {}
-		for i, pr in ipairs(presets) do
-			local ops = {}
-			for k, op in ipairs(pr.ops) do ops[k] = copyOp(op) end
-			list[i] = { n = pr.n, ops = ops }
-		end
-		return list
-	end
-	pv.setPresets = function(list)
-		for i = #presets, 1, -1 do
-			local pr = presets[i]
-			if pr.btn then
-				pcall(function() pr.btn:Destroy() end)
-				pr.btn = nil
-			end
-			presets[i] = nil
-		end
-		local used = {}
-		for _, src in ipairs(list) do
-			local n = math.floor(tonumber(src.n) or 0)
-			if #presets < 30 and n >= 1 and n <= 999 and not used[n] and type(src.ops) == "table" and #src.ops > 0 then
-				used[n] = true
-				local ops = {}
-				for k, op in ipairs(src.ops) do ops[k] = copyOp(op) end
-				presets[#presets + 1] = { n = n, ops = ops }
-			end
-		end
-		table.sort(presets, function(a, b) return a.n < b.n end)
-		for _, pr in ipairs(presets) do addPresetButton(pr, true) end
-	end
-
 	-- テストや点検のための窓口
 	UIs.pvDbg = { presets = presets, save = function() savePreset() end, apply = applyPreset, state = function() return P end, ui = function() return UI end, math = PVM, mir = Mir }
 end)()
----------------------------------------------------------------------
--- GitHub保存 (画面側)
---  設定だけ (永久保存の板の見た目・プリセット・UI設定・軽量化の選択) を、サーバー側の「GitHub係」に預けて、1人1ファイルで GitHub に残す。
---  ・起動時に1回、保存してあった内容を読み込んで、そのまま反映する。そのあとは、変えるたびに (止まってから数秒後に) 自動で保存する。
---  ・GITHUB.repo が空の間は、何もしない (通信もしない・待ち時間もない)。
---  ・画面 (LocalScript) は Roblox の決まりで通信できないので、通信はサーバー側が受け持つ。トークンは画面側へは来ない。
---  ・読み込みに成功するまでは、保存しない (読めなかったのに、初期の設定で前の保存を上書きしないため)。
---  ・「保存する物が変わった」は、UIs.touch(名前) で知らせてもらう (見張りの繰り返しは無いので、何もしていない時の負担は 0)。
----------------------------------------------------------------------
--- (do ... end の中に入れてある: メインのローカル変数が増えないように。前の部分が「)()」で終わっているので、「(」で始めると呼び出しとつながってしまう)
-do
-	local C = { auto = true, ready = false, loading = false, restoring = false, changed = false }
-	UIs.cloud = C
-
-	local repo = (type(GITHUB) == "table") and tostring(GITHUB.repo or "") or ""
-	local ENABLED = repo ~= ""
-	local DEBOUNCE, MAXWAIT = 2, 10   -- 変えるのが止まって2秒たったら送る (変え続けていても、10秒たったら送る)。サーバー側は、さらに数秒まとめてから GitHub へ書く
-	local SECTIONS = { "perm", "presets", "ui", "opt" }
-
-	local ERR = {
-		no_repo = "未設定です (ファイルの先頭の GITHUB の repo を書いてね)",
-		no_token = "トークンが見つかりません (ServerStorage に PalletStudioGitHubToken を作ってね)",
-		http_off = "HTTPリクエストが許可されていません (Game Settings → Security → Allow HTTP Requests)",
-		auth = "トークンが使えません (期限切れか、権限が足りません)",
-		repo = "リポジトリが見つかりません (名前と、トークンの権限を確かめてね)",
-		rate = "GitHubの回数制限にかかりました",
-		net = "GitHubにつながりません",
-		conflict = "GitHub上のファイルと食い違いました",
-		parse = "保存ファイルが読めません (GitHub上で壊れているかも)。上書きはしません",
-		big = "保存する内容が大きすぎます",
-		bad = "保存する内容の形がおかしいです",
-		busy = "混み合っています",
-		notloaded = "まだ読み込めていないので、保存は止めています",
-	}
-	local function errText(code) return ERR[code] or ("エラー (" .. tostring(code) .. ")") end
-	local SETUP_ERR = { no_repo = true, no_token = true, http_off = true, auth = true, repo = true, parse = true }   -- 設定のやり直しが要るエラー (自動では直らない)
-
-	---------------------------------------------------------------
-	-- 状態の表示
-	---------------------------------------------------------------
-	local notified = {}
-	local function render()
-		local t = C.text or ""
-		if not C.auto then t = t .. "\n(自動で保存する は OFF です。いまの変更は GitHub に保存されません)" end
-		if UIs.cloudUI then pcall(UIs.cloudUI.status, t, C.kind or "off") end
-	end
-	local function setStatus(kind, text)
-		C.kind, C.text = kind, text
-		render()
-	end
-	-- 設定のやり直しが要るエラーは、最初の1回だけ画面の上にも出す (状態の欄には、いつも出る)
-	local function tellOnce(code)
-		if SETUP_ERR[code] and not notified[code] then
-			notified[code] = true
-			Lib.notif(gui, "GitHub保存: " .. errText(code), 3.6)
-		end
-	end
-
-	---------------------------------------------------------------
-	-- 値の変換 (Color3 などは、JSON にできる形にして保存する。読み込む時に、もとの形に戻す)
-	---------------------------------------------------------------
-	local function enc(v, depth)
-		local t = typeof(v)
-		if t == "number" then
-			if v ~= v or v == math.huge or v == -math.huge then return nil, false end
-			return v, true
-		elseif t == "string" or t == "boolean" then
-			return v, true
-		elseif t == "Color3" then
-			return { ["$"] = "c", r = v.R, g = v.G, b = v.B }, true
-		elseif t == "Vector3" then
-			return { ["$"] = "v3", x = v.X, y = v.Y, z = v.Z }, true
-		elseif t == "table" then
-			if depth > 6 then return nil, false end
-			local out = {}
-			for k, x in pairs(v) do
-				local kt = type(k)
-				if kt ~= "number" and kt ~= "string" then return nil, false end
-				local e, ok = enc(x, depth + 1)
-				if not ok then return nil, false end
-				out[k] = e
-			end
-			return out, true
-		end
-		return nil, false
-	end
-	local function dec(v, depth)
-		local t = type(v)
-		if t == "number" then
-			if v ~= v then return nil end
-			return v
-		elseif t == "string" or t == "boolean" then
-			return v
-		elseif t ~= "table" or depth > 6 then
-			return nil
-		end
-		local tag = v["$"]
-		if tag == "c" then
-			if type(v.r) == "number" and type(v.g) == "number" and type(v.b) == "number" then
-				return Color3.new(math.clamp(v.r, 0, 1), math.clamp(v.g, 0, 1), math.clamp(v.b, 0, 1))
-			end
-			return nil
-		elseif tag == "v3" then
-			if type(v.x) == "number" and type(v.y) == "number" and type(v.z) == "number" then
-				return Vector3.new(v.x, v.y, v.z)
-			end
-			return nil
-		end
-		local out = {}
-		for k, x in pairs(v) do
-			local d = dec(x, depth + 1)
-			if d ~= nil then out[k] = d end
-		end
-		return out
-	end
-	-- 操作のリスト { {種類, 値}, ... } ⇔ 保存用 [ [種類, 値], ... ]
-	local function encodeOps(ops)
-		local out = {}
-		for _, op in ipairs(ops) do
-			if type(op) == "table" and type(op[1]) == "string" then
-				if op[2] == nil then
-					out[#out + 1] = { op[1] }
-				else
-					local e, ok = enc(op[2], 1)
-					if ok then out[#out + 1] = { op[1], e } end
-				end
-			end
-		end
-		return out
-	end
-	local function decodeOps(list)
-		local out = {}
-		if type(list) ~= "table" then return out end
-		for _, op in ipairs(list) do
-			if #out >= 200 then break end
-			if type(op) == "table" and type(op[1]) == "string" and #op[1] <= 40 then
-				if op[2] == nil then
-					out[#out + 1] = { op[1] }
-				else
-					local v = dec(op[2], 1)
-					if v ~= nil then out[#out + 1] = { op[1], v } end
-				end
-			end
-		end
-		return out
-	end
-
-	---------------------------------------------------------------
-	-- 保存する内容を集める (変わった所だけ作り直す。ほかは前のを使う)
-	---------------------------------------------------------------
-	local dirtySec, cache = {}, {}
-	local function invalidate()
-		for _, k in ipairs(SECTIONS) do dirtySec[k] = true end
-	end
-	invalidate()
-	local function section(name)
-		if not dirtySec[name] and cache[name] then return cache[name].v end
-		local v
-		if name == "perm" then
-			local ops = UIs.permIO and UIs.permIO.get()
-			if ops and #ops > 0 then v = { ops = encodeOps(ops) } end
-		elseif name == "presets" then
-			v = {}
-			for i, pr in ipairs(UIs.pv.getPresets and UIs.pv.getPresets() or {}) do
-				v[i] = { n = pr.n, ops = encodeOps(pr.ops) }
-			end
-		elseif name == "ui" then
-			v = UIs.uiIO and UIs.uiIO.get()
-		elseif name == "opt" then
-			v = UIs.optIO and UIs.optIO.get()
-		end
-		cache[name] = { v = v }
-		dirtySec[name] = false
-		return v
-	end
-	local function snapshot()
-		local s = {}
-		for _, name in ipairs(SECTIONS) do
-			local v = section(name)
-			if v ~= nil then s[name] = v end
-		end
-		return s
-	end
-
-	---------------------------------------------------------------
-	-- 保存してあった内容を反映する。失敗した数を返す (1つでも失敗したら、上書きを防ぐために保存を止める)
-	---------------------------------------------------------------
-	local function restore(d)
-		local fails = 0
-		local function try(name, fn)
-			local ok, err = pcall(fn)
-			if not ok then
-				fails = fails + 1
-				warn("[PalletStudio] GitHub保存: " .. name .. " の反映でエラー: " .. tostring(err))
-			end
-		end
-		try("永久保存", function()
-			local ops = (type(d.perm) == "table") and decodeOps(d.perm.ops) or {}
-			if #ops > 0 then
-				UIs.permIO.hold(ops, true)   -- これから出る板 (サーバーが付ける) と、いま出ている板に付ける
-			elseif UIs.permIO.get() then
-				UIs.permIO.release()
-			end
-		end)
-		try("プリセット", function()
-			local list = {}
-			if type(d.presets) == "table" then
-				for _, pr in ipairs(d.presets) do
-					if #list >= 30 then break end
-					if type(pr) == "table" and type(pr.n) == "number" then
-						local ops = decodeOps(pr.ops)
-						if #ops > 0 then list[#list + 1] = { n = pr.n, ops = ops } end
-					end
-				end
-			end
-			UIs.pv.setPresets(list)
-		end)
-		try("UI設定", function()
-			if type(d.ui) == "table" then UIs.uiIO.set(d.ui) end
-		end)
-		try("軽量化", function()
-			UIs.optIO.set(type(d.opt) == "table" and d.opt or {})
-		end)
-		return fails
-	end
-
-	---------------------------------------------------------------
-	-- サーバー側の GitHub係 との通信
-	---------------------------------------------------------------
-	local function invoke(action, payload)
-		local rf = C.rf
-		if not rf then return { s = "err", code = "net" } end
-		local ok, res = pcall(function() return rf:InvokeServer(action, payload) end)
-		if not ok or type(res) ~= "table" then return { s = "err", code = "net" } end
-		return res
-	end
-
-	local timerOn, firstAt, lastAt, sending = false, 0, 0, false
-	local sendSave
-	local function schedule()
-		local now = os.clock()
-		lastAt = now
-		if timerOn then return end
-		timerOn, firstAt = true, now
-		task.spawn(function()
-			while true do
-				local t = os.clock()
-				local w = math.min(lastAt + DEBOUNCE - t, firstAt + MAXWAIT - t)
-				if w <= 0 then break end
-				task.wait(w)
-			end
-			timerOn = false
-			if C.ready and C.auto and C.changed and not sending then sendSave(false) end
-		end)
-	end
-
-	-- force = true: すぐ GitHub に書いて、終わるまで待つ (「いま保存」)
-	sendSave = function(force)
-		if not C.ready or sending then return end
-		sending = true
-		C.changed = false
-		local snap = snapshot()
-		if force then setStatus("save", "GitHubへ保存中…") end
-		task.spawn(function()
-			local res = invoke(force and "flush" or "save", snap)
-			sending = false
-			if res.s == "queued" then
-				setStatus("save", "保存待ち… (変更が止まったら、GitHubへ書きます)")
-			elseif res.s == "same" then
-				setStatus("ok", "保存済みです (内容は前と同じ)")
-			elseif res.s == "ok" then
-				C.savedAt = os.date("%H:%M:%S")
-				setStatus("ok", "GitHubに保存しました ✔ " .. C.savedAt)
-				if force then Lib.notif(gui, "GitHubに保存しました ✔", 1.8) end
-			else
-				local code = res.code
-				if code == "busy" then
-					C.changed = true   -- 少し待って、もう一度
-				elseif code == "notloaded" then
-					C.ready = false
-					C.changed = true
-					if not C.loading then C.load() end
-				else
-					setStatus("err", errText(code))
-					tellOnce(code)
-					if force then Lib.notif(gui, "GitHub保存: " .. errText(code), 3) end
-				end
-			end
-			if C.changed and C.auto and C.ready then schedule() end
-		end)
-	end
-
-	-- 保存する物が変わった (名前 = "perm" / "presets" / "ui" / "opt")。反映中の変更は、保存してあった内容そのものなので数えない
-	function C.touch(sec)
-		if C.restoring then return end
-		if sec then dirtySec[sec] = true else invalidate() end
-		C.changed = true
-		if C.ready and C.auto then schedule() end
-	end
-
-	function C.setAuto(v)
-		C.auto = v and true or false
-		render()
-		if C.auto and C.ready and C.changed then schedule() end
-	end
-
-	function C.saveNow()
-		if not ENABLED then
-			Lib.notif(gui, "GitHub保存は未設定です (ファイルの先頭の GITHUB の repo を書いてね)", 2.6)
-			return
-		end
-		if not C.ready then
-			Lib.notif(gui, "まだ GitHub の保存を読み込めていません。読み込めたら、保存できます", 2.6)
-			if C.rf and not C.loading then C.load() end
-			return
-		end
-		if sending then
-			C.changed = true   -- 送っている最中: 終わったら、続けて送る
-			return
-		end
-		sendSave(true)
-	end
-
-	-- 読み込み → 反映。ネットの不調・回数制限・混み合いの時は、間をあけて数回やり直す
-	function C.load(manual)
-		if C.loading or not C.rf then return end
-		C.loading = true
-		task.spawn(function()
-			local tries = 0
-			while true do
-				setStatus("load", manual and "GitHubから読み直し中…" or "GitHubから設定を読み込み中…")
-				local res = invoke("load")
-				if res.s == "ok" and type(res.data) == "table" then
-					C.restoring = true
-					local fails = restore(res.data)
-					C.restoring = false
-					invalidate()
-					C.changed = false
-					if fails == 0 then
-						C.ready = true
-						local when = (type(res.saved) == "string" and res.saved ~= "") and (" (保存した日時: " .. res.saved .. ")") or ""
-						setStatus("ok", "GitHubの保存を反映しました ✔" .. when)
-						Lib.notif(gui, "GitHubに保存してあった設定を反映しました ☁", 2.2)
-					else
-						C.ready = false   -- 一部だけ反映された状態で保存すると、GitHubの内容を壊すので、保存は止める
-						setStatus("err", "保存してあった設定の一部を反映できませんでした。GitHubの内容は上書きしません")
-					end
-					break
-				elseif res.s == "none" then
-					C.ready = true
-					setStatus("ok", "保存データはまだありません。設定を変えると、自動で保存を始めます")
-					if C.changed and C.auto then schedule() end   -- 読み込み中に変えた分は、そのまま最初の保存にする
-					break
-				else
-					local code = res.code
-					tries = tries + 1
-					if (code == "net" or code == "rate" or code == "busy" or code == "conflict") and tries <= 4 then
-						local w = (code == "rate" and tonumber(res.wait)) or (10 * 2 ^ (tries - 1))
-						w = math.clamp(w, 3, 120)
-						setStatus("err", errText(code) .. " (約" .. math.ceil(w) .. "秒後に、もう一度読み込みます)")
-						task.wait(w)
-					else
-						setStatus("err", errText(code))
-						tellOnce(code)
-						break
-					end
-				end
-			end
-			C.loading = false
-		end)
-	end
-
-	-- 「読み直して反映」ボタン: いまの設定を、GitHubの保存で置きかえる
-	function C.reload()
-		if not ENABLED or not C.rf then
-			Lib.notif(gui, "GitHub保存は、まだ使える状態ではありません", 2.4)
-			return
-		end
-		if C.loading then return end
-		C.ready = false   -- 読み直しが終わるまでは、保存しない
-		C.load(true)
-	end
-
-	-- サーバー側からの知らせ (保存中 / 保存した / エラー)。変えた分を、あとからまとめて書くので、画面で待つ必要は無い
-	local function onEvent(kind, state, code, wait)
-		if kind ~= "st" then return end
-		if state == "saving" then
-			setStatus("save", "GitHubへ保存中…")
-		elseif state == "saved" then
-			C.savedAt = os.date("%H:%M:%S")
-			setStatus("ok", "GitHubに保存しました ✔ " .. C.savedAt)
-		elseif state == "error" then
-			local w = tonumber(wait)
-			setStatus("err", errText(code) .. (w and (" (約" .. math.ceil(w) .. "秒後に、やり直します)") or " (あとで自動でやり直します)"))
-			tellOnce(code)
-		end
-	end
-
-	-- テストや点検のための窓口
-	C.dbg = { snapshot = snapshot, restore = restore, enc = enc, dec = dec, encodeOps = encodeOps, decodeOps = decodeOps, invalidate = invalidate }
-
-	---------------------------------------------------------------
-	-- 起動
-	---------------------------------------------------------------
-	if not ENABLED then
-		C.kind, C.text = "off", "未設定です。ファイルの先頭の GITHUB の repo に「ユーザー名/リポジトリ名」を書くと、使えるようになります (書くまでは、何もしません)"
-		render()
-	else
-		UIs.touch = function(sec) C.touch(sec) end
-		Opt.onChange = function() C.touch("opt") end
-		setStatus("wait", "サーバー側を待っています…")
-		task.spawn(function()
-			local rf = RS:WaitForChild("PalletStudioCloud_v1", 90)
-			if not rf then
-				setStatus("err", "サーバー側が見つかりません (Studio の Play を止めて、もう一度始めてね。それでも出る時は、CodeLoader が動いているか確かめてね)")
-				return
-			end
-			C.rf = rf
-			local ev = RS:WaitForChild("PalletStudioCloudEvt_v1", 5)
-			if ev then ev.OnClientEvent:Connect(onEvent) end
-			C.load()
-		end)
-	end
-end
 -- 起動時: 右下に "make by aino" を表示する。丸いエンブレムがポンと出て、横にのびて文字が下からせり上がる。
 -- 終わったら丸に戻って右へ消え、そのあと開閉ボタンが出る (revealToggle)。
 local function playCredit()
