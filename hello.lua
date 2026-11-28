@@ -2,7 +2,7 @@
 -- 検出: Workspace の「<自分の@ID(ユーザー名)>SpawnedInToys」フォルダの直下にある PalletLightBrown だけを「板1, 板2…」として出す。
 --       他のフォルダ・他プレイヤーのフォルダの板は見ない。フォルダの自動作成はしない (サーバー側も同じ条件の板しか受け付けない)。
 -- 起動時に必ず、サーバー用コードを CodeLoader (ServerScriptService) へ送る。サーバー側が無ければ、この画面だけに直接反映する。
--- タブ: ホーム / 色(単色・2〜3色グラデ・流れるグラデ) / 素材(152種・名前検索・お気に入り・最近・ツートン16種) / プリセット(105種・入れ方3種・色違い・前へ/次へ・ランダム・全部の板に同時に反映・他の板へコピー) / 質感(質感セット38種・ツヤ20種・映り込む空14種・光が走る・角の輝き・経年劣化12種) / 光(光のレシピ45種・色の動き7種・明滅18種・深さ/波・夜だけ・時刻・スポット幅・縁取り・オーラ・影) / 効果(効果18種・効果のレシピ18種・炎/煙/紙吹雪の色・全体の量/大きさ/速さ/色・レインボー) / その他(視野・軽量化・UI設定)
+-- タブ: ホーム / 色(単色・2〜3色グラデ・流れるグラデ) / 素材(152種・名前検索・お気に入り・最近・ツートン16種) / プリセット(105種・入れ方3種・色違い・前へ/次へ・ランダム・全部の板に同時に反映・他の板へコピー) / 質感(質感セット38種・ツヤ20種・映り込む空14種・光が走る・角の輝き・経年劣化12種) / 光(光のレシピ45種・色の動き7種・明滅18種・深さ/波・夜だけ・スポット幅・縁取り・オーラ・影) / 効果(効果18種・効果のレシピ18種・炎/煙/紙吹雪の色・全体の量/大きさ/速さ/色・レインボー) / 背景(時刻・細かい時間帯12種・夕焼けと星空・背景スタイル24種・好きな色合い・空のこまかい調整・GitHubの画像/GIF) / その他(視野・軽量化・UI設定)
 -- 反射・ツヤは、素材やテクスチャを変えずに、光の帯と空の映り込みを重ねて出す。明滅・色の動き・光の走り・レインボー・グラデの流れは、この画面で毎フレームなめらかに動く(この画面を入れていない人には、止まった見た目で出る)。
 -- 📌 永久保存: 押すと保存、もう一度押すと解除。保存中は、これから出す板に自動でまとめて反映する。
 --       板が出た同じ瞬間に、色・素材・反射などの軽い設定が付く。グラデ/ツヤの重ね貼りは、数を絞って1フレームに少しずつ作る(数フレーム=約0.05秒で出来あがる)ので、出現がカクつかない。
@@ -3129,6 +3129,41 @@ permRemote.OnServerInvoke = function(player, ops)
 	return "saved"
 end
 
+---------------------------------------------------------------------
+-- 背景カタログの中継: 画面は HTTP が使えないので、GitHub の公開ファイル(JSON)を読んで返す。読むだけ・何も保存しない・コードは実行しない。
+-- 受け付けるのは https://raw.githubusercontent.com/ のURLだけ。1人 1.5 秒に1回まで・1MBまで・同じURLは60秒おぼえておく。
+---------------------------------------------------------------------
+do
+	local netRemote = ReplicatedStorage:FindFirstChild("PalletStudioNet_v1")
+	if not netRemote then
+		netRemote = Instance.new("RemoteFunction")
+		netRemote.Name = "PalletStudioNet_v1"
+		netRemote.Parent = ReplicatedStorage
+	end
+	local HttpService = game:GetService("HttpService")
+	local lastAt, cache, cacheN = {}, {}, 0
+	netRemote.OnServerInvoke = function(player, url)
+		if typeof(url) ~= "string" or #url > 300 then return nil, "url" end
+		if not string.match(url, "^https://raw%.githubusercontent%.com/[%w%-%._~%%/]+$") or string.find(url, "..", 1, true) then return nil, "url" end
+		local now = os.clock()
+		local c = cache[url]
+		if c and now - c.at < 60 then return c.body end
+		if now - (lastAt[player] or -10) < 1.5 then return nil, "busy" end
+		lastAt[player] = now
+		local ok, res = pcall(function() return HttpService:GetAsync(url) end)
+		if not ok then
+			if string.find(tostring(res), "not enabled", 1, true) then return nil, "http-disabled" end
+			return nil, "fail"
+		end
+		if typeof(res) ~= "string" or #res > 1000000 then return nil, "fail" end
+		if cacheN >= 12 then cache, cacheN = {}, 0 end
+		if not cache[url] then cacheN = cacheN + 1 end
+		cache[url] = { at = now, body = res }
+		return res
+	end
+	Players.PlayerRemoving:Connect(function(p) lastAt[p] = nil end)
+end
+
 Players.PlayerRemoving:Connect(function(p)
 	nextSlot[p] = nil
 	dropPerm(p)
@@ -3138,6 +3173,18 @@ task.spawn(function()
 	local r = RS_:WaitForChild("RunServerCode", 120)
 	if r then r:FireServer(SERVER_CODE) end
 end)
+-- ===== 背景ページ: GitHubの画像・GIFの背景カタログ =====
+--   「背景」タブの「画像・GIFの背景 (GitHub)」は、GitHubに置いた JSON (背景カタログ) を読んで、画像つきのボタンを並べる。
+--   ① GitHubに、公開(Public)のリポジトリを作り、サンプルの pallet-backgrounds.json を置く (画像のIDを自分のものに書きかえる)。
+--   ② 下の repo を「ユーザー名/リポジトリ名」にする (画面の欄に入れて「読みこむ」でも試せる)。ファイル名・ブランチも下で変えられる。
+--   ③ HTTPが使えないStudioでは、「ゲーム設定 → セキュリティ → HTTPリクエストを許可」をオンにする (サーバーが読んで中継する。読むだけ・何も保存しない)。
+--      実行ツールの HttpGet が使える環境なら、それを先に使う。
+local PALLET_BG = {
+	repo = "",                             -- 例: "aino/pallet-bg"  (空のままなら、この画面の欄に入れた時だけ読む)
+	branch = "main",
+	file = "pallet-backgrounds.json",
+}
+
 local Players = game:GetService("Players")
 local RS = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -9227,7 +9274,7 @@ UIs.infoRow = function(e, h, initial)
 end
 
 local pages = {}
-for i = 1, 10 do pages[i] = newPage() end   -- 1〜6 各タブ / 7〜9 その他の中 / 10 ホーム
+for i = 1, 11 do pages[i] = newPage() end   -- 1〜6 各タブ / 7〜9 その他の中 / 10 ホーム / 11 背景
 -- 7〜9 は「その他」タブの中。上に切り替えバーを置くので、その分だけ下げる
 for k = 7, 9 do
 	pages[k].Position = UDim2.fromOffset(0, 46)
@@ -10463,7 +10510,7 @@ do
 end)()
 end
 
--- 5: 光 (光のレシピ45種・明滅18種・色の動き7種・光の色/こさ/3色目・縁取りの色・壁の向こう・光が影を作る・時刻)
+-- 5: 光 (光のレシピ45種・明滅18種・色の動き7種・光の色/こさ/3色目・縁取りの色・壁の向こう・光が影を作る)  ※時刻は「背景」ページ(pages_bg)へ移した
 do
 (function()
 	local CAT = ENG.CAT
@@ -10727,36 +10774,6 @@ do
 		if sv then ensureGlow() end
 		send("LightShadows", sv)
 	end, false)
-
-	-- 時刻 (この画面だけ。ゲーム全体の明るさが変わります。「夜だけ光る」の確認に)
-	e:title("時刻 (この画面だけ)")
-	local clockNote = e:row(isMobile and 58 or 40)
-	local clockLbl = text(clockNote, "ゲームの時刻を、この画面だけで変えます。「夜だけ光る」の確認に便利です。サーバーが時刻を変えた時は、そちらが優先されます。", isMobile and 12 or 13, UDim2.fromOffset(4, 0), UDim2.new(1, -8, 1, 0), nil, SOFT)
-	clockLbl.TextWrapped = true
-	local origClock = nil
-	local function setClock(v)
-		local L = game:GetService("Lighting")
-		if origClock == nil then
-			local ok, c = pcall(function() return L.ClockTime end)
-			origClock = ok and c or 14
-		end
-		pcall(function() L.ClockTime = v end)
-	end
-	local clockS
-	clockS = e:slider("時刻", 0, 24, function(v) setClock(v) end, 14)
-	chipsRow(e, { "🌅 朝", "☀️ 昼", "🌇 夕方", "🌙 夜" }, function(i)
-		local v = ({ 7, 13, 18, 0 })[i] or 14
-		clockS:set(v)
-		setClock(v)
-	end, 0, 0)
-	e:button("↺ 元の時刻にもどす", function()
-		if origClock ~= nil then
-			local L = game:GetService("Lighting")
-			pcall(function() L.ClockTime = origClock end)
-			clockS:set(origClock)
-			origClock = nil
-		end
-	end)
 
 	-- まとめて送った時 (レシピ・おまかせ・プリセット) に、画面の表示を合わせる
 	local S = UIs.set
@@ -11089,6 +11106,1225 @@ do
 end)()
 end
 
+-- 11: 背景 (時刻・夕焼けと星空・好きな色合い・背景スタイル・GitHubから読む画像/GIFの背景)
+--   ぜんぶ、この画面 (自分のクライアント) だけに反映する。サーバーの値にも、ほかのプレイヤーにも関係しない。
+--   GitHubの読みこみだけ、サーバーが中継することがある (読むだけ。何も保存しない)。
+do
+(function()
+	local e = Lib.element(pages[11])
+	-- ===== 空のエンジン (画面を使わない部分) =====
+	-- 時刻から「空の色・星・雲・光」を計算して、Lighting / Atmosphere / Sky / Clouds / Bloom / SunRays / ColorCorrection に書く。
+	-- ぜんぶ、この画面(自分のクライアント)だけに書く。もとの値は最初に控えておき、「元にもどす」で戻す。自分で作った部品は、戻す時に消す。
+	local BG = (function()
+		local M = {}
+		local Lighting = game:GetService("Lighting")
+		local function C(r, g, b) return Color3.fromRGB(r, g, b) end
+
+		-- 時刻ごとの空の表。時刻の間は、なめらかにつなぐ (h=時, n=名前, w=整える強さ 0〜1)
+		--   ac/ad = 空気の色(太陽の近く/遠く) dens/off/glare/haze = 空気のこさ・ずれ・まぶしさ・もや
+		--   amb/oamb = かげの色/外の明るさの色 brm = 明るさ(倍) top = 光の色のずれ
+		--   stars/sunS/moonS = 星の数・太陽と月の大きさ cc/cd/ccol = 雲の量・こさ・色
+		--   bi/bs/bt = にじみ(強さ・大きさ・しきい値) ri/rs = 光の筋(強さ・ひろがり) tint/sat/con/br = 色補正(色・彩度・くっきり・明るさ)
+		local KF = {
+			{ h = 0, n = "真夜中", w = 1, ac = C(30, 42, 95), ad = C(6, 8, 26), dens = 0.22, off = 0, glare = 0, haze = 0, amb = C(22, 26, 50), oamb = C(58, 68, 118), brm = 0.42, top = C(120, 140, 225),
+				stars = 5000, sunS = 21, moonS = 16, cc = 0.30, cd = 0.50, ccol = C(45, 55, 90), bi = 0.5, bs = 28, bt = 0.95, ri = 0, rs = 0.6, tint = C(205, 218, 255), sat = -0.05, con = 0.05, br = -0.02 },
+			{ h = 2.5, n = "真夜中", w = 1, ac = C(30, 42, 95), ad = C(6, 8, 26), dens = 0.22, off = 0, glare = 0, haze = 0, amb = C(22, 26, 50), oamb = C(58, 68, 118), brm = 0.42, top = C(120, 140, 225),
+				stars = 5000, sunS = 21, moonS = 16, cc = 0.30, cd = 0.50, ccol = C(45, 55, 90), bi = 0.5, bs = 28, bt = 0.95, ri = 0, rs = 0.6, tint = C(205, 218, 255), sat = -0.05, con = 0.05, br = -0.02 },
+			{ h = 4.5, n = "明け方前", w = 1, ac = C(62, 64, 135), ad = C(30, 18, 52), dens = 0.27, off = 0.08, glare = 0.15, haze = 0.4, amb = C(36, 36, 70), oamb = C(76, 76, 126), brm = 0.55, top = C(150, 150, 235),
+				stars = 3500, sunS = 21, moonS = 14, cc = 0.35, cd = 0.55, ccol = C(95, 85, 135), bi = 0.5, bs = 30, bt = 0.95, ri = 0, rs = 0.7, tint = C(228, 218, 255), sat = 0.05, con = 0.05, br = -0.01 },
+			{ h = 5.7, n = "夜明け", w = 1, ac = C(255, 150, 125), ad = C(125, 62, 112), dens = 0.33, off = 0.15, glare = 0.6, haze = 1.2, amb = C(74, 62, 92), oamb = C(135, 112, 142), brm = 0.75, top = C(255, 170, 135),
+				stars = 700, sunS = 26, moonS = 12, cc = 0.45, cd = 0.65, ccol = C(255, 192, 172), bi = 0.7, bs = 36, bt = 0.85, ri = 0.12, rs = 0.8, tint = C(255, 234, 228), sat = 0.20, con = 0.06, br = 0 },
+			{ h = 6.4, n = "日の出", w = 1, ac = C(255, 172, 92), ad = C(152, 82, 60), dens = 0.35, off = 0.10, glare = 0.9, haze = 1.6, amb = C(98, 86, 96), oamb = C(162, 142, 132), brm = 0.90, top = C(255, 192, 122),
+				stars = 0, sunS = 30, moonS = 10, cc = 0.50, cd = 0.70, ccol = C(255, 212, 162), bi = 0.8, bs = 40, bt = 0.8, ri = 0.22, rs = 0.9, tint = C(255, 238, 218), sat = 0.22, con = 0.08, br = 0 },
+			{ h = 8, n = "朝", w = 0.7, ac = C(200, 192, 165), ad = C(112, 102, 92), dens = 0.33, off = 0.15, glare = 0.2, haze = 0.5, amb = C(112, 116, 132), oamb = C(152, 156, 168), brm = 1.0, top = C(255, 242, 218),
+				stars = 0, sunS = 21, moonS = 11, cc = 0.5, cd = 0.7, ccol = C(255, 255, 255), bi = 0.4, bs = 24, bt = 1.0, ri = 0.06, rs = 0.7, tint = C(255, 251, 242), sat = 0.10, con = 0.05, br = 0 },
+			{ h = 12, n = "昼", w = 0.45, ac = C(172, 192, 228), ad = C(122, 132, 152), dens = 0.30, off = 0.20, glare = 0, haze = 0.3, amb = C(132, 137, 152), oamb = C(162, 167, 182), brm = 1.05, top = C(255, 255, 255),
+				stars = 0, sunS = 21, moonS = 11, cc = 0.5, cd = 0.7, ccol = C(255, 255, 255), bi = 0.3, bs = 24, bt = 1.0, ri = 0.04, rs = 0.6, tint = C(255, 255, 255), sat = 0.08, con = 0.04, br = 0 },
+			{ h = 15.5, n = "午後", w = 0.6, ac = C(208, 188, 152), ad = C(132, 102, 82), dens = 0.32, off = 0.18, glare = 0.2, haze = 0.6, amb = C(126, 126, 136), oamb = C(162, 157, 162), brm = 1.0, top = C(255, 242, 212),
+				stars = 0, sunS = 22, moonS = 11, cc = 0.5, cd = 0.7, ccol = C(255, 250, 240), bi = 0.4, bs = 26, bt = 1.0, ri = 0.07, rs = 0.7, tint = C(255, 247, 234), sat = 0.12, con = 0.05, br = 0 },
+			{ h = 17.25, n = "夕方", w = 0.9, ac = C(255, 178, 98), ad = C(162, 96, 72), dens = 0.36, off = 0.12, glare = 0.7, haze = 1.4, amb = C(106, 92, 96), oamb = C(172, 142, 122), brm = 0.92, top = C(255, 202, 122),
+				stars = 0, sunS = 27, moonS = 11, cc = 0.55, cd = 0.72, ccol = C(255, 208, 152), bi = 0.75, bs = 38, bt = 0.85, ri = 0.2, rs = 0.9, tint = C(255, 234, 208), sat = 0.28, con = 0.08, br = 0 },
+			{ h = 18.3, n = "夕焼け", w = 1, ac = C(255, 122, 72), ad = C(142, 52, 92), dens = 0.38, off = 0.10, glare = 1.2, haze = 2.0, amb = C(96, 72, 96), oamb = C(172, 112, 122), brm = 0.80, top = C(255, 152, 102),
+				stars = 200, sunS = 34, moonS = 10, cc = 0.6, cd = 0.75, ccol = C(255, 142, 122), bi = 0.9, bs = 42, bt = 0.8, ri = 0.3, rs = 0.95, tint = C(255, 217, 202), sat = 0.35, con = 0.10, br = 0 },
+			{ h = 19.2, n = "夕暮れ", w = 1, ac = C(192, 102, 152), ad = C(72, 42, 112), dens = 0.34, off = 0.05, glare = 0.5, haze = 1.2, amb = C(56, 46, 86), oamb = C(102, 76, 126), brm = 0.62, top = C(202, 142, 192),
+				stars = 1500, sunS = 22, moonS = 12, cc = 0.55, cd = 0.7, ccol = C(202, 132, 172), bi = 0.7, bs = 36, bt = 0.85, ri = 0.1, rs = 0.8, tint = C(242, 217, 242), sat = 0.25, con = 0.08, br = 0 },
+			{ h = 20.5, n = "宵", w = 1, ac = C(72, 82, 162), ad = C(26, 26, 72), dens = 0.28, off = 0.05, glare = 0.1, haze = 0.6, amb = C(32, 34, 64), oamb = C(62, 70, 117), brm = 0.50, top = C(152, 162, 232),
+				stars = 3500, sunS = 21, moonS = 14, cc = 0.40, cd = 0.60, ccol = C(82, 82, 132), bi = 0.55, bs = 30, bt = 0.95, ri = 0, rs = 0.6, tint = C(217, 224, 255), sat = 0.05, con = 0.06, br = -0.01 },
+			{ h = 22.5, n = "夜", w = 1, ac = C(30, 42, 95), ad = C(6, 8, 26), dens = 0.22, off = 0, glare = 0, haze = 0, amb = C(22, 26, 50), oamb = C(58, 68, 118), brm = 0.42, top = C(120, 140, 225),
+				stars = 5000, sunS = 21, moonS = 16, cc = 0.30, cd = 0.50, ccol = C(45, 55, 90), bi = 0.5, bs = 28, bt = 0.95, ri = 0, rs = 0.6, tint = C(205, 218, 255), sat = -0.05, con = 0.05, br = -0.02 },
+		}
+		M.KF = KF
+		local NUM = { "w", "dens", "off", "glare", "haze", "brm", "stars", "sunS", "moonS", "cc", "cd", "bi", "bs", "bt", "ri", "rs", "sat", "con", "br" }
+		local COL = { "ac", "ad", "amb", "oamb", "top", "ccol", "tint" }
+		local cur = {}   -- sample の答え (毎回つくらず、使いまわす)
+		-- 時刻 t(0〜24) の空の値。表の2つの間を、なめらかにつなぐ
+		function M.sample(t)
+			t = t % 24
+			local n = #KF
+			local i = 1
+			while i < n and KF[i + 1].h <= t do i = i + 1 end
+			local a = KF[i]
+			local b = KF[i + 1] or KF[1]
+			local hb = KF[i + 1] and b.h or 24
+			local u = (t - a.h) / math.max(hb - a.h, 1e-6)
+			u = u * u * (3 - 2 * u)
+			for _, f in ipairs(NUM) do cur[f] = a[f] + (b[f] - a[f]) * u end
+			for _, f in ipairs(COL) do cur[f] = a[f]:Lerp(b[f], u) end
+			cur.name = a.n
+			return cur
+		end
+		function M.nameOf(t)
+			t = t % 24
+			local n = #KF
+			local i = 1
+			while i < n and KF[i + 1].h <= t do i = i + 1 end
+			return KF[i].n
+		end
+		function M.clockText(t)
+			t = t % 24
+			local h = math.floor(t)
+			local m = math.floor((t - h) * 60 + 0.5)
+			if m >= 60 then m = 0 h = (h + 1) % 24 end
+			return string.format("%d:%02d", h, m)
+		end
+
+		-- ===== 状態 =====
+		local function neutralK()
+			return { stars = 1, sun = 1, moon = 1, cloud = 1, cdens = 1, air = 1, haze = 1, glare = 1, bright = 1, sat = 0, con = 0, bloom = 1, rays = 1 }
+		end
+		M.neutralK = neutralK
+		local st = {
+			on = false,          -- 空を触っている間だけ true (false の間は、何も書かない)
+			dress = true,        -- 時刻に合わせて空をきれいにする (スイッチ)
+			styled = false,      -- 時刻をさわったら true (さわるまでは、空の表は使わない)
+			nightClear = true,   -- 夜は、もとの空の画像をはずして星を見せる (自作の空の画像があるゲームだけ)
+			smooth = true,       -- 押した時刻へ、なめらかに変える
+			t = nil,             -- いまの時刻
+			tint = nil,          -- 好きな色合い { c = 色, k = 0〜1 }
+			k = neutralK(),      -- こまかい調整 (倍率など。1 / 0 がもとのまま)
+			celest = nil,        -- 太陽・月・星を出すか (nil = もとのまま)
+			clouds = nil,        -- 雲を出すか (nil = もとのまま / false = 消す)
+			faces = nil,         -- 画像の空 { Bk =, Dn =, Ft =, Lf =, Rt =, Up = } (nil = もとのまま)
+			lapse = false,       -- 時間をながす
+			lapseSpeed = 0.5,    -- 1秒に進む時間
+		}
+		M.st = st
+
+		-- もとの値の控え / 自分で作った部品 / 部品の置き場 / 最後に書いた値
+		local PROPS = {
+			Lighting = { "Ambient", "OutdoorAmbient", "Brightness", "ColorShift_Top" },
+			Atmosphere = { "Color", "Decay", "Density", "Offset", "Glare", "Haze" },
+			Sky = { "StarCount", "CelestialBodiesShown", "SunAngularSize", "MoonAngularSize", "SkyboxBk", "SkyboxDn", "SkyboxFt", "SkyboxLf", "SkyboxRt", "SkyboxUp" },
+			Clouds = { "Cover", "Density", "Color", "Enabled" },
+			BloomEffect = { "Intensity", "Size", "Threshold", "Enabled" },
+			SunRaysEffect = { "Intensity", "Spread", "Enabled" },
+			ColorCorrectionEffect = { "Brightness", "Contrast", "Saturation", "TintColor", "Enabled" },
+		}
+		local NEUTRAL = { BloomEffect = { Intensity = 0 }, SunRaysEffect = { Intensity = 0 } }   -- 自分で作った時の「何もしていない」状態
+		local FACE = { Bk = "SkyboxBk", Dn = "SkyboxDn", Ft = "SkyboxFt", Lf = "SkyboxLf", Rt = "SkyboxRt", Up = "SkyboxUp" }
+		local store, made, cache, last = {}, {}, {}, {}
+		local skyCustom = false   -- もとの空が、ゲーム自作の画像か
+
+		local function grab(o, class)
+			local t = {}
+			for _, p in ipairs(PROPS[class]) do
+				local ok, v = pcall(function() return o[p] end)
+				if ok and v ~= nil then t[p] = v end
+			end
+			store[o] = t
+			if class == "Sky" then
+				skyCustom = false
+				for _, p in pairs(FACE) do
+					local v = t[p]
+					if type(v) == "string" and v ~= "" and not string.find(v, "rbxasset://textures/sky/", 1, true) then skyCustom = true end
+				end
+			end
+		end
+		local function getTerrain()
+			local ok, t = pcall(function() return workspace.Terrain end)
+			if ok and typeof(t) == "Instance" then return t end
+			return nil
+		end
+		-- 部品を1つさがす (無ければ作る)
+		local function part(class)
+			if class == "Lighting" then
+				if not store[Lighting] then grab(Lighting, "Lighting") end
+				return Lighting
+			end
+			local o = cache[class]
+			if o then
+				local ok, par = pcall(function() return o.Parent end)
+				if ok and par then return o end
+				cache[class] = nil   -- ほかのスクリプトに消された
+			end
+			local parent = (class == "Clouds") and getTerrain() or Lighting
+			if not parent then return nil end
+			local ok, f = pcall(function() return parent:FindFirstChildOfClass(class) end)
+			if ok and typeof(f) == "Instance" then
+				o = f
+			else
+				local ok2, n = pcall(function()
+					local x = Instance.new(class)
+					x.Name = "PalletBG_" .. class
+					for p, v in pairs(NEUTRAL[class] or {}) do x[p] = v end
+					x.Parent = parent
+					return x
+				end)
+				if not ok2 or typeof(n) ~= "Instance" then return nil end
+				o = n
+				made[o] = true
+			end
+			cache[class] = o
+			grab(o, class)
+			return o
+		end
+		local function origOf(o, p, d)
+			local t = store[o]
+			local v = t and t[p]
+			if v == nil then return d end
+			return v
+		end
+		local function put(o, p, v)
+			if not o then return end
+			local l = last[o]
+			if not l then l = {} last[o] = l end
+			local old = l[p]
+			if old ~= nil then
+				local tv = typeof(v)
+				if type(v) == "number" then
+					if type(old) == "number" and math.abs(old - v) < 0.0005 then return end
+				elseif tv == "Color3" then
+					if typeof(old) == "Color3" and math.abs(old.R - v.R) + math.abs(old.G - v.G) + math.abs(old.B - v.B) < 0.002 then return end
+				elseif old == v then
+					return
+				end
+			end
+			l[p] = v
+			pcall(function() o[p] = v end)
+		end
+
+		-- ===== 計算して書く =====
+		local WHITE, BLACK = Color3.new(1, 1, 1), Color3.new(0, 0, 0)
+		local function clamp(x, a, b) if x < a then return a elseif x > b then return b end return x end
+		local function mixN(a, b, w) return a + (b - a) * w end
+		local function dark(c, f) return Color3.new(c.R * f, c.G * f, c.B * f) end
+		local tc, tk = nil, 0   -- いまの色合い (色, つよさ)
+		local function tintC(base, amt)   -- 色合いのぶんだけ、色を寄せる
+			if tc and tk > 0 then return base:Lerp(tc, clamp(amt * tk, 0, 1)) end
+			return base
+		end
+		local function tintD(base, f, amt)   -- 色合いを f 倍に暗くした色へ寄せる
+			if tc and tk > 0 then return base:Lerp(dark(tc, f), clamp(amt * tk, 0, 1)) end
+			return base
+		end
+
+		local function apply(t)
+			if not st.on then return end
+			local v = M.sample(t)
+			local dr = st.dress and st.styled
+			local w = dr and v.w or 0
+			local k = st.k
+			if st.tint then tc, tk = st.tint.c, st.tint.k else tc, tk = nil, 0 end
+			local needAtm = dr or tc ~= nil or k.air ~= 1 or k.haze ~= 1 or k.glare ~= 1
+			local needFx = dr or tc ~= nil or k.bloom ~= 1 or k.rays ~= 1 or k.sat ~= 0 or k.con ~= 0 or k.bright ~= 1
+			local needCl = dr or tc ~= nil or k.cloud ~= 1 or k.cdens ~= 1 or st.clouds ~= nil
+			local needSky = dr or st.faces ~= nil or st.celest ~= nil or k.stars ~= 1 or k.sun ~= 1 or k.moon ~= 1
+
+			-- 光 (Lighting)
+			local L = part("Lighting")
+			put(L, "Ambient", tintD(origOf(L, "Ambient", BLACK):Lerp(v.amb, w * 0.85), 0.6, 0.35))
+			put(L, "OutdoorAmbient", tintD(origOf(L, "OutdoorAmbient", BLACK):Lerp(v.oamb, w * 0.85), 0.8, 0.45))
+			put(L, "Brightness", clamp(origOf(L, "Brightness", 2) * mixN(1, v.brm, w) * k.bright, 0, 10))
+			put(L, "ColorShift_Top", tintC(origOf(L, "ColorShift_Top", BLACK):Lerp(v.top, w * 0.5), 0.5))
+
+			-- 空気 (Atmosphere)
+			local A = (needAtm or cache.Atmosphere) and part("Atmosphere") or nil
+			if A then
+				put(A, "Color", tintC(origOf(A, "Color", WHITE):Lerp(v.ac, w), 0.9))
+				put(A, "Decay", tintD(origOf(A, "Decay", BLACK):Lerp(v.ad, w), 0.5, 0.8))
+				put(A, "Density", clamp(mixN(origOf(A, "Density", 0.395), v.dens, w) * k.air, 0, 1))
+				put(A, "Offset", clamp(mixN(origOf(A, "Offset", 0), v.off, w), 0, 1))
+				put(A, "Glare", clamp(mixN(origOf(A, "Glare", 0), v.glare, w) * k.glare, 0, 10))
+				put(A, "Haze", clamp(mixN(origOf(A, "Haze", 0), v.haze, w) * k.haze, 0, 10))
+			end
+
+			-- 空 (Sky): 星・太陽・月・空の画像
+			local S = (needSky or cache.Sky) and part("Sky") or nil
+			if S then
+				local cel = st.celest
+				if cel == nil then cel = origOf(S, "CelestialBodiesShown", true) end
+				put(S, "CelestialBodiesShown", cel)
+				local stars = dr and mixN(origOf(S, "StarCount", 3000), v.stars, w) or origOf(S, "StarCount", 3000)
+				stars = clamp(stars * k.stars, 0, 5000)
+				put(S, "StarCount", math.floor(stars / 250 + 0.5) * 250)
+				put(S, "SunAngularSize", clamp(mixN(origOf(S, "SunAngularSize", 21), v.sunS, w) * k.sun, 0, 100))
+				put(S, "MoonAngularSize", clamp(mixN(origOf(S, "MoonAngularSize", 11), v.moonS, w) * k.moon, 0, 100))
+				local night = dr and st.nightClear and skyCustom and (v.stars > 1500)
+				for key, p in pairs(FACE) do
+					local face
+					if st.faces then face = st.faces[key] or ""
+					elseif night then face = ""
+					else face = origOf(S, p, "") end
+					put(S, p, face)
+				end
+			end
+
+			-- 雲 (Terrain の Clouds)
+			local Cl = (needCl or cache.Clouds) and part("Clouds") or nil
+			if Cl then
+				put(Cl, "Enabled", (st.clouds ~= false) and (dr or origOf(Cl, "Enabled", true)) or false)
+				put(Cl, "Cover", clamp(mixN(origOf(Cl, "Cover", 0.5), v.cc, w) * k.cloud, 0, 1))
+				put(Cl, "Density", clamp(mixN(origOf(Cl, "Density", 0.7), v.cd, w) * k.cdens, 0, 1))
+				put(Cl, "Color", tintC(origOf(Cl, "Color", WHITE):Lerp(v.ccol, w), 0.6))
+			end
+
+			-- にじみ・光の筋・色補正
+			if needFx or cache.BloomEffect or cache.SunRaysEffect or cache.ColorCorrectionEffect then
+				local B = part("BloomEffect")
+				if B then
+					put(B, "Enabled", true)
+					put(B, "Intensity", clamp(mixN(origOf(B, "Intensity", 0), v.bi, w) * k.bloom, 0, 5))
+					put(B, "Size", clamp(mixN(origOf(B, "Size", 24), v.bs, w), 0, 56))
+					put(B, "Threshold", clamp(mixN(origOf(B, "Threshold", 1), v.bt, w), 0, 4))
+				end
+				local R = part("SunRaysEffect")
+				if R then
+					put(R, "Enabled", true)
+					put(R, "Intensity", clamp(mixN(origOf(R, "Intensity", 0), v.ri, w) * k.rays, 0, 1))
+					put(R, "Spread", clamp(mixN(origOf(R, "Spread", 1), v.rs, w), 0, 1))
+				end
+				local K = part("ColorCorrectionEffect")
+				if K then
+					put(K, "Enabled", true)
+					put(K, "Brightness", clamp(mixN(origOf(K, "Brightness", 0), v.br, w) + (k.bright - 1) * 0.08, -1, 1))
+					put(K, "Contrast", clamp(mixN(origOf(K, "Contrast", 0), v.con, w) + k.con, -1, 1))
+					put(K, "Saturation", clamp(mixN(origOf(K, "Saturation", 0), v.sat, w) + k.sat, -1, 1))
+					put(K, "TintColor", tintC(origOf(K, "TintColor", WHITE):Lerp(v.tint, w), 0.35))
+				end
+			end
+		end
+
+		-- ===== 時計 =====
+		local origClock = nil
+		local function readClock()
+			local ok, c = pcall(function() return Lighting.ClockTime end)
+			if ok and type(c) == "number" then return c end
+			return nil
+		end
+		function M.setClock(v)
+			if origClock == nil then origClock = readClock() or 14 end
+			pcall(function() Lighting.ClockTime = v end)
+		end
+		function M.restoreClock()
+			if origClock ~= nil then
+				pcall(function() Lighting.ClockTime = origClock end)
+				local c = origClock
+				origClock = nil
+				st.t = c
+				if st.on then apply(c) end
+				return c
+			end
+			return nil
+		end
+		function M.clock() return st.t or readClock() or 14 end
+		M.onTime = nil   -- 画面側が、時刻が変わった時の表示更新に使う
+
+		-- 時刻を決める (すぐ)。時刻に合わせて空をきれいにする設定なら、空も同時に変える
+		function M.setTime(t)
+			t = t % 24
+			st.t = t
+			M.setClock(t)
+			if st.dress then st.styled = true st.on = true end
+			if st.on then apply(t) end
+			if M.onTime then pcall(M.onTime, t) end
+		end
+		-- 空のほかの設定が変わった時に、いまの時刻で計算しなおす
+		function M.refresh()
+			if st.on then
+				if st.t == nil then st.t = readClock() or 14 end
+				apply(st.t)
+			end
+		end
+		-- 空を触り始める (時刻が決まっていなければ、いまの時刻から)
+		function M.begin()
+			st.on = true
+			M.refresh()
+		end
+
+		-- ===== 動き (なめらかな時刻の変化・時間をながす・GIFの空) =====
+		local hb, mv = nil, nil
+		local anim = nil   -- { frames =, fps =, i =, acc = }
+		local function busy() return mv ~= nil or st.lapse or anim ~= nil end
+		local function sync()
+			if busy() then
+				if not hb then hb = RunService.Heartbeat:Connect(function(dt) M.step(dt) end) end
+			elseif hb then
+				hb:Disconnect()
+				hb = nil
+			end
+		end
+		-- 1フレームぶん進める (動かすものがある間だけ、Heartbeat につながる)
+		function M.step(dt)
+			local m = mv
+			if m then
+				m.e = m.e + dt
+				local u = math.min(m.e / m.d, 1)
+				local s = u * u * (3 - 2 * u)
+				if u >= 1 then mv = nil end
+				M.setTime(m.from + m.delta * s)
+				if u >= 1 and m.done then pcall(m.done) end
+			end
+			if st.lapse and not m then
+				M.setTime((st.t or readClock() or 14) + dt * st.lapseSpeed)
+			end
+			if anim then
+				anim.acc = anim.acc + dt
+				local per = 1 / math.max(anim.fps, 0.5)
+				if anim.acc >= per then
+					anim.acc = anim.acc - per
+					anim.i = anim.i % #anim.frames + 1
+					st.faces = anim.frames[anim.i]
+					M.refresh()
+				end
+			end
+			sync()
+		end
+		-- 時刻 to へ、dur 秒かけて近い方まわりで変える (dur が 0 以下ならすぐ)
+		function M.go(to, dur, done)
+			local from = M.clock()
+			local d = (to - from) % 24
+			if d > 12 then d = d - 24 end
+			if not dur or dur <= 0 or math.abs(d) < 0.01 then
+				mv = nil
+				M.setTime(to)
+				sync()
+				if done then pcall(done) end
+				return
+			end
+			mv = { from = from, delta = d, e = 0, d = dur, done = done }
+			sync()
+		end
+		function M.stopMove() mv = nil sync() end
+		function M.setLapse(on, speed)
+			st.lapse = on and true or false
+			if speed then st.lapseSpeed = speed end
+			if st.lapse then
+				mv = nil
+				if st.t == nil then st.t = readClock() or 14 end
+			end
+			sync()
+		end
+		-- 画像の空を決める。faces = { Bk =, ... } / nil でもとの空 / frames = { faces, ... } と fps でパラパラ動く空
+		function M.setFaces(faces, frames, fps)
+			anim = nil
+			if frames and #frames > 1 then
+				anim = { frames = frames, fps = fps or 4, i = 1, acc = 0 }
+				faces = frames[1]
+			end
+			st.faces = faces
+			if faces then st.on = true end
+			M.refresh()
+			sync()
+		end
+
+		-- ===== 戻す =====
+		-- 空まわりをもとの値に戻す (時刻は別)。自分で作った部品は消す
+		function M.restoreSky()
+			for o, props in pairs(store) do
+				if not made[o] then
+					for p, v in pairs(props) do pcall(function() o[p] = v end) end
+				end
+			end
+			for o in pairs(made) do pcall(function() o:Destroy() end) end
+			store, made, cache, last = {}, {}, {}, {}
+			skyCustom = false
+		end
+		-- ぜんぶ元にもどす (時刻・空・色合い・調整・画像・時間のながれ)
+		function M.restoreAll()
+			mv, anim = nil, nil
+			st.lapse = false
+			sync()
+			st.on = false
+			st.dress, st.styled, st.nightClear, st.smooth = true, false, true, true
+			st.tint, st.k, st.celest, st.clouds, st.faces = nil, neutralK(), nil, nil, nil
+			M.restoreSky()
+			if origClock ~= nil then
+				pcall(function() Lighting.ClockTime = origClock end)
+				origClock = nil
+			end
+			st.t = nil
+			sync()
+		end
+		-- 何も触っていない状態か (空を触る設定が、ぜんぶもとのままか)
+		function M.untouched()
+			local k = st.k
+			local nk = neutralK()
+			for key, val in pairs(nk) do
+				if k[key] ~= val then return false end
+			end
+			return (not (st.dress and st.styled)) and st.tint == nil and st.celest == nil and st.clouds == nil and st.faces == nil
+		end
+		-- 時刻に合わせる設定を切った時など、何も触っていなければ空をもとに戻す
+		function M.settle()
+			if st.on and M.untouched() then
+				M.restoreSky()
+				st.on = false
+			else
+				M.refresh()
+			end
+		end
+		function M.active() return st.on or busy() or origClock ~= nil end
+		M.busy = busy
+
+		return M
+	end)()
+
+	-- ===== 時刻 =====
+	-- (時刻のスライダー・朝/昼/夕方/夜・もとの時刻にもどす は、これまで「光」ページにあったものを、そのままここへ移した)
+	e:title("時刻 (この画面だけ)")
+	local clockNote = e:row(isMobile and 58 or 40)
+	local clockLbl = text(clockNote, "ゲームの時刻を、この画面だけで変えます。「夜だけ光る」の確認に便利です。サーバーが時刻を変えた時は、そちらが優先されます。", isMobile and 12 or 13, UDim2.fromOffset(4, 0), UDim2.new(1, -8, 1, 0), nil, SOFT)
+	clockLbl.TextWrapped = true
+	local readRow = e:glass(isMobile and 40 or 36)
+	local readout = text(readRow, "", isMobile and 16 or 18, UDim2.fromOffset(12, 0), UDim2.new(1, -24, 1, 0), Enum.TextXAlignment.Center)
+	local clockS, lapseT, phaseMark, quickMark
+	local fromSlider = false
+	local lastShow = 0
+	-- 時刻の表示 (数字と時間帯の名前・スライダー) を合わせる。動いている間は 0.12 秒に1回だけ
+	local function showClock(t, force, noSlider)
+		local now = os.clock()
+		if not force and now - lastShow < 0.12 then return end
+		lastShow = now
+		if not noSlider and clockS then clockS:set(t) end
+		readout.Text = "🕒 " .. BG.clockText(t) .. "   " .. BG.nameOf(t)
+	end
+	BG.onTime = function(t) showClock(t, false, fromSlider) end
+	local function clearMarks()
+		if quickMark then quickMark(0) end
+		if phaseMark then phaseMark(0) end
+	end
+	local function stopLapse()
+		if BG.st.lapse then
+			BG.setLapse(false)
+			if lapseT then lapseT:set(false) end
+		end
+	end
+	-- 指定の時刻へ変える (なめらか設定なら、近い方まわりで少しずつ)
+	local function goTime(v)
+		stopLapse()
+		BG.go(v, BG.st.smooth and 1.4 or 0, function() showClock(BG.clock(), true) end)
+	end
+	showClock(BG.clock(), true)
+
+	clockS = e:slider("時刻", 0, 24, function(v)
+		BG.stopMove()
+		stopLapse()
+		fromSlider = true
+		BG.setTime(v)
+		fromSlider = false
+		showClock(BG.clock(), true, true)
+		clearMarks()
+	end, BG.clock())
+	quickMark = chipsRow(e, { "🌅 朝", "☀️ 昼", "🌇 夕方", "🌙 夜" }, function(i)
+		local v = ({ 7, 13, 18, 0 })[i] or 14
+		goTime(v)
+		if phaseMark then phaseMark(0) end
+	end, 0, 0)
+	e:button("↺ 元の時刻にもどす", function()
+		BG.stopMove()
+		stopLapse()
+		local c = BG.restoreClock()
+		if c then showClock(c, true) end
+		clearMarks()
+	end)
+
+	-- 時刻をもっと細かく
+	e:title("時刻をこまかく")
+	local function stepTime(d)
+		BG.stopMove()
+		stopLapse()
+		local t = (BG.clock() + d) % 24
+		BG.setTime(t)
+		showClock(t, true)
+		clearMarks()
+	end
+	UIs.btnRow(e, {
+		{ "−1時間", function() stepTime(-1) end },
+		{ "−10分", function() stepTime(-1 / 6) end },
+		{ "+10分", function() stepTime(1 / 6) end },
+		{ "+1時間", function() stepTime(1) end },
+	})
+	local fineNote = e:row(isMobile and 40 or 28)
+	local fineLbl = text(fineNote, "スライダーの右の数字を直接入れると、17.5 = 17時30分のように細かく決められます。", isMobile and 12 or 13, UDim2.fromOffset(4, 0), UDim2.new(1, -8, 1, 0), nil, SOFT)
+	fineLbl.TextWrapped = true
+	local PH = {
+		{ "🌌 真夜中 0:00", 0 }, { "🌠 明け方前 4:30", 4.5 }, { "🌄 夜明け 5:42", 5.7 }, { "🌅 日の出 6:24", 6.4 },
+		{ "🌞 朝 8:00", 8 }, { "☀️ 正午 12:00", 12 }, { "🌤 午後 15:30", 15.5 }, { "🌇 夕方 17:15", 17.25 },
+		{ "🌆 夕焼け 18:20", 18 + 20 / 60 }, { "🏙 夕暮れ 19:15", 19.25 }, { "🌃 宵 20:30", 20.5 }, { "🌙 深夜 22:30", 22.5 },
+	}
+	local phLabels = {}
+	for i, p in ipairs(PH) do phLabels[i] = p[1] end
+	e:title("時間帯 (くわしく)")
+	phaseMark = chipsGrid(e, phLabels, isMobile and 2 or 3, function(i)
+		if quickMark then quickMark(0) end
+		goTime(PH[i][2])
+	end, 0)
+
+	-- 空のととのえ方
+	e:title("空のととのえ方")
+	local dressT = e:toggle("時刻で空をととのえる", function(s)
+		BG.st.dress = s
+		if s then
+			BG.st.styled = true
+			BG.begin()
+		else
+			BG.settle()
+		end
+	end, true)
+	local smoothT = e:toggle("なめらかに変える", function(s) BG.st.smooth = s end, true)
+	local nightT = e:toggle("夜は空の画像をはずす", function(s)
+		BG.st.nightClear = s
+		BG.refresh()
+	end, true)
+	local lapseNote = e:row(isMobile and 70 or 40)
+	local lapseLbl = text(lapseNote, "夕方は赤みのある色、夜は星が出ます。「夜は空の画像をはずす」は、ゲームが自分の空の画像を使っている時に、夜だけ星を見せます。", isMobile and 12 or 13, UDim2.fromOffset(4, 0), UDim2.new(1, -8, 1, 0), nil, SOFT)
+	lapseLbl.TextWrapped = true
+
+	e:title("時間のながれ")
+	local lapseS
+	lapseT = e:toggle("時間をながす", function(s)
+		BG.setLapse(s, lapseS and BG.st.lapseSpeed or nil)
+		if s then
+			BG.stopMove()
+			clearMarks()
+		end
+	end, false)
+	lapseS = e:slider("速さ", 0.05, 3, function(v) BG.st.lapseSpeed = v end, 0.5)
+
+	-- ===== 背景スタイル / 好きな色合い / こまかい調整 =====
+	-- (「UI設定」ページと同じ作りの、色のボタン・色相のスライダー・グラデーションの見本つきカード・量/速さのスライダー・スイッチを借りている)
+	local function RGB(r, g, b) return Color3.fromRGB(r, g, b) end
+	local KS = {}                      -- こまかい調整のスライダー (キー -> スライダー)
+	local swGrp, hueS, tintKS, celT, cloudT, sceneGrp
+	local tintK, tintHue = 0.6, 0.58   -- 色合いのつよさ・色相 (色合いを選ぶ前に動かしても覚えておく)
+
+	-- 色合いの表示 (つよさ・色のスライダー・丸いボタンの印) だけ、いまの設定に合わせる
+	local function syncTint()
+		local st = BG.st
+		if tintKS then tintKS:set(st.tint and st.tint.k or tintK) end
+		if hueS then hueS:set(tintHue) end
+		if swGrp then swGrp.mark(0) end
+	end
+	-- 画面の表示を、いまの設定に合わせる (カードを押した時・全部もどす時)
+	local function syncControls()
+		local st = BG.st
+		for key, s in pairs(KS) do s:set(st.k[key]) end
+		if tintKS then tintKS:set(st.tint and st.tint.k or tintK) end
+		if hueS then hueS:set(tintHue) end
+		if swGrp then swGrp.mark(0) end
+		if celT then celT:set(st.celest ~= false) end
+		if cloudT then cloudT:set(st.clouds ~= false) end
+	end
+
+	-- { 名前, 時刻, 色合い {色相, 彩度, つよさ} (無ければ nil), 調整 (無ければ nil), 見本の色 {上, 中, 地平線} }
+	local SC = {
+		{ "🌅 夕焼けの空", 18.3, nil, { glare = 1.2 }, { RGB(54, 62, 140), RGB(214, 96, 120), RGB(255, 168, 80) } },
+		{ "🌇 黄金の夕方", 17.25, nil, nil, { RGB(86, 120, 190), RGB(244, 170, 110), RGB(255, 205, 110) } },
+		{ "🌆 紫の夕暮れ", 19.2, { 0.78, 0.5, 0.35 }, nil, { RGB(26, 24, 78), RGB(120, 62, 140), RGB(230, 120, 150) } },
+		{ "🌄 朝焼け", 5.8, { 0.02, 0.5, 0.2 }, nil, { RGB(70, 80, 150), RGB(240, 140, 130), RGB(255, 200, 130) } },
+		{ "☀️ 青空", 12, { 0.58, 0.6, 0.25 }, { cloud = 0.6 }, { RGB(40, 120, 230), RGB(100, 170, 245), RGB(190, 225, 255) } },
+		{ "⛅ くもり空", 14, { 0.6, 0.08, 0.5 }, { cloud = 1.8, cdens = 1.5, sat = -0.35, bright = 0.85, glare = 0 }, { RGB(120, 128, 140), RGB(160, 166, 176), RGB(200, 204, 210) } },
+		{ "🌫 きり", 9, { 0.58, 0.12, 0.55 }, { haze = 2, air = 1.6, cloud = 0.8, bright = 0.9, sat = -0.2 }, { RGB(160, 170, 182), RGB(196, 204, 212), RGB(225, 230, 235) } },
+		{ "🌙 満月の夜", 23.5, { 0.62, 0.4, 0.2 }, { moon = 2.2 }, { RGB(8, 12, 36), RGB(24, 34, 78), RGB(50, 70, 120) } },
+		{ "✨ 星空", 1.5, nil, { stars = 2, cloud = 0, moon = 1.2 }, { RGB(2, 4, 18), RGB(10, 16, 48), RGB(26, 40, 90) } },
+		{ "🌌 天の川", 2, { 0.72, 0.6, 0.35 }, { stars = 2, cloud = 0, moon = 0.4 }, { RGB(6, 4, 30), RGB(42, 20, 90), RGB(96, 56, 150) } },
+		{ "🌠 オーロラ風", 0, { 0.42, 0.8, 0.5 }, { stars = 1.6, cloud = 0.3 }, { RGB(4, 14, 36), RGB(14, 90, 80), RGB(60, 200, 150) } },
+		{ "🌸 桜の空", 16.5, { 0.93, 0.35, 0.5 }, { sat = 0.15 }, { RGB(255, 190, 215), RGB(255, 214, 230), RGB(255, 236, 244) } },
+		{ "🍃 新緑", 10, { 0.33, 0.5, 0.35 }, nil, { RGB(60, 150, 110), RGB(140, 205, 150), RGB(210, 240, 190) } },
+		{ "🌊 海の青", 12.5, { 0.5, 0.75, 0.5 }, { sat = 0.2 }, { RGB(0, 90, 170), RGB(20, 160, 210), RGB(150, 230, 240) } },
+		{ "🔥 燃える空", 18.1, { 0.0, 0.9, 0.55 }, { glare = 1.6, haze = 1.4, bloom = 1.3 }, { RGB(80, 12, 20), RGB(200, 50, 30), RGB(255, 150, 40) } },
+		{ "❄️ 雪の朝", 8, { 0.55, 0.25, 0.5 }, { haze = 1.3, cloud = 1.5, sat = -0.2, bright = 1.1 }, { RGB(170, 195, 225), RGB(205, 222, 240), RGB(238, 246, 252) } },
+		{ "🌧 雨ぐも", 15, { 0.6, 0.1, 0.6 }, { cloud = 2, cdens = 1.8, bright = 0.7, sat = -0.4, glare = 0, haze = 1.5 }, { RGB(70, 78, 92), RGB(104, 112, 126), RGB(140, 148, 160) } },
+		{ "⚡ 嵐", 16, { 0.65, 0.25, 0.6 }, { cloud = 2, cdens = 2, bright = 0.55, con = 0.15, sat = -0.3 }, { RGB(30, 34, 50), RGB(62, 66, 86), RGB(96, 100, 120) } },
+		{ "🍂 秋の夕方", 17.2, { 0.08, 0.7, 0.4 }, { sat = 0.1 }, { RGB(110, 90, 130), RGB(220, 130, 70), RGB(250, 190, 90) } },
+		{ "🍭 パステル", 14, { 0.9, 0.3, 0.45 }, { sat = -0.1, con = -0.1, bright = 1.15 }, { RGB(190, 210, 255), RGB(255, 205, 230), RGB(255, 240, 200) } },
+		{ "🌟 ネオンの夜", 22, { 0.85, 0.9, 0.5 }, { bloom = 1.8, stars = 0.5, sat = 0.35 }, { RGB(20, 4, 60), RGB(140, 20, 160), RGB(30, 200, 230) } },
+		{ "🔷 ブルーアワー", 19.6, { 0.6, 0.8, 0.4 }, nil, { RGB(10, 24, 90), RGB(40, 80, 170), RGB(110, 150, 220) } },
+		{ "🌃 都会の夜", 21, { 0.07, 0.5, 0.25 }, { stars = 0.3, haze = 1.5 }, { RGB(10, 12, 28), RGB(50, 40, 60), RGB(150, 100, 70) } },
+		{ "🎞 モノクロ", 13, nil, { sat = -1 }, { RGB(70, 70, 70), RGB(150, 150, 150), RGB(225, 225, 225) } },
+	}
+	local function pickScene(i)
+		local d = SC[i]
+		local st = BG.st
+		BG.stopMove()
+		stopLapse()
+		st.k = BG.neutralK()
+		for key, val in pairs(d[4] or {}) do st.k[key] = val end
+		if d[3] then
+			tintHue, tintK = d[3][1], d[3][3]
+			st.tint = { c = Color3.fromHSV(d[3][1], d[3][2], 1), k = d[3][3] }
+		else
+			st.tint = nil
+		end
+		st.dress, st.styled = true, true
+		dressT:set(true)
+		BG.begin()
+		goTime(d[2])
+		syncControls()
+		if swGrp then swGrp.mark(0) end
+		clearMarks()
+	end
+	local function dropScene()
+		local st = BG.st
+		st.k = BG.neutralK()
+		st.tint = nil
+		BG.settle()
+		syncControls()
+	end
+
+	e:title("背景スタイル")
+	local scCols = isMobile and 2 or 4
+	local scCW = isMobile and 124 or 118
+	local scRow = e:row(gridHeight(#SC, scCols, 66, 8))
+	grid(scRow, scCW, 66, 8, 8)
+	sceneGrp = markGroup("card")
+	for i, d in ipairs(SC) do
+		local b = mk("TextButton", { AutoButtonColor = false, Text = "", LayoutOrder = i }, scRow)
+		Lib.glass(b, 0.84, 14)
+		local sw = mk("Frame", { BackgroundColor3 = WHITE, BorderSizePixel = 0, Position = UDim2.fromOffset(6, 6), Size = UDim2.new(1, -12, 0, 32) }, b)
+		corner(sw, 8)
+		mk("UIGradient", { Rotation = 90, Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, d[5][1]), ColorSequenceKeypoint.new(0.55, d[5][2]), ColorSequenceKeypoint.new(1, d[5][3]) }) }, sw)
+		text(b, d[1], isMobile and 12 or 13, UDim2.fromOffset(0, 40), UDim2.new(1, 0, 0, 22), Enum.TextXAlignment.Center)
+		Lib.juice(b)
+		sceneGrp.add(b)
+		b.MouseButton1Click:Connect(function() sceneGrp.click(i, pickScene, dropScene) end)
+	end
+
+	-- 好きな色合い (空の色を、選んだ色に寄せる)
+	e:title("好きな色合い")
+	local TC = {
+		RGB(255, 99, 99), RGB(255, 145, 77), RGB(255, 196, 61), RGB(255, 230, 120), RGB(170, 230, 90), RGB(80, 210, 120), RGB(60, 200, 180), RGB(90, 200, 250), RGB(70, 140, 255), RGB(110, 110, 240),
+		RGB(160, 100, 240), RGB(210, 100, 230), RGB(255, 110, 190), RGB(255, 170, 200), RGB(250, 120, 90), RGB(190, 140, 90), RGB(235, 235, 245), RGB(170, 175, 190), RGB(120, 130, 160), RGB(255, 214, 170),
+	}
+	local tcols = {}
+	for i, c in ipairs(TC) do tcols[i] = { c } end
+	swGrp = UIs.swatches(e, tcols, function(i)
+		BG.st.tint = { c = TC[i], k = tintK }
+		BG.begin()
+		sceneGrp.mark(0)
+	end, function()
+		BG.st.tint = nil
+		BG.settle()
+	end)
+	local lastHue = 0
+	hueS = e:slider("好きな色", 0, 1, function(v, released)
+		tintHue = v
+		local now = os.clock()
+		if released or now - lastHue > 0.06 then
+			lastHue = now
+			BG.st.tint = { c = Color3.fromHSV(v, 0.6, 1), k = tintK }
+			BG.begin()
+			swGrp.mark(0)
+			sceneGrp.mark(0)
+		end
+	end, 0.58, nil, nil, hueSeq())
+	tintKS = e:slider("つよさ", 0, 1, function(v)
+		tintK = v
+		if BG.st.tint then
+			BG.st.tint.k = v
+			BG.refresh()
+		end
+	end, 0.6)
+	e:button("色合いをなしにする", function()
+		BG.st.tint = nil
+		BG.settle()
+		syncControls()
+		sceneGrp.mark(0)
+	end)
+
+	-- こまかい調整 (1 がもとのまま。かける数のようなもの)
+	e:title("空のこまかい調整")
+	local ADJ = {
+		{ "星の量", "stars", 0, 2, 1 }, { "太陽", "sun", 0, 3, 1 }, { "月", "moon", 0, 3, 1 },
+		{ "雲の量", "cloud", 0, 2, 1 }, { "雲のこさ", "cdens", 0, 2, 1 }, { "空気", "air", 0, 2, 1 },
+		{ "もや", "haze", 0, 2, 1 }, { "まぶしさ", "glare", 0, 2, 1 }, { "明るさ", "bright", 0.2, 2, 1 },
+		{ "彩度", "sat", -1, 1, 0 }, { "くっきり", "con", -0.5, 0.5, 0 }, { "にじみ", "bloom", 0, 2, 1 }, { "光の筋", "rays", 0, 2, 1 },
+	}
+	for _, a in ipairs(ADJ) do
+		local key = a[2]
+		KS[key] = e:slider(a[1], a[3], a[4], function(v)
+			BG.st.k[key] = v
+			BG.begin()
+			sceneGrp.mark(0)
+		end, a[5], Color3.fromRGB(99, 102, 241), CYAN)
+	end
+	celT = e:toggle("太陽・月・星を出す", function(s)
+		if s then BG.st.celest = BG.st.faces and true or nil else BG.st.celest = false end
+		BG.begin()
+	end, true)
+	cloudT = e:toggle("雲を出す", function(s)
+		if s then BG.st.clouds = nil else BG.st.clouds = false end
+		BG.begin()
+	end, true)
+	e:button("↺ 色合いと調整をもとにもどす", function()
+		local st = BG.st
+		st.tint, st.k, st.celest, st.clouds = nil, BG.neutralK(), nil, nil
+		BG.settle()
+		syncControls()
+		sceneGrp.mark(0)
+	end)
+
+	-- ===== GitHubから読む画像・GIFの背景 =====
+	-- GitHub の「背景カタログ(JSON)」を読んで、画像つきのボタンを並べる。ボタンを押すと空(6面の画像)や窓の背景に反映し、もう一度押すと元にもどる。
+	-- 画像そのものは Roblox の画像ID (rbxassetid) で指定する (Robloxは、ほかのサイトの画像を直接は表示できないため)。
+	-- 読みこみ: ① 実行ツールの HttpGet があればそれ → ② なければ、サーバーが中継 (PalletStudioNet_v1。GitHubの raw だけ・読むだけ)。コードは読みこまない (JSONの中身だけ使う)。
+	e:title("画像・GIFの背景 (GitHub)")
+	local HttpService = game:GetService("HttpService")
+	local IMG = { items = {}, cur = nil, anims = {}, winAnim = nil, winOn = false, skyOn = true, timeOn = true, alpha = 0.35, celAuto = false, loading = false }
+	local setInfo = UIs.infoRow(e, isMobile and 78 or 54, "")
+	local function say(t)
+		IMG.info = t
+		setInfo(t)
+	end
+	local cardGrp, bgImg, skyT, winT, timeT2, winS
+
+	-- 文章 (ぜんぶ「。」で終わる)
+	local MSG = {
+		empty = "GitHubの場所が空です。下の欄に「ユーザー名/リポジトリ名」を入れて、「読みこむ」を押してください。",
+		url = "場所の書き方が違います。「ユーザー名/リポジトリ名」か、raw.githubusercontent.com のURLにしてください。",
+		relay = "サーバーの中継が見つかりません。Studio の Play をやり直してください。",
+		["http-disabled"] = "HTTPリクエストが許可されていません。Studio の「ゲーム設定 → セキュリティ → HTTPリクエストを許可」をオンにしてください。",
+		busy = "少し待ってから、もう一度押してください。",
+		fail = "読みこめませんでした。リポジトリ名・ファイルの場所・公開設定(Public)を確かめてください。",
+		json = "ファイルの中身が読めませんでした。JSONの書き方を確かめてください。",
+		none = "使える背景が1つもありません。画像のIDを確かめてください。",
+		wait = "読みこみ中です。",
+	}
+	local function cutName(s, n)
+		s = tostring(s)
+		local len = utf8.len(s)
+		if len and len > n then
+			local o = utf8.offset(s, n + 1)
+			if o then s = string.sub(s, 1, o - 1) end
+		end
+		return s
+	end
+	local function clampNum(v, a, b, d)
+		v = tonumber(v)
+		if not v then return d end
+		return math.clamp(v, a, b)
+	end
+	-- 画像ID (数字 / "123" / "rbxassetid://123") を、rbxassetid の形にそろえる。それ以外は使わない
+	local function aid(v)
+		local n
+		if type(v) == "number" then
+			if v > 0 and v == math.floor(v) then n = string.format("%d", v) end
+		elseif type(v) == "string" then
+			n = string.match(v, "^rbxassetid://(%d+)$") or string.match(v, "^(%d+)$")
+		end
+		if n and #n <= 19 and tonumber(n) and tonumber(n) > 0 then return "rbxassetid://" .. n end
+		return nil
+	end
+	local FK = { { "Bk", "bk" }, { "Dn", "dn" }, { "Ft", "ft" }, { "Lf", "lf" }, { "Rt", "rt" }, { "Up", "up" } }
+	-- 空の6面の読みかた:
+	--   画像ID ひとつ            → 6面ぜんぶ同じ画像
+	--   { side=横4面, up=上, dn=下 } → up と dn が無ければ side と同じ
+	--   { bk, dn, ft, lf, rt, up } (名前つき) か、6個の並び (bk dn ft lf rt up の順)
+	local function readFaces(f)
+		local one = aid(f)
+		if one then return { Bk = one, Dn = one, Ft = one, Lf = one, Rt = one, Up = one } end
+		if type(f) ~= "table" then return nil end
+		if f.side ~= nil then
+			local sd = aid(f.side)
+			if not sd then return nil end
+			local up, dn = aid(f.up), aid(f.dn)
+			if f.up ~= nil and not up then return nil end
+			if f.dn ~= nil and not dn then return nil end
+			return { Bk = sd, Dn = dn or sd, Ft = sd, Lf = sd, Rt = sd, Up = up or sd }
+		end
+		local out = {}
+		for i, p in ipairs(FK) do
+			local v = f[p[2]]
+			if v == nil then v = f[p[1]] end
+			if v == nil and p[2] == "lf" then v = f.lt end
+			if v == nil then v = f[i] end
+			local id = aid(v)
+			if not id then return nil end
+			out[p[1]] = id
+		end
+		return out
+	end
+	local function readItem(d, n)
+		if type(d) ~= "table" then return nil end
+		local it = {}
+		it.name = (type(d.name) == "string" and d.name ~= "") and cutName(d.name, 12) or ("背景" .. n)
+		it.faces = readFaces(d.faces)
+		if type(d.frames) == "table" then
+			local fr = {}
+			for _, f in ipairs(d.frames) do
+				local x = readFaces(f)
+				if x then fr[#fr + 1] = x end
+				if #fr >= 12 then break end
+			end
+			if #fr >= 2 then it.frames, it.fps = fr, clampNum(d.fps, 1, 12, 4) end
+		end
+		local sh = d.sheet
+		if type(sh) == "table" then
+			local id = aid(sh.id)
+			local cols, rows, w, h = tonumber(sh.cols), tonumber(sh.rows), tonumber(sh.w), tonumber(sh.h)
+			if id and cols and rows and w and h and cols >= 1 and rows >= 1 and w >= 1 and h >= 1 then
+				cols, rows = math.floor(cols), math.floor(rows)
+				local fr = math.floor(tonumber(sh.frames) or (cols * rows))
+				it.sheet = { id = id, cols = cols, rows = rows, w = w, h = h, frames = math.max(1, math.min(fr, cols * rows)), fps = clampNum(sh.fps, 1, 24, 10) }
+			end
+		end
+		it.window = aid(d.window)
+		it.thumb = aid(d.thumb)
+		it.thumbAuto = (it.thumb == nil)
+		if it.thumbAuto then it.thumb = (it.faces and it.faces.Ft) or (it.frames and it.frames[1].Ft) or it.window end
+		local tt = tonumber(d.t)
+		if tt then it.t = tt % 24 end
+		if type(d.tint) == "table" then
+			local h, s, k = tonumber(d.tint.hue), tonumber(d.tint.sat), tonumber(d.tint.amount)
+			if h then it.tint = { math.clamp(h, 0, 1), math.clamp(s or 0.5, 0, 1), math.clamp(k or 0.3, 0, 1) } end
+		end
+		if it.faces or it.frames or it.window or it.sheet then return it end
+		return nil
+	end
+	local function parse(body)
+		local ok, data = pcall(function() return HttpService:JSONDecode(body) end)
+		if not ok or type(data) ~= "table" then return nil, "json" end
+		local list = data.items or data.backgrounds or data
+		if type(list) ~= "table" then return nil, "json" end
+		local out = {}
+		for i, d in ipairs(list) do
+			local it = readItem(d, i)
+			if it then out[#out + 1] = it end
+			if #out >= 48 then break end
+		end
+		return out
+	end
+	-- 「ユーザー名/リポジトリ名」(@ブランチ) か URL から、読みこむURLを作る
+	local function specToUrl(s)
+		s = string.gsub(tostring(s or ""), "^%s+", "")
+		s = string.gsub(s, "%s+$", "")
+		if s == "" then s = tostring(PALLET_BG.repo or "") end
+		if s == "" then return nil, "empty" end
+		if string.find(s, "://", 1, true) then
+			if string.match(s, "^https://raw%.githubusercontent%.com/[%w%-%._~%%/]+$") then return s end
+			return nil, "url"
+		end
+		local repo, br = string.match(s, "^([^@]+)@(.+)$")
+		repo = repo or s
+		br = br or tostring(PALLET_BG.branch or "main")
+		if not string.match(repo, "^[%w%-%._]+/[%w%-%._]+$") or not string.match(br, "^[%w%-%._/]+$") then return nil, "url" end
+		local file = tostring(PALLET_BG.file or "pallet-backgrounds.json")
+		if not string.match(file, "^[%w%-%._/]+$") then return nil, "url" end
+		return "https://raw.githubusercontent.com/" .. repo .. "/" .. br .. "/" .. file
+	end
+	-- 読みこむ: cb(成功か, 文字 または 失敗の種類)
+	local function fetch(url, cb)
+		task.spawn(function()
+			local ok, res = pcall(function() return game:HttpGet(url) end)
+			if ok and type(res) == "string" and res ~= "" then
+				cb(true, res)
+				return
+			end
+			local rf = RS:FindFirstChild("PalletStudioNet_v1")
+			if not rf then
+				local okW, f = pcall(function() return RS:WaitForChild("PalletStudioNet_v1", 3) end)
+				rf = okW and f or nil
+			end
+			if not rf then
+				cb(false, "relay")
+				return
+			end
+			local ok2, body, why = pcall(function() return rf:InvokeServer(url) end)
+			if ok2 and type(body) == "string" and body ~= "" then
+				cb(true, body)
+			else
+				cb(false, (ok2 and type(why) == "string") and why or "fail")
+			end
+		end)
+	end
+
+	-- ----- 画像の表示 (GIF = 1枚にコマを並べた画像) -----
+	local function showSheet(img, sh, f)
+		local c = f % sh.cols
+		local r = math.floor(f / sh.cols)
+		img.ImageRectSize = Vector2.new(sh.w, sh.h)
+		img.ImageRectOffset = Vector2.new(c * sh.w, r * sh.h)
+	end
+	local tickerOn = false
+	local function ticker()
+		if tickerOn then return end
+		tickerOn = true
+		task.spawn(function()
+			while #IMG.anims > 0 or IMG.winAnim do
+				task.wait(0.1)
+				local vis = false
+				local okv, vv = pcall(function() return win.Visible end)
+				vis = okv and vv and true or false
+				if vis then
+					local pv = false
+					local okp, pp = pcall(function() return pages[11].Visible end)
+					pv = okp and pp and true or false
+					if pv then
+						for _, a in ipairs(IMG.anims) do
+							a.acc = a.acc + 0.1
+							if a.acc >= 1 / a.sh.fps then
+								a.acc = 0
+								a.f = (a.f + 1) % a.sh.frames
+								pcall(showSheet, a.img, a.sh, a.f)
+							end
+						end
+					end
+					local w = IMG.winAnim
+					if w then
+						w.acc = w.acc + 0.1
+						if w.acc >= 1 / w.sh.fps then
+							w.acc = 0
+							w.f = (w.f + 1) % w.sh.frames
+							pcall(showSheet, w.img, w.sh, w.f)
+						end
+					end
+				end
+			end
+			tickerOn = false
+		end)
+	end
+
+	-- ----- 窓の背景 (この画面のウィンドウの後ろに敷く) -----
+	local function winImg()
+		if bgImg and bgImg.Parent then return bgImg end
+		bgImg = mk("ImageLabel", { Name = "BgImage", BackgroundTransparency = 1, BorderSizePixel = 0, Size = UDim2.fromScale(1, 1), ZIndex = 0, ScaleType = Enum.ScaleType.Crop, ImageTransparency = 1, Visible = false }, bg)
+		return bgImg
+	end
+	local function setWindow(it)
+		IMG.winAnim = nil
+		if not it then
+			if bgImg and bgImg.Parent then
+				Lib.tween(bgImg, { ImageTransparency = 1 }, 0.3)
+				task.delay(0.35, function() if IMG.winAnim == nil and bgImg and not IMG.winShown then bgImg.Visible = false end end)
+			end
+			IMG.winShown = false
+			return
+		end
+		local img = winImg()
+		local sh = it.sheet
+		img.Visible = true
+		IMG.winShown = true
+		if sh then
+			img.Image = sh.id
+			showSheet(img, sh, 0)
+			IMG.winAnim = { img = img, sh = sh, f = 0, acc = 0 }
+			ticker()
+		else
+			img.Image = it.window or it.thumb or ""
+			img.ImageRectSize = Vector2.new(0, 0)
+			img.ImageRectOffset = Vector2.new(0, 0)
+		end
+		Lib.tween(img, { ImageTransparency = IMG.alpha }, 0.4)
+	end
+
+	-- ----- 空に使う -----
+	local function preload(it)
+		local list = {}
+		local function add(f) for _, id in pairs(f) do list[#list + 1] = id end end
+		if it.faces then add(it.faces) end
+		for _, f in ipairs(it.frames or {}) do add(f) end
+		if #list == 0 then return end
+		task.spawn(function() pcall(function() game:GetService("ContentProvider"):PreloadAsync(list) end) end)
+	end
+	-- カードが入れた色合いだけ、カードをはずした時にもどす (そのあと自分で選びなおした色合いは、そのまま)
+	local function revertTint()
+		if IMG.autoTint then
+			if BG.st.tint == IMG.autoTint then
+				BG.st.tint = IMG.prevTint
+				tintHue, tintK = IMG.prevHue or tintHue, IMG.prevK or tintK
+				syncTint()
+				if swGrp and IMG.prevSw and IMG.prevSw > 0 and BG.st.tint ~= nil then swGrp.mark(IMG.prevSw) end   -- 丸いボタンの印も、もどす
+			end
+			IMG.autoTint, IMG.prevTint, IMG.prevHue, IMG.prevK, IMG.prevSw = nil, nil, nil, nil, nil
+		end
+	end
+	local function clearSky()
+		BG.setFaces(nil)
+		if IMG.celAuto then
+			BG.st.celest = nil
+			IMG.celAuto = false
+			if celT then celT:set(true) end
+		end
+		revertTint()
+		BG.settle()
+	end
+	local function applyItem(it)
+		if IMG.skyOn and (it.faces or it.frames) then
+			revertTint()   -- 前のカードの色合いは、先にもどす
+			BG.setFaces(it.faces, it.frames, it.fps)
+			if BG.st.celest == nil then
+				BG.st.celest = false
+				IMG.celAuto = true
+				if celT then celT:set(false) end
+				BG.refresh()
+			end
+			preload(it)
+			if it.tint then
+				IMG.prevTint, IMG.prevHue, IMG.prevK, IMG.prevSw = BG.st.tint, tintHue, tintK, swGrp and swGrp.sel or 0
+				tintHue, tintK = it.tint[1], it.tint[3]
+				IMG.autoTint = { c = Color3.fromHSV(it.tint[1], it.tint[2], 1), k = it.tint[3] }
+				BG.st.tint = IMG.autoTint
+				BG.refresh()
+				syncTint()
+			end
+			if IMG.timeOn and it.t then
+				stopLapse()
+				goTime(it.t)
+			end
+		else
+			clearSky()
+		end
+		if IMG.winOn then setWindow(it) end
+	end
+	local function useItem(i)
+		local it = IMG.items[i]
+		if not it then return end
+		IMG.cur = it
+		if sceneGrp then sceneGrp.mark(0) end
+		applyItem(it)
+	end
+	local function dropItem()
+		IMG.cur = nil
+		clearSky()
+		setWindow(nil)
+	end
+
+	-- ----- ボタン (画像つき) を並べる -----
+	local cardRow = e:row(40)
+	local function buildCards()
+		for _, c in ipairs(cardRow:GetChildren()) do
+			if c:IsA("GuiObject") then c:Destroy() end
+		end
+		IMG.anims = {}
+		IMG.cur = nil
+		local n = #IMG.items
+		local cols = isMobile and 2 or 4
+		local cw = isMobile and 124 or 118
+		local ch = 98
+		cardRow.Size = UDim2.new(1, 0, 0, gridHeight(math.max(n, 1), cols, ch, 8))
+		if not cardRow:FindFirstChildOfClass("UIGridLayout") then grid(cardRow, cw, ch, 8, 8) end
+		cardGrp = markGroup("card")
+		for i, it in ipairs(IMG.items) do
+			local b = mk("TextButton", { Name = "Bg" .. i, AutoButtonColor = false, Text = "", LayoutOrder = i }, cardRow)
+			Lib.glass(b, 0.84, 14)
+			local img = mk("ImageLabel", { BackgroundColor3 = Color3.fromRGB(20, 20, 44), BackgroundTransparency = 0.3, BorderSizePixel = 0, ScaleType = Enum.ScaleType.Crop, Position = UDim2.fromOffset(6, 6), Size = UDim2.new(1, -12, 0, 62) }, b)
+			corner(img, 8)
+			if it.sheet and it.thumbAuto and not (it.faces or it.frames) then
+				img.Image = it.sheet.id
+				showSheet(img, it.sheet, 0)
+				IMG.anims[#IMG.anims + 1] = { img = img, sh = it.sheet, f = 0, acc = 0 }
+			else
+				img.Image = it.thumb or ""
+			end
+			local nm = text(b, it.name, isMobile and 12 or 13, UDim2.fromOffset(0, 72), UDim2.new(1, 0, 0, 22), Enum.TextXAlignment.Center)
+			nm.TextTruncate = Enum.TextTruncate.AtEnd
+			Lib.juice(b)
+			cardGrp.add(b)
+			b.MouseButton1Click:Connect(function() cardGrp.click(i, useItem, dropItem) end)
+		end
+		if #IMG.anims > 0 then ticker() end
+	end
+
+	-- ----- 読みこむ -----
+	local srcRow = e:glass(isMobile and 42 or 38)
+	local srcBox = mk("TextBox", {
+		Text = tostring(PALLET_BG.repo or ""), PlaceholderText = "ユーザー名/リポジトリ名", PlaceholderColor3 = Color3.fromRGB(190, 185, 225), ClearTextOnFocus = false, TextColor3 = WHITE,
+		TextSize = isMobile and 13 or 14, FontFace = FONT, TextXAlignment = Enum.TextXAlignment.Left, BackgroundTransparency = 1, TextTruncate = Enum.TextTruncate.AtEnd,
+		Position = UDim2.fromOffset(12, 0), Size = UDim2.new(1, -100, 1, 0),
+	}, srcRow)
+	local loadBtn = mk("TextButton", { AutoButtonColor = false, Text = "読みこむ", TextSize = isMobile and 13 or 14, FontFace = FONT, TextColor3 = WHITE, AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -6, 0.5, 0), Size = UDim2.fromOffset(84, 28) }, srcRow)
+	Lib.glass(loadBtn, 0.55, 10)
+	Lib.juice(loadBtn)
+	local function loadCatalog()
+		if IMG.loading then return end
+		local url, why = specToUrl(srcBox.Text)
+		if not url then
+			say(MSG[why] or MSG.url)
+			return
+		end
+		IMG.loading = true
+		say(MSG.wait)
+		fetch(url, function(ok, body)
+			IMG.loading = false
+			if not ok then
+				say(MSG[body] or MSG.fail)
+				return
+			end
+			local list, err = parse(body)
+			if not list then
+				say(MSG[err] or MSG.json)
+				return
+			end
+			if #list == 0 then
+				say(MSG.none)
+				return
+			end
+			if IMG.cur then dropItem() end
+			IMG.items = list
+			buildCards()
+			say(string.format("%d 件の背景を読みこみました。押すと反映、もう一度押すと元にもどります。", #list))
+		end)
+	end
+	loadBtn.MouseButton1Click:Connect(function() pcall(loadCatalog) end)
+	say(tostring(PALLET_BG.repo or "") ~= "" and "このページを開くと、GitHubから背景の一覧を読みこみます。" or "GitHubの背景一覧がまだありません。下の欄に「ユーザー名/リポジトリ名」を入れて、「読みこむ」を押してください。")
+	UIs.addLazy(11, function()
+		if tostring(PALLET_BG.repo or "") ~= "" and #IMG.items == 0 then loadCatalog() end
+	end)
+
+	skyT = e:toggle("空に使う", function(s)
+		IMG.skyOn = s
+		if IMG.cur then applyItem(IMG.cur) end
+	end, true)
+	timeT2 = e:toggle("時刻もあわせる", function(s) IMG.timeOn = s end, true)
+	winT = e:toggle("窓の背景にも使う", function(s)
+		IMG.winOn = s
+		if IMG.cur then setWindow(s and IMG.cur or nil) end
+	end, false)
+	winS = e:slider("透け", 0, 0.9, function(v)
+		IMG.alpha = v
+		if IMG.winShown and bgImg then bgImg.ImageTransparency = v end
+	end, 0.35)
+
+	-- ===== ぜんぶ元にもどす =====
+	e:title("もどす")
+	e:button("↺ 背景をぜんぶ元にもどす", function()
+		BG.restoreAll()
+		IMG.cur, IMG.celAuto = nil, false
+		IMG.autoTint, IMG.prevTint, IMG.prevHue, IMG.prevK, IMG.prevSw = nil, nil, nil, nil, nil
+		IMG.skyOn, IMG.timeOn, IMG.winOn, IMG.alpha = true, true, false, 0.35
+		setWindow(nil)
+		if cardGrp then cardGrp.mark(0) end
+		dressT:set(true)
+		smoothT:set(true)
+		nightT:set(true)
+		lapseT:set(false)
+		lapseS:set(0.5)
+		skyT:set(true)
+		timeT2:set(true)
+		winT:set(false)
+		winS:set(0.35)
+		tintK, tintHue = 0.6, 0.58
+		syncControls()
+		sceneGrp.mark(0)
+		clearMarks()
+		showClock(BG.clock(), true)
+	end, Color3.fromRGB(244, 63, 94))
+
+	-- テスト・ほかの部品から見るための窓口
+	UIs.bg = { BG = BG, IMG = IMG, parse = parse, specToUrl = specToUrl, load = loadCatalog, box = srcBox, cards = function() return cardRow end, readout = function() return readout.Text end, scenes = SC, pick = pickScene, phases = PH }
+end)()
+end
+
 -- 「選んだボタンの印」を、板に送った操作に合わせて付け外しする (どのボタンから送っても、同じ決まりで動く)
 -- userCol = いま色 (単色・グラデーション・レインボー・プリセット) を自分で選んでいる状態か。素材の「色は残す」が効く状態と同じ
 do
@@ -11372,8 +12608,8 @@ end
 
 -- ページ切り替え
 -- { アイコン, 名前, ページ番号 } (その他は 0 = 中の3ページを切り替える)
-local tabs = { {"🏠", "ホーム", 10}, {"🎨", "色", 1}, {"🧱", "素材", 2}, {"✨", "プリセット", 3}, {"💎", "質感", 4}, {"💡", "光", 5}, {"🌈", "効果", 6}, {"⚙️", "その他", 0} }
-local OTHER = 8
+local tabs = { {"🏠", "ホーム", 10}, {"🎨", "色", 1}, {"🧱", "素材", 2}, {"✨", "プリセット", 3}, {"💎", "質感", 4}, {"💡", "光", 5}, {"🌈", "効果", 6}, {"🌄", "背景", 11}, {"⚙️", "その他", 0} }
+local OTHER = 9
 local tabBtns = {}
 
 -- 「その他」タブの中: 上の切り替えバーで 視野 / 軽量化 / UI設定 を行き来する
@@ -11464,7 +12700,7 @@ for j, nm in ipairs({ "👁 視野", "🚀 軽量化", "🎨 UI設定" }) do
 	subBtns[j] = b
 end
 
-local PAGE_TABS = { 1, 2, 3, 4, 5, 6, 10 }
+local PAGE_TABS = { 1, 2, 3, 4, 5, 6, 10, 11 }
 local function showTab(i)
 	local changed = (curTab ~= i)
 	curTab = i
@@ -11973,15 +13209,102 @@ function HP.light()
 		{ "板が影を落とす", "板が、地面などに影を落とします。" },
 		{ "光が影を作る (まわりに影が落ちる。少し重くなります)", "板の光が、まわりのものに影を落とします。少し重くなります。" },
 	} }
-	groups[#groups + 1] = { "時刻 (この画面だけ)", {
-		{ "時刻", "ゲームの時刻を、この画面だけで変えます。「夜だけ光る」の確認に便利です。" },
-		{ "🌅 朝", "時刻を朝にします。" }, { "☀️ 昼", "時刻を昼にします。" }, { "🌇 夕方", "時刻を夕方にします。" }, { "🌙 夜", "時刻を夜にします。" },
-		{ "↺ 元の時刻にもどす", "変える前の時刻に戻します。" },
-	} }
 	return { id = "light", icon = "💡", name = "光", sum = "レシピ" .. #RC .. "種・明滅" .. #CAT.PULSE_NAMES .. "種・色の動き" .. #CAT.MODE_NAMES .. "種",
 		intro = {
 			"板を光らせるページです。「光のレシピ」は、押すだけで、光の強さ・色・動き・向きが一式で決まります。押したレシピは光り、もう一度押すと、光が消えます。",
 			"レシピのあとで、強さ・色・色の動き・明滅の型・向き・縁取りを、1つずつ変えられます。光が0の時に、色の動きや明滅を選ぶと、自動で光がつきます。",
+		},
+		groups = groups }
+end
+
+---------------------------------------------------------------------
+-- 背景 (画面で作った一覧 UIs.bg を使う。画面のほうが先に作られる)
+---------------------------------------------------------------------
+function HP.bg()
+	local B = UIs.bg
+	local groups = {}
+	groups[#groups + 1] = { "時刻 (この画面だけ)", {
+		{ "時刻", "ゲームの時刻を、この画面だけで変えます。「夜だけ光る」の確認に便利です。動かすと、時刻に合わせて空の色・星・雲もきれいに変わります。右の数字を直接入れると、17.5 (= 17時30分) のように細かく決められます。" },
+		{ "🌅 朝", "時刻を朝 (7時) にします。" }, { "☀️ 昼", "時刻を昼 (13時) にします。" }, { "🌇 夕方", "時刻を夕方 (18時) にします。" }, { "🌙 夜", "時刻を夜 (0時) にします。" },
+		{ "↺ 元の時刻にもどす", "変える前の時刻に戻します。" },
+		{ "🕒 いまの時刻", "上に出ている、いまの時刻と、時間帯の名前 (夕焼け・真夜中など) です。" },
+	} }
+	groups[#groups + 1] = { "時刻をこまかく", {
+		{ "−1時間", "時刻を1時間もどします。" }, { "−10分", "時刻を10分もどします。" }, { "+10分", "時刻を10分すすめます。" }, { "+1時間", "時刻を1時間すすめます。" },
+	} }
+	local ph = {}
+	for i, p in ipairs(B.phases) do ph[i] = { p[1], "時刻を " .. B.BG.clockText(p[2]) .. " ごろ (" .. B.BG.nameOf(p[2]) .. ") にします。なめらかに変わります。" } end
+	groups[#groups + 1] = { "時間帯 (くわしく)", ph, #ph, sample(ph, 6, function(m) return m[1] end) }
+	groups[#groups + 1] = { "空のととのえ方", {
+		{ "時刻で空をととのえる", "ONの間は、時刻に合わせて、空の色・光・雲・星などを変えます。夕方は赤みのある夕焼けの色、夜は星がたくさん出ます。OFFにすると、時刻だけが変わります。" },
+		{ "なめらかに変える", "時刻のボタンを押した時に、時計をゆっくり回して変えます。OFFだと、すぐ変わります。" },
+		{ "夜は空の画像をはずす", "ゲームが自分の空の画像を使っている時に、夜だけ、その画像をはずして星を見せます。昼になると、もとの画像に戻ります。" },
+	} }
+	groups[#groups + 1] = { "時間のながれ", {
+		{ "時間をながす", "ONの間、時刻が自動で進みます (1日が、あっという間に流れます)。OFFにすると止まります。" },
+		{ "速さ", "時間のながれる速さです。1秒に何時間進むかを表します。" },
+	} }
+	local sc = {}
+	for i, d in ipairs(B.scenes) do
+		local t = "時刻を " .. B.BG.clockText(d[2]) .. " ごろにします。"
+		if d[3] then t = t .. "色合いも付きます。" end
+		if d[4] then t = t .. "雲・星・もやなども合わせます。" end
+		sc[i] = { label = d[1], desc = t }
+	end
+	groups[#groups + 1] = { "背景スタイル", { { "背景スタイル", "押すと、その空になります (時刻・色合い・雲・星などが一式で変わります)。光っているカードをもう一度押すと、色合いと調整だけが戻ります。時刻はそのままです。" }, { "", lines(sc) } }, #sc, sample(sc, 6) }
+	groups[#groups + 1] = { "好きな色合い", {
+		{ "色のボタン", "空の色を、選んだ色に寄せます。光っているボタンをもう一度押すと、色合いがなくなります。" },
+		{ "好きな色", "スライダーで、色合いの色を自由に選びます。" },
+		{ "つよさ", "色合いのつよさです。0で、効きません。" },
+		{ "色合いをなしにする", "色合いだけをなくします。" },
+	} }
+	groups[#groups + 1] = { "空のこまかい調整", {
+		{ "星の量", "夜に見える星の数のかけ算です。1がもとのまま。0で、星が消えます。" },
+		{ "太陽", "太陽の大きさのかけ算です。0で消えます。" },
+		{ "月", "月の大きさのかけ算です。0で消えます。" },
+		{ "雲の量", "雲の量のかけ算です。0で、雲が消えます。" },
+		{ "雲のこさ", "雲のこさ (厚み) のかけ算です。" },
+		{ "空気", "空気のこさのかけ算です。上げると遠くがかすみます。" },
+		{ "もや", "もやのかけ算です。上げると、空がうるみます。" },
+		{ "まぶしさ", "太陽のまわりの、まぶしさのかけ算です。" },
+		{ "明るさ", "全体の明るさのかけ算です。下げると暗くなります。" },
+		{ "彩度", "色のこさです。−1で白黒、右へ動かすほど鮮やかになります。0がもとのまま。" },
+		{ "くっきり", "明るい所と暗い所の差です。右へ動かすと、くっきりします。" },
+		{ "にじみ", "明るい所のにじみ (ブルーム) のかけ算です。" },
+		{ "光の筋", "太陽から出る光の筋のかけ算です。" },
+		{ "太陽・月・星を出す", "OFFにすると、太陽・月・星が消えます。" },
+		{ "雲を出す", "OFFにすると、雲が消えます。" },
+		{ "↺ 色合いと調整をもとにもどす", "色合いと、上の調整を、ぜんぶもとにもどします。" },
+	} }
+	groups[#groups + 1] = { "画像・GIFの背景 (GitHub)", {
+		{ "読みこむ", "GitHubにある背景の一覧 (JSON) を読みこんで、画像つきのボタンを並べます。左の欄に「ユーザー名/リポジトリ名」を入れます (「ユーザー名/リポジトリ名@ブランチ名」も可)。スクリプトの先頭の PALLET_BG に書いておくと、このページを開いた時に自動で読みこみます。" },
+		{ "画像ボタン", "押すと、その画像が空 (6面) に反映されます。光っているボタンをもう一度押すと、元の空に戻ります。GIF (コマの並び) は、パラパラ動きます。" },
+		{ "空に使う", "ONの間、押した背景を空に使います。OFFにすると、窓の背景だけに使えます。" },
+		{ "時刻もあわせる", "背景に「t」(時刻) が書いてあれば、押した時に、その時刻にします。" },
+		{ "窓の背景にも使う", "押した背景を、このツールの窓の後ろにも敷きます。GIFも動きます。" },
+		{ "透け", "窓の背景の画像のうすさです。右へ動かすほど、うすくなります。" },
+	} }
+	groups[#groups + 1] = { "背景カタログ (JSON) の書きかた", {
+		{ "ファイルの名前と場所", "GitHubのリポジトリ (Public) の一番上に、pallet-backgrounds.json という名前で置きます。{ \"items\": [ { 背景1 }, { 背景2 }, ... ] } の形で、背景は48個までです。" },
+		{ "name", "ボタンに出る名前です (12文字まで)。" },
+		{ "thumb", "ボタンに出す小さな画像のIDです。書かなければ、空の正面の画像を使います。" },
+		{ "faces", "空の画像です。IDをひとつ書くと、6面ぜんぶ同じ画像になります。{ \"side\": 横4面, \"up\": 上, \"dn\": 下 } と書くと3枚で済みます。{ \"bk\":…, \"dn\":…, \"ft\":…, \"lf\":…, \"rt\":…, \"up\":… } と6枚で書くこともできます。" },
+		{ "frames と fps", "パラパラ動く空 (GIFのようなもの) です。frames にコマを並べます (12コマまで)。コマひとつは faces と同じ書きかたです。fps は1秒に進むコマ数 (1〜12) です。" },
+		{ "sheet", "窓の背景用のGIFです。コマを1枚の画像に並べて、{ \"id\":画像ID, \"cols\":横のコマ数, \"rows\":縦のコマ数, \"w\":1コマの幅, \"h\":1コマの高さ, \"frames\":コマ数, \"fps\":1〜24 } と書きます。" },
+		{ "window", "窓の背景に使う画像のIDです。" },
+		{ "t", "押した時にあわせる時刻です (0〜24。17.5 = 17時30分)。" },
+		{ "tint", "押した時に入れる色合いです。{ \"hue\":色相0〜1, \"sat\":こさ0〜1, \"amount\":つよさ0〜1 } と書きます。" },
+		{ "画像のID", "画像は、Robloxにアップロードして、そのIDを数字で書きます (rbxassetid://123 の形でも書けます)。ほかのサイトの画像のURLは使えません。" },
+	} }
+	groups[#groups + 1] = { "もどす", {
+		{ "↺ 背景をぜんぶ元にもどす", "時刻・空・色合い・調整・画像・窓の背景を、ぜんぶ最初の状態に戻します。自分で作った空の部品も消えます。" },
+	} }
+	return { id = "bg", icon = "🌄", name = "背景", sum = "時刻・夕焼けと星空・色合い・背景スタイル" .. #sc .. "種・GitHubの画像/GIF",
+		intro = {
+			"ゲームの空 (時刻・色・星・雲・光) と、背景の画像を、この画面だけで変えるページです。サーバーの値や、ほかのプレイヤーの画面は変わりません。",
+			"時刻を動かすと、夕方は赤みのある夕焼けの色、夜は星が出ます。「背景スタイル」を押すと、時刻・色合い・雲などが一式で変わります。「↺ 背景をぜんぶ元にもどす」で、ぜんぶ最初の状態に戻ります。",
+			"画像・GIFの背景は、GitHubに置いた JSON (背景カタログ) を読みこみます。画像は、Robloxにアップロードした画像のID (rbxassetid) で書きます。書きかたは、下の「背景カタログ (JSON) の書きかた」と、いっしょに渡す pallet-backgrounds.example.json の見本を見てください。",
+			"HTTPが使えないStudioでは、「ゲーム設定 → セキュリティ → HTTPリクエストを許可」をオンにして、Play をやり直してください (サーバーが読みこみを中継します。読むだけで、何も保存しません)。",
 		},
 		groups = groups }
 end
@@ -12050,7 +13373,7 @@ return {
 			{ "画面の見かた", {
 				{ "🎨 丸いボタン", "押すと、この画面が開きます。もう一度押すと閉じます。ドラッグすると、好きな場所へ動かせます。" },
 				{ "上のバー (— と ✕)", "どちらも画面を閉じます。板の見た目は変わりません。バーをドラッグすると、画面ごと動かせます。「選択中: 板○」は、いま選んでいる板です。" },
-				{ "左のページ一覧", "ホーム / 色 / 素材 / プリセット / 質感 / 光 / 効果 / その他 を切り替えます。「その他」の中に、視野・軽量化・UI設定があります。" },
+				{ "左のページ一覧", "ホーム / 色 / 素材 / プリセット / 質感 / 光 / 効果 / 背景 / その他 を切り替えます。「その他」の中に、視野・軽量化・UI設定があります。" },
 				{ "左の「プリセット1・2…」", "プレビューの「メイン保存」で保存した見た目が、「その他」の下に並びます。押すと、選んでいる板がその見た目になります。" },
 			} },
 			{ "下のバー", {
@@ -12131,6 +13454,7 @@ return {
 	HP.texture(),
 	HP.light(),
 	HP.fx(),
+	HP.bg(),
 
 	{ id = "preview", icon = "👁", name = "プレビュー", sum = "3Dの板で見ながら試して、保存する",
 		intro = {
