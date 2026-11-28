@@ -11,7 +11,26 @@
 -- ホーム: 「ヘルプ」= 別の窓が開いて、各ページ→各機能の説明を読める(閉じると元の画面にもどる) / 「プレビュー」= 左に小さな窓が開いて、ふつうの見た目の板の3Dモデルが回る。
 --   本体で色や素材を変えると、プレビューの板だけが変わる(本物の板・サーバーには送らない)。ドラッグで360度まわせる(さわっている間と10秒は自動回転を止める)。
 --   プレビューを閉じると、本体のスライダー/ボタンは初期の位置にもどる。「💾 メイン保存」で、左の「その他」の下に「プリセットN」が出て、押すと一瞬でその見た目になる。
+-- ☁ GitHub保存: 設定だけ(永久保存の板の見た目・プリセット・UI設定・軽量化の選択)を、プレイヤーごとに自分の GitHub へ自動で保存して、次に起動した時にそのまま反映する。
+--   保存先は「<フォルダ>/<プレイヤーのID>.json」(1人1ファイル・読める文字のJSON)。画面側(LocalScript)は Roblox の決まりで通信できないので、通信は、このファイルに入っているサーバー側のコードが受け持つ(新しいスクリプトは増えない)。
+--   トークンはサーバー側だけが読む(画面側へは来ない)。下の GITHUB の repo が空の間は、何もしない。使い方は下の「GitHub保存の設定」を見てね。
 -- 起動時、右下に make by aino の演出が出て、終わると開閉ボタンが現れる。
+
+
+-- ===== GitHub保存の設定 (ここだけ書きかえる) =====
+--  ① GitHub で、保存用のリポジトリを作る (Private がおすすめ。「Add a README file」にチェックを入れて作ると簡単)
+--  ② GitHub の Settings > Developer settings > Personal access tokens > Fine-grained tokens で、そのリポジトリだけを選び、
+--     Repository permissions の「Contents」を「Read and write」にしたトークンを作る (他の権限はいらない)
+--  ③ Studio の Home > Game Settings > Security > 「Allow HTTP Requests」をON
+--  ④ ServerStorage に StringValue を1個作り、名前を PalletStudioGitHubToken、Value に ②のトークンを貼る (Studioで試す時)
+--     ※本番のサーバーでは、Creator Hub の Secrets に「PalletStudioGitHub」という名前でトークンを入れると、そちらを先に使う
+--  ⑤ 下の repo を「ユーザー名/リポジトリ名」にする → Studio の Play をやり直す
+--  ※トークンは人に見せない・このファイルには書かない。CodeLoader は「最初に送ってきたコード」を動かす作りなので、公開ゲームではトークンを使わない方が安全。
+local GITHUB = {
+	repo = "",   -- 例: "aino/pallet-saves"  (空のままなら、この機能は動かない)
+	branch = "", -- 空なら、リポジトリの標準のブランチ
+	folder = "PalletStudio", -- この中に「プレイヤーのID.json」を作る
+}
 
 local RS_ = game:GetService("ReplicatedStorage")
 local SERVER_CODE = [=====[
@@ -2489,10 +2508,595 @@ Players.PlayerRemoving:Connect(function(p)
 	nextSlot[p] = nil
 	dropPerm(p)
 end)
+---------------------------------------------------------------------
+-- GitHub保存 (サーバー側)
+--  画面側 (LocalScript) は Roblox の決まりで通信できないので、ここが代わりに GitHub の API と話す。
+--  1人1ファイル「<フォルダ>/<IDの名前>.json」に、設定だけ (永久保存の見た目・プリセット・UI設定・軽量化の選択) を預かる。
+--  ・トークンは、Secrets (名前: PalletStudioGitHub) か、ServerStorage の StringValue「PalletStudioGitHubToken」から読む。画面側へは絶対に送らない。
+--  ・受け付けるのは「呼んだ本人のファイル」だけ。中身は形と大きさを検査して、決まった項目だけを書く。
+--  ・書き込みは、変更が止まってから (6秒) まとめて1回。同じ内容なら書かない。全員ぶんをあわせて 1.5秒に1回までに抑える。
+--  ・読み込みに成功するまでは保存しない (読めなかったのに、空の設定で前の保存を上書きしてしまうのを防ぐ)。
+---------------------------------------------------------------------
+do
+	local HttpService = game:GetService("HttpService")
+	local ServerStorage = game:GetService("ServerStorage")
+
+	-- 設定 (画面側のファイルの先頭で決めた値)。形がおかしい時は「オフ」にする (URL に混ぜるので、使える文字だけにする)
+	local REPO = type(GH_REPO) == "string" and GH_REPO or ""
+	local BRANCH = type(GH_BRANCH) == "string" and GH_BRANCH or ""
+	local DIR = type(GH_DIR) == "string" and GH_DIR or ""
+	if not REPO:match("^[%w%-_%.]+/[%w%-_%.]+$") then REPO = "" end
+	if not BRANCH:match("^[%w%-_%./]*$") or BRANCH:find("..", 1, true) then BRANCH = "" end
+	DIR = (DIR:gsub("^/+", ""))
+	DIR = (DIR:gsub("/+$", ""))
+	if not DIR:match("^[%w%-_%./]*$") or DIR:find("..", 1, true) or DIR:find("//", 1, true) then DIR = "PalletStudio" end
+
+	local MAX_JSON = 300000   -- 1人ぶんのファイルの大きさの上限 (文字)
+	local DEBOUNCE = 6        -- 最後の保存依頼から、この秒数だけ静かなら書く
+	local PLAYER_GAP = 10     -- 同じ人の書き込みは、この秒数以上あける
+	local GLOBAL_GAP = 1.5    -- だれの分でも、GitHub への書き込みはこの秒数以上あける
+	local API = "https://api.github.com/repos/" .. REPO
+
+	local cloudRF = ReplicatedStorage:FindFirstChild("PalletStudioCloud_v1")
+	if not cloudRF then
+		cloudRF = Instance.new("RemoteFunction")
+		cloudRF.Name = "PalletStudioCloud_v1"
+		cloudRF.Parent = ReplicatedStorage
+	end
+	local cloudEv = ReplicatedStorage:FindFirstChild("PalletStudioCloudEvt_v1")
+	if not cloudEv then
+		cloudEv = Instance.new("RemoteEvent")
+		cloudEv.Name = "PalletStudioCloudEvt_v1"
+		cloudEv.Parent = ReplicatedStorage
+	end
+
+	---------------------------------------------------------------
+	-- base64 (GitHub は、ファイルの中身を base64 でやりとりする)
+	---------------------------------------------------------------
+	local B64C, B64V = {}, {}
+	do
+		local chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+		for i = 1, 64 do
+			local ch = chars:sub(i, i)
+			B64C[i - 1] = ch
+			B64V[ch:byte()] = i - 1
+		end
+	end
+	local function b64enc(s)
+		local out, n, len = {}, 0, #s
+		local i = 1
+		while i + 2 <= len do
+			local a, b, c = s:byte(i, i + 2)
+			local v = a * 65536 + b * 256 + c
+			n = n + 1
+			out[n] = B64C[math.floor(v / 262144)] .. B64C[math.floor(v / 4096) % 64] .. B64C[math.floor(v / 64) % 64] .. B64C[v % 64]
+			i = i + 3
+		end
+		local rem = len - i + 1
+		if rem == 1 then
+			local v = s:byte(i) * 65536
+			n = n + 1
+			out[n] = B64C[math.floor(v / 262144)] .. B64C[math.floor(v / 4096) % 64] .. "=="
+		elseif rem == 2 then
+			local a, b = s:byte(i, i + 1)
+			local v = a * 65536 + b * 256
+			n = n + 1
+			out[n] = B64C[math.floor(v / 262144)] .. B64C[math.floor(v / 4096) % 64] .. B64C[math.floor(v / 64) % 64] .. "="
+		end
+		return table.concat(out)
+	end
+	local function b64dec(s)
+		s = (s:gsub("[^%w%+/]", ""))   -- 改行や「=」は取りのぞく
+		local out, n, len = {}, 0, #s
+		local i = 1
+		while i + 3 <= len do
+			local a, b, c, d = s:byte(i, i + 3)
+			local v = B64V[a] * 262144 + B64V[b] * 4096 + B64V[c] * 64 + B64V[d]
+			n = n + 1
+			out[n] = string.char(math.floor(v / 65536), math.floor(v / 256) % 256, v % 256)
+			i = i + 4
+		end
+		local rem = len - i + 1
+		if rem == 2 then
+			local v = B64V[s:byte(i)] * 262144 + B64V[s:byte(i + 1)] * 4096
+			n = n + 1
+			out[n] = string.char(math.floor(v / 65536))
+		elseif rem == 3 then
+			local v = B64V[s:byte(i)] * 262144 + B64V[s:byte(i + 1)] * 4096 + B64V[s:byte(i + 2)] * 64
+			n = n + 1
+			out[n] = string.char(math.floor(v / 65536), math.floor(v / 256) % 256)
+		end
+		return table.concat(out)
+	end
+
+	---------------------------------------------------------------
+	-- 読みやすい JSON (キーは名前順。短い物は1行に。GitHub 上で見やすく、変更の差分も小さくなる)
+	---------------------------------------------------------------
+	local function jstr(s)
+		return '"' .. (s:gsub('[%c"\\]', function(c)
+			if c == '"' then return '\\"' end
+			if c == "\\" then return "\\\\" end
+			if c == "\n" then return "\\n" end
+			if c == "\r" then return "\\r" end
+			if c == "\t" then return "\\t" end
+			return string.format("\\u%04x", string.byte(c))
+		end)) .. '"'
+	end
+	local function jnum(n)
+		if n ~= n or n == math.huge or n == -math.huge then return "null" end
+		if n == math.floor(n) and math.abs(n) < 1e15 then
+			if n == 0 then return "0" end
+			return string.format("%.0f", n)
+		end
+		return (string.format("%.10g", n))
+	end
+	local function scalarJ(v)
+		local t = type(v)
+		if t == "string" then return jstr(v) end
+		if t == "number" then return jnum(v) end
+		if t == "boolean" then return v and "true" or "false" end
+		return nil
+	end
+	-- 並べる順番を決める: 配列なら 1,2,3… / 辞書なら名前順。2つめの戻り値は「配列か」
+	local function keysOf(v)
+		local n, max, arr = 0, 0, true
+		for k in pairs(v) do
+			n = n + 1
+			if type(k) == "number" and k >= 1 and k == math.floor(k) then
+				if k > max then max = k end
+			else
+				arr = false
+			end
+		end
+		local keys = {}
+		if arr and max == n then
+			for i = 1, n do keys[i] = i end
+			return keys, true
+		end
+		for k in pairs(v) do
+			if type(k) == "string" then keys[#keys + 1] = k end
+		end
+		table.sort(keys)
+		return keys, false
+	end
+	-- 1行で書ける (長さ room 以内) なら、その文字。だめなら nil
+	local function inlineJ(v, room)
+		local s = scalarJ(v)
+		if s then return (#s <= room) and s or nil end
+		if type(v) ~= "table" then return "null" end
+		local keys, arr = keysOf(v)
+		if #keys == 0 then return "[]" end
+		if #keys > 12 then return nil end
+		local parts, used = {}, 4
+		for i, k in ipairs(keys) do
+			local sv = inlineJ(v[k], room - used)
+			if not sv then return nil end
+			parts[i] = arr and sv or (jstr(k) .. ": " .. sv)
+			used = used + #parts[i] + 2
+			if used > room then return nil end
+		end
+		local line = table.concat(parts, ", ")
+		return arr and ("[" .. line .. "]") or ("{ " .. line .. " }")
+	end
+	local function prettyJ(v, ind, out)
+		local one = inlineJ(v, 92 - #ind)
+		if one then
+			out[#out + 1] = one
+			return
+		end
+		local keys, arr = keysOf(v)
+		local pad = ind .. "  "
+		out[#out + 1] = arr and "[\n" or "{\n"
+		for i, k in ipairs(keys) do
+			out[#out + 1] = pad
+			if not arr then out[#out + 1] = jstr(k) .. ": " end
+			prettyJ(v[k], pad, out)
+			out[#out + 1] = (i < #keys) and ",\n" or "\n"
+		end
+		out[#out + 1] = ind .. (arr and "]" or "}")
+	end
+	local function toJson(v)
+		local out = {}
+		prettyJ(v, "", out)
+		return table.concat(out) .. "\n"
+	end
+
+	---------------------------------------------------------------
+	-- 検査: 画面から届いた物 / ファイルから読んだ物を、決まった形だけに作り直す
+	--  (数字・文字・true/false・配列・辞書だけ。深さ・個数・文字数に上限。関数や Instance などは捨てる)
+	---------------------------------------------------------------
+	local function cleanV(v, depth, st)
+		local t = type(v)
+		if t == "number" then
+			if v ~= v or v == math.huge or v == -math.huge then return nil end
+			return v
+		elseif t == "boolean" then
+			return v
+		elseif t == "string" then
+			if #v > 120 or utf8.len(v) == nil then return nil end
+			return v
+		elseif t == "table" then
+			if depth > 8 then st.bad = true return nil end
+			local out, cnt = {}, 0
+			for k, x in pairs(v) do
+				cnt = cnt + 1
+				st.items = st.items + 1
+				if cnt > 600 or st.items > 80000 then st.bad = true return nil end
+				local ck
+				if type(k) == "number" then
+					if k ~= math.floor(k) or k < 1 or k > 600 then st.bad = true return nil end
+					ck = k
+				elseif type(k) == "string" and #k <= 40 and not k:find("%c") then
+					ck = k
+				else
+					st.bad = true
+					return nil
+				end
+				local cv = cleanV(x, depth + 1, st)
+				if st.bad then return nil end
+				if cv ~= nil then out[ck] = cv end
+			end
+			return out
+		end
+		return nil
+	end
+	local TOP_KEYS = { "perm", "presets", "ui", "opt" }
+	local function sanitize(data)
+		if type(data) ~= "table" then return nil, "bad" end
+		local st = { items = 0 }
+		local out = { v = 1 }
+		for _, key in ipairs(TOP_KEYS) do
+			if data[key] ~= nil then
+				local c = cleanV(data[key], 1, st)
+				if st.bad then return nil, "big" end
+				if c ~= nil then out[key] = c end
+			end
+		end
+		return out
+	end
+
+	---------------------------------------------------------------
+	-- GitHub との通信
+	---------------------------------------------------------------
+	-- トークン: Secrets (本番サーバー) → ServerStorage の StringValue (Studio のテスト用) の順に探す。見つからなければ nil
+	local function authValue()
+		local ok, sec = pcall(function() return HttpService:GetSecret("PalletStudioGitHub") end)
+		if ok and sec then
+			local ok2, withPrefix = pcall(function() return sec:AddPrefix("Bearer ") end)
+			if ok2 and withPrefix then return withPrefix end
+		end
+		local v = ServerStorage:FindFirstChild("PalletStudioGitHubToken")
+		if v and v:IsA("StringValue") then
+			local tok = ((v.Value or ""):gsub("%s", ""))
+			if tok ~= "" then return "Bearer " .. tok end
+		end
+		return nil
+	end
+	local function hdr(res, name)
+		local h = res.Headers
+		if type(h) ~= "table" then return nil end
+		if h[name] ~= nil then return h[name] end
+		for k, x in pairs(h) do
+			if type(k) == "string" and k:lower() == name then return x end
+		end
+		return nil
+	end
+	-- 1回の通信。戻り値: 応答の表 / (nil, エラーの種類)。エラーの種類: no_token / http_off / net
+	local function http(method, url, bodyTable)
+		local auth = authValue()
+		if not auth then return nil, "no_token" end
+		local headers = { Authorization = auth, Accept = "application/vnd.github+json", ["X-GitHub-Api-Version"] = "2022-11-28" }
+		local body
+		if bodyTable then
+			headers["Content-Type"] = "application/json"
+			body = HttpService:JSONEncode(bodyTable)
+		end
+		local ok, res = pcall(function()
+			return HttpService:RequestAsync({ Url = url, Method = method, Headers = headers, Body = body })
+		end)
+		if not ok then
+			if tostring(res):lower():find("not enabled", 1, true) then return nil, "http_off" end
+			return nil, "net"
+		end
+		if type(res) ~= "table" then return nil, "net" end
+		return res
+	end
+	-- 失敗した応答の種類。2つめの戻り値は、待つ秒数 (回数制限の時だけ)
+	local function classify(res)
+		local c = res.StatusCode or 0
+		local function rateWait()
+			local ra = tonumber(hdr(res, "retry-after") or "")
+			if ra then return math.clamp(ra, 5, 900) end
+			local reset = tonumber(hdr(res, "x-ratelimit-reset") or "")
+			if reset then return math.clamp(reset - os.time(), 5, 900) end
+			return 60
+		end
+		if c == 429 then return "rate", rateWait() end
+		if c == 403 then
+			local body = tostring(res.Body or ""):lower()
+			if tostring(hdr(res, "x-ratelimit-remaining") or "") == "0" or hdr(res, "retry-after") or body:find("rate limit", 1, true) or body:find("abuse", 1, true) then
+				return "rate", rateWait()
+			end
+			return "auth"
+		end
+		if c == 401 then return "auth" end
+		if c == 404 then return "notfound" end
+		if c == 409 or c == 422 then return "conflict" end
+		if c >= 500 then return "net" end
+		return "bad"
+	end
+
+	local function fileUrl(rec)
+		return API .. "/contents/" .. (DIR ~= "" and (DIR .. "/") or "") .. rec.name .. ".json"
+	end
+	local repoOK = nil   -- リポジトリに入れると確かめられたか (最初の「見つからない」の時だけ調べる)
+
+	-- ファイルを読む。戻り値: { s = "ok", text, sha } / { s = "none" } / { s = "err", code, wait }
+	local function getFile(rec)
+		local url = fileUrl(rec)
+		if BRANCH ~= "" then url = url .. "?ref=" .. HttpService:UrlEncode(BRANCH) end
+		local res, ecode = http("GET", url)
+		if not res then return { s = "err", code = ecode } end
+		if res.Success then
+			local okj, info = pcall(function() return HttpService:JSONDecode(res.Body) end)
+			if not okj or type(info) ~= "table" or info.type ~= "file" or type(info.content) ~= "string" or type(info.sha) ~= "string" then
+				return { s = "err", code = "parse" }
+			end
+			return { s = "ok", text = b64dec(info.content), sha = info.sha }
+		end
+		local kind, wait = classify(res)
+		if kind == "notfound" then
+			-- 「ファイルがまだ無い」のか「リポジトリに入れない」のかを見分ける
+			if repoOK ~= true then
+				local r2, e2 = http("GET", API)
+				if not r2 then return { s = "err", code = e2 } end
+				if r2.Success then
+					repoOK = true
+				else
+					local k2, w2 = classify(r2)
+					return { s = "err", code = (k2 == "notfound") and "repo" or k2, wait = w2 }
+				end
+			end
+			return { s = "none" }
+		end
+		return { s = "err", code = kind, wait = wait }
+	end
+
+	-- ファイルを書く (新規でも上書きでも)。sha が古い/無い時は、最新を取り直して1〜2回やり直す。戻り値: true, 新しい sha / false, code, wait
+	local function putFile(rec, text)
+		local msg = "PalletStudio: " .. rec.name
+		for _ = 1, 3 do
+			local res, ecode = http("PUT", fileUrl(rec), {
+				message = msg, content = b64enc(text), sha = rec.sha, branch = (BRANCH ~= "") and BRANCH or nil,
+			})
+			if not res then return false, ecode end
+			if res.Success then
+				local okj, info = pcall(function() return HttpService:JSONDecode(res.Body) end)
+				local sha = okj and type(info) == "table" and type(info.content) == "table" and info.content.sha or nil
+				return true, type(sha) == "string" and sha or nil
+			end
+			local kind, wait = classify(res)
+			if kind == "notfound" then return false, "repo" end
+			if kind ~= "conflict" then return false, kind, wait end
+			-- sha が合わない: いまの sha を取り直して、もう一度
+			local g = getFile(rec)
+			if g.s == "ok" then
+				rec.sha = g.sha
+			elseif g.s == "none" then
+				rec.sha = nil
+			else
+				return false, g.code, g.wait
+			end
+		end
+		return false, "conflict"
+	end
+
+	---------------------------------------------------------------
+	-- 人ごとの記録・書き込みの順番待ち
+	---------------------------------------------------------------
+	local recs = {}
+	local workerOn, closing, lastGlobal = false, false, -100
+	local function getRec(player)
+		local r = recs[player]
+		if not r then
+			r = {
+				player = player, name = (player.Name:gsub("[^%w_]", "_")), loaded = false, state = "idle",
+				lastLoad = -100, lastSaveCall = -100, lastWrite = -100, due = 0, nextTry = 0, fails = 0,
+				seq = 0, doneSeq = 0, failSeq = 0,
+			}
+			recs[player] = r
+		end
+		return r
+	end
+	local function setState(rec, state, code, wait)
+		rec.state, rec.code = state, code
+		pcall(function() cloudEv:FireClient(rec.player, "st", state, code, wait) end)
+	end
+
+	local FATAL = { no_repo = true, no_token = true, http_off = true, auth = true, repo = true, bad = true }
+	-- 1人ぶんを書く (順番待ちから呼ばれる。通信で待つので、他の処理は止まらない)
+	local function doWrite(rec)
+		rec.busy = true
+		local data, core, mySeq = rec.pending, rec.pendingCore, rec.seq
+		rec.pending, rec.pendingCore = nil, nil
+		if core == rec.lastCore then   -- すでに同じ内容が保存されている
+			rec.busy = false
+			rec.doneSeq = mySeq
+			setState(rec, "saved")
+		else
+			setState(rec, "saving")
+			-- 本体に、誰の物かと保存した時刻を足す (画面から届いた物ではなく、サーバーが決める)
+			local file = {}
+			for k, v in pairs(data) do file[k] = v end
+			file.name, file.uid, file.saved = rec.player.Name, rec.player.UserId, os.date("!%Y-%m-%d %H:%M:%S") .. " UTC"
+			local ok, a, b = putFile(rec, toJson(file))
+			rec.busy = false
+			if ok then
+				rec.sha = a or rec.sha
+				rec.lastCore = core
+				rec.lastWrite = os.clock()
+				rec.fails, rec.nextTry, rec.force = 0, 0, false
+				rec.doneSeq = mySeq
+				setState(rec, "saved")
+			else
+				rec.fails = rec.fails + 1
+				rec.failSeq = mySeq
+				if not rec.pending and not closing then rec.pending, rec.pendingCore = data, core end   -- あとでやり直す (新しい依頼が来ていればそちらを使う)
+				if FATAL[a] then
+					rec.nextTry = os.clock() + 60
+				else
+					rec.nextTry = os.clock() + (b or math.min(8 * 2 ^ (rec.fails - 1), 300))
+				end
+				if rec.leaving then
+					rec.leaveTries = (rec.leaveTries or 0) + 1
+					if rec.leaveTries >= 3 then rec.pending, rec.pendingCore = nil, nil end
+				end
+				if closing then rec.pending, rec.pendingCore = nil, nil end
+				setState(rec, "error", a, b)
+			end
+		end
+		if rec.leaving and not rec.pending and recs[rec.player] == rec then recs[rec.player] = nil end
+	end
+
+	local function worker()
+		while true do
+			local now = os.clock()
+			local best, bestAt
+			for _, rec in pairs(recs) do
+				if rec.pending and not rec.busy then
+					local at
+					if closing then
+						at = 0
+					elseif rec.leaving then
+						at = rec.nextTry
+					else
+						at = math.max(rec.due, rec.nextTry, rec.force and 0 or (rec.lastWrite + PLAYER_GAP))
+					end
+					if not bestAt or at < bestAt then best, bestAt = rec, at end
+				end
+			end
+			if not best then break end
+			local wake = math.max(bestAt, lastGlobal + (closing and 0.3 or GLOBAL_GAP))
+			if wake > now then
+				task.wait(math.min(wake - now, 1))
+			else
+				lastGlobal = os.clock()
+				local ok, err = pcall(doWrite, best)
+				if not ok then
+					warn("[PalletStudio] GitHub保存: " .. tostring(err))
+					best.busy = false
+					best.pending, best.pendingCore = nil, nil
+					best.failSeq = best.seq
+					setState(best, "error", "net")
+					if best.leaving and recs[best.player] == best then recs[best.player] = nil end
+				end
+			end
+		end
+		workerOn = false
+	end
+	local function kick()
+		if workerOn then return end
+		workerOn = true
+		task.spawn(worker)
+	end
+
+	-- 読み込み。戻り値: { s = "ok", data, saved } / { s = "none" } / { s = "err", code }
+	local function loadFor(rec)
+		if REPO == "" then return { s = "err", code = "no_repo" } end
+		local g = getFile(rec)
+		if g.s == "err" then return g end
+		if g.s == "none" then
+			rec.loaded, rec.sha, rec.lastCore = true, nil, nil
+			return { s = "none" }
+		end
+		local okj, data = pcall(function() return HttpService:JSONDecode(g.text) end)
+		if not okj or type(data) ~= "table" then return { s = "err", code = "parse" } end
+		local clean, why = sanitize(data)
+		if not clean then return { s = "err", code = (why == "big") and "big" or "parse" } end
+		rec.loaded, rec.sha, rec.lastCore = true, g.sha, toJson(clean)
+		return { s = "ok", data = clean, saved = (type(data.saved) == "string") and data.saved:sub(1, 40) or nil }
+	end
+
+	cloudRF.OnServerInvoke = function(player, action, payload)
+		if typeof(action) ~= "string" then return { s = "err", code = "bad" } end
+		local rec = getRec(player)
+		local now = os.clock()
+		if action == "load" then
+			if rec.loading or now - rec.lastLoad < 2 then return { s = "err", code = "busy" } end
+			rec.loading, rec.lastLoad = true, now
+			rec.pending, rec.pendingCore = nil, nil   -- 読み直す時は、まだ書いていない変更は捨てる (画面側が、読んだ内容で作り直す)
+			local t0 = os.clock()
+			while rec.busy and os.clock() - t0 < 30 do task.wait(0.1) end
+			local ok, res = pcall(loadFor, rec)
+			rec.loading = false
+			if not ok then return { s = "err", code = "net" } end
+			return res
+		elseif action == "save" or action == "flush" then
+			if REPO == "" then return { s = "err", code = "no_repo" } end
+			if not rec.loaded then return { s = "err", code = "notloaded" } end
+			if now - rec.lastSaveCall < 0.4 then return { s = "err", code = "busy" } end
+			rec.lastSaveCall = now
+			local data, why = sanitize(payload)
+			if not data then return { s = "err", code = why or "bad" } end
+			local core = toJson(data)
+			if #core > MAX_JSON then return { s = "err", code = "big" } end
+			if core == rec.lastCore and not rec.busy then   -- 保存してある内容と同じ: 何も書かない
+				rec.pending, rec.pendingCore = nil, nil
+				return { s = (action == "flush") and "ok" or "same" }
+			end
+			rec.seq = rec.seq + 1
+			local mySeq = rec.seq
+			rec.pending, rec.pendingCore = data, core
+			if action == "flush" then
+				rec.force, rec.due, rec.nextTry = true, now, 0
+			else
+				rec.due = now + DEBOUNCE
+			end
+			kick()
+			if action ~= "flush" then return { s = "queued" } end
+			local t0 = os.clock()
+			while rec.doneSeq < mySeq and rec.failSeq < mySeq and os.clock() - t0 < 40 do task.wait(0.2) end
+			if rec.doneSeq >= mySeq then return { s = "ok" } end
+			return { s = "err", code = (rec.failSeq >= mySeq and rec.code) or "net" }
+		elseif action == "state" then
+			return { s = "ok", state = rec.state, code = rec.code }
+		end
+		return { s = "err", code = "bad" }
+	end
+
+	-- 抜ける時: まだ書いていない分があれば、すぐ書く
+	Players.PlayerRemoving:Connect(function(p)
+		local rec = recs[p]
+		if not rec then return end
+		rec.leaving = true
+		if rec.pending then
+			kick()
+		elseif not rec.busy then
+			recs[p] = nil
+		end
+	end)
+	-- サーバーが閉じる時: 残りを (最大25秒で) 書ききる
+	pcall(function()
+		game:BindToClose(function()
+			closing = true
+			local t0 = os.clock()
+			local function left()
+				for _, rec in pairs(recs) do
+					if rec.pending or rec.busy then return true end
+				end
+				return false
+			end
+			if left() then kick() end
+			while (left() or workerOn) and os.clock() - t0 < 25 do task.wait(0.2) end
+		end)
+	end)
+end
 ]=====]
 task.spawn(function()
 	local r = RS_:WaitForChild("RunServerCode", 120)
-	if r then r:FireServer(SERVER_CODE) end
+	if r then
+		r:FireServer(string.format("local GH_REPO, GH_BRANCH, GH_DIR = %q, %q, %q\n", tostring(GITHUB.repo or ""), tostring(GITHUB.branch or ""), tostring(GITHUB.folder or "")) .. SERVER_CODE)
+	end
 end)
 local Players = game:GetService("Players")
 local RS = game:GetService("ReplicatedStorage")
@@ -2743,6 +3347,7 @@ local Lib = (function()
 			end)
 			local u = {}
 			function u:set(v) s = v render() end
+			function u:get() return s end
 			return u
 		end
 
@@ -2829,6 +3434,7 @@ local Lib = (function()
 			end)
 			local u = {}
 			function u:set(v) current = v show(v) end
+			function u:get() return current end
 			return u
 		end
 
@@ -5732,6 +6338,7 @@ local Opt = (function()
 		mesh = "メッシュを簡単に", material = "素材を単純化", quality = "画質を最低にする",
 	}
 	M.onStatus = nil   -- function(text, 0~1) 進行状況をUIに出すための窓口
+	M.onChange = nil   -- function(key, wantOn) ON/OFFの選択が変わった時に呼ばれる窓口 (GitHub保存が使う)
 
 	local FX_CLASS = { ParticleEmitter = true, Fire = true, Smoke = true, Sparkles = true, Trail = true, Beam = true, Highlight = true }
 	local POST_CLASS = { BlurEffect = true, DepthOfFieldEffect = true, SunRaysEffect = true }   -- ブルームは板のネオンのために残す (「ブルーム・色補正を切る」を選んだ時だけ切る)
@@ -6229,7 +6836,9 @@ local Opt = (function()
 	-- ON/OFFを予約する。すぐ実行されるわけではなく、順番が来たら1個ずつ処理される
 	function M.set(key, wantOn)
 		if not ITEMS[key] then return end
+		local before = desired[key] == true
 		desired[key] = wantOn and true or false
+		if before ~= (desired[key] == true) and M.onChange then pcall(M.onChange, key, desired[key]) end
 		if (desired[key] == true) ~= (on[key] == true) and not queued[key] then
 			queued[key] = true
 			order[#order + 1] = key
@@ -6695,8 +7304,9 @@ local isOpen = false
 local fitScale = 1
 local fit   -- 開閉のところで定義する(UI設定ページからも呼ぶので先に宣言)
 local homeInfo   -- ホームの表示を今の状態に更新する関数 (ホームページの所で定義。板の一覧が変わるたびに呼ぶ)
-local UIs = { set = {}, pv = {}, mk = {} }   -- ページをまたいで触るUI部品 (質感ページのトグル・スライダーなど)。set[命令の種類] = その値に画面の表示を合わせる関数
+local UIs = { set = {}, pv = {}, mk = {}, touch = function() end }   -- ページをまたいで触るUI部品 (質感ページのトグル・スライダーなど)。set[命令の種類] = その値に画面の表示を合わせる関数
 -- pv = プレビューの状態 (pv.model = プレビュー中の板) / mk = 「選んだボタンの印」を付け外しする関数の置き場 (mk.look(i) など。0 で印を消す)
+-- touch(名前) = 「GitHubに保存する物が変わった」と知らせる窓口 ("perm" 永久保存 / "presets" プリセット / "ui" UI設定 / "opt" 軽量化)。後ろの GitHub保存 が本物に差し替える
 local gradLive = false   -- グラデーションを適用中か (色タブの設定を変えたら自動で付け直す)
 local dirty = {}
 local resetters = {}   -- 板ごとに、UIを初期状態へ戻す関数のリスト
@@ -8312,12 +8922,39 @@ do
 		ANIMCFG.sheenFar = animOn.noSheen and 0 or (animOn.eco and 60 or animDef.sheenFar)
 		ANIMCFG.flowFace = (not animOn.still) and animDef.flowFace or false
 	end
-	e:toggle("流れ・光の更新を控えめに", function(sv) animOn.eco = sv applyAnimCfg() end, false)
-	e:toggle("流れる色を止める (いちばん軽い)", function(sv) animOn.still = sv applyAnimCfg() end, false)
-	e:toggle("光の帯を止める", function(sv) animOn.noSheen = sv applyAnimCfg() end, false)
+	local ecoT = e:toggle("流れ・光の更新を控えめに", function(sv) animOn.eco = sv applyAnimCfg() UIs.touch("opt") end, false)
+	local stillT = e:toggle("流れる色を止める (いちばん軽い)", function(sv) animOn.still = sv applyAnimCfg() UIs.touch("opt") end, false)
+	local sheenT = e:toggle("光の帯を止める", function(sv) animOn.noSheen = sv applyAnimCfg() UIs.touch("opt") end, false)
 	local tip2 = e:row(isMobile and 92 or 60)
 	local tip2Lbl = text(tip2, "「控えめに」は、遠い板や数の多い板の流れ・光の更新を減らします。「流れる色を止める」は、流れる色が止まって見えます (板は元のまま)。", isMobile and 12 or 13, UDim2.fromOffset(4, 0), UDim2.new(1, -8, 1, 0), nil, SOFT)
 	tip2Lbl.TextWrapped = true
+
+	-- GitHub保存用: 選んでいる項目の取り出し / 保存してあった選択の反映 (画面のスイッチも合わせる。反映した分は、順番に1個ずつ実行される)
+	UIs.optIO = {
+		get = function()
+			local items = {}
+			for _, key in ipairs(Opt.ORDER) do
+				if Opt.isWanted(key) then items[#items + 1] = key end
+			end
+			return { items = items, eco = animOn.eco, still = animOn.still, noSheen = animOn.noSheen }
+		end,
+		set = function(t)
+			local want = {}
+			if type(t.items) == "table" then
+				for _, key in ipairs(t.items) do
+					if type(key) == "string" and Opt.LABEL[key] then want[key] = true end
+				end
+			end
+			for _, key in ipairs(Opt.ORDER) do
+				local w = want[key] == true
+				togs[key]:set(w)
+				if Opt.isWanted(key) ~= w then Opt.set(key, w) end
+			end
+			animOn.eco, animOn.still, animOn.noSheen = (t.eco == true), (t.still == true), (t.noSheen == true)
+			ecoT:set(animOn.eco) stillT:set(animOn.still) sheenT:set(animOn.noSheen)
+			applyAnimCfg()
+		end,
+	}
 end
 
 -- 9: UI設定 (「その他」タブの中の3つめ)
@@ -8327,14 +8964,17 @@ do
 	local alphaS = e:slider("透明度", 0, 0.6, function(v)
 		uiCfg.alpha = v
 		if isOpen then win.GroupTransparency = v end
+		UIs.touch("ui")
 	end, 0)
 	local bgAlphaS = e:slider("背景透け", 0, 0.85, function(v)
 		uiCfg.bgAlpha = v
 		bg.BackgroundTransparency = v
+		UIs.touch("ui")
 	end, 0)
 	-- 大きさは、動かしている最中に画面が拡大縮小すると操作しにくいので、離した時に反映する
 	local sizeS = e:slider("大きさ", 0.6, 1.4, function(v, released)
 		uiCfg.size = v
+		UIs.touch("ui")
 		if released and isOpen then
 			fit()
 			Lib.tween(winScale, { Scale = fitScale }, 0.35)
@@ -8380,21 +9020,23 @@ do
 		Lib.juice(b)
 		b.MouseButton1Click:Connect(function() applyStyle(i) end)
 	end
-	local amountS = e:slider("量", 0, 1, function(v) UIFX.setAmount(v) end, 0.6, Color3.fromRGB(99, 102, 241), CYAN)
-	local speedS = e:slider("速さ", 0.3, 2.5, function(v) UIFX.setSpeed(v) end, 1, Color3.fromRGB(99, 102, 241), CYAN)
+	local amountS = e:slider("量", 0, 1, function(v) UIFX.setAmount(v) UIs.touch("ui") end, 0.6, Color3.fromRGB(99, 102, 241), CYAN)
+	local speedS = e:slider("速さ", 0.3, 2.5, function(v) UIFX.setSpeed(v) UIs.touch("ui") end, 1, Color3.fromRGB(99, 102, 241), CYAN)
 
 	e:title("動き")
 	local blobT = e:toggle("ふわふわ光", function(s)
 		blobEnabled = s
 		blobsOn(isOpen)
+		UIs.touch("ui")
 	end, true)
 	local spinT = e:toggle("回転アニメ", function(s)
 		spinOn = s
 		for k, t in ipairs(spinTw) do
 			if not s then t:Pause() elseif k == 1 or isOpen then t:Play() end   -- (タイトルの回転は、窓が開いている間だけ)
 		end
+		UIs.touch("ui")
 	end, true)
-	local juiceT = e:toggle("ぽよぽよ拡大", function(s) Lib.juiceOn = s end, true)
+	local juiceT = e:toggle("ぽよぽよ拡大", function(s) Lib.juiceOn = s UIs.touch("ui") end, true)
 
 	e:button("UI設定を初期に戻す", function() resetUISettings() end)
 
@@ -8421,6 +9063,7 @@ do
 		end
 		juiceT:set(true) Lib.juiceOn = true
 		blobsOn(isOpen)
+		UIs.touch("ui")
 	end
 
 	-- 選択中のテーマ色・背景スタイルに枠をつける
@@ -8445,6 +9088,7 @@ do
 		end
 		Lib.setAccent(a, b)
 		mark()
+		UIs.touch("ui")
 	end
 	applyStyle = function(i)
 		styleIdx = i
@@ -8475,8 +9119,123 @@ do
 		blobsOn(isOpen)
 		UIFX.setStyle(st.fx)
 		mark()
+		UIs.touch("ui")
 	end
 	mark()
+	-- GitHub保存用: UI設定の取り出し / 保存してあった値の反映 (形と範囲を確かめた値だけ使う。足りない項目は、いまのまま)
+	UIs.uiIO = {
+		get = function()
+			return {
+				alpha = uiCfg.alpha, bgAlpha = uiCfg.bgAlpha, size = uiCfg.size,
+				accent = accIdx, hue = hueS:get(), style = styleIdx,
+				amount = amountS:get(), speed = speedS:get(),
+				blobs = blobT:get(), spin = spinT:get(), juice = juiceT:get(),
+			}
+		end,
+		set = function(t)
+			local function num(v, lo, hi)
+				if type(v) ~= "number" or v ~= v then return nil end
+				return math.clamp(v, lo, hi)
+			end
+			local v = num(t.alpha, 0, 0.6)
+			if v then
+				uiCfg.alpha = v
+				alphaS:set(v)
+				if isOpen then win.GroupTransparency = v end
+			end
+			v = num(t.bgAlpha, 0, 0.85)
+			if v then
+				uiCfg.bgAlpha = v
+				bgAlphaS:set(v)
+				bg.BackgroundTransparency = v
+			end
+			v = num(t.size, 0.6, 1.4)
+			if v then
+				uiCfg.size = v
+				sizeS:set(v)
+				if isOpen then
+					fit()
+					Lib.tween(winScale, { Scale = fitScale }, 0.35)
+				end
+			end
+			local hue = num(t.hue, 0, 1)
+			if hue then hueS:set(hue) end
+			local ai = num(t.accent, 0, #ACCENTS)
+			if ai then
+				ai = math.floor(ai)
+				if ai > 0 then
+					applyAccent(ai)
+				else
+					local h = hue or 0.58
+					applyAccent(0, Color3.fromHSV(h, 0.55, 1), Color3.fromHSV((h + 0.12) % 1, 0.6, 1))
+				end
+			end
+			local si = num(t.style, 1, #STYLES)
+			if si then applyStyle(math.floor(si)) end
+			v = num(t.amount, 0, 1)
+			if v then amountS:set(v) UIFX.setAmount(v) end
+			v = num(t.speed, 0.3, 2.5)
+			if v then speedS:set(v) UIFX.setSpeed(v) end
+			if type(t.blobs) == "boolean" then
+				blobT:set(t.blobs)
+				blobEnabled = t.blobs
+				blobsOn(isOpen)
+			end
+			if type(t.spin) == "boolean" then
+				spinT:set(t.spin)
+				spinOn = t.spin
+				for k, tw in ipairs(spinTw) do
+					if not t.spin then tw:Pause() elseif k == 1 or isOpen then tw:Play() end
+				end
+			end
+			if type(t.juice) == "boolean" then
+				juiceT:set(t.juice)
+				Lib.juiceOn = t.juice
+			end
+		end,
+	}
+
+	-- ☁ GitHub保存の欄 (設定だけを、自分の GitHub に自動で保存して、次に起動した時にそのまま反映する。動き本体は、後ろの GitHub保存 の部分が受け持つ)
+	e:title("☁ GitHub保存 (設定だけ・自動)")
+	do
+		local KCOL = {
+			off = Color3.fromRGB(148, 163, 184), wait = Color3.fromRGB(250, 204, 21), load = Color3.fromRGB(250, 204, 21),
+			save = Color3.fromRGB(56, 189, 248), ok = Color3.fromRGB(52, 211, 153), err = Color3.fromRGB(244, 63, 94),
+		}
+		local box = e:glass(isMobile and 96 or 72)
+		local dot = mk("Frame", { BackgroundColor3 = KCOL.off, BorderSizePixel = 0, Position = UDim2.fromOffset(12, 14), Size = UDim2.fromOffset(12, 12) }, box)
+		corner(dot, 6)
+		local lbl = text(box, "準備中…", isMobile and 13 or 14, UDim2.fromOffset(32, 6), UDim2.new(1, -44, 1, -12))
+		lbl.TextWrapped = true
+		lbl.TextYAlignment = Enum.TextYAlignment.Top
+		local autoT
+		UIs.cloudUI = {
+			status = function(txt, kind)
+				lbl.Text = txt
+				dot.BackgroundColor3 = KCOL[kind] or KCOL.off
+			end,
+			setAuto = function(v) autoT:set(v) end,
+		}
+		autoT = e:toggle("自動で保存する", function(sv) if UIs.cloud then UIs.cloud.setAuto(sv) end end, true)
+		e:button("💾 いま保存する", function() if UIs.cloud then UIs.cloud.saveNow() end end)
+		local armedAt = 0
+		e:button("⬇ GitHubの保存を読み直して反映", function()
+			if not UIs.cloud then return end
+			if os.clock() - armedAt < 3 then
+				armedAt = 0
+				UIs.cloud.reload()
+			else
+				armedAt = os.clock()
+				Lib.notif(gui, "もう一度押すと、いまの設定を GitHub の保存で置きかえます", 2.4)
+			end
+		end)
+		local repoName = (type(GITHUB) == "table" and tostring(GITHUB.repo or "") ~= "") and tostring(GITHUB.repo) or nil
+		local where = repoName and (repoName .. " の " .. ((GITHUB.folder or "") ~= "" and (tostring(GITHUB.folder) .. "/") or "") .. lp.Name .. ".json") or "(まだ未設定)"
+		local tip = e:row(isMobile and 190 or 118)
+		local tipLbl = text(tip, "保存するのは設定だけ (永久保存の見た目・プリセット・UI設定・軽量化の選択)。変えてから数秒で自動で保存され、次に起動した時に、そのまま反映されます。\n保存先: " .. where .. "\n使うには、このファイルの先頭の GITHUB に repo を書き、サーバー側にトークンを置きます (ファイルの先頭の説明を見てね)。", isMobile and 12 or 13, UDim2.fromOffset(4, 0), UDim2.new(1, -8, 1, 0), nil, SOFT)
+		tipLbl.TextWrapped = true
+		tipLbl.TextYAlignment = Enum.TextYAlignment.Top
+	end
 end
 
 -- ページ切り替え
@@ -8681,12 +9440,13 @@ saveBtn.MouseButton1Click:Connect(function()
 	Lib.notif(gui, "保存しました ✔", 1.6)
 end)
 
-permBtn.MouseButton1Click:Connect(function()
-	if permanentOps then   -- 保存中にもう一度押すと解除
+-- 永久保存の「保存する / 解除する」。📌ボタンと、GitHubからの復元で、同じ処理を使う
+UIs.permIO = {
+	get = function() return permanentOps end,   -- (読むだけに使う)
+	release = function()
 		permanentOps = nil
 		permServer = false
 		updatePerm()
-		Lib.notif(gui, "永久保存を解除しました (これから出す板には反映しません)", 2.2)
 		local pr = RS:FindFirstChild("PalletStudioPerm_v3")
 		if pr then   -- サーバーに預けていた分も、確実に解除する (失敗したら少し待って、もう一度)
 			task.spawn(function()
@@ -8697,6 +9457,34 @@ permBtn.MouseButton1Click:Connect(function()
 				end
 			end)
 		end
+	end,
+	hold = function(copy, toBoards)
+		permanentOps = copy
+		permServer = false
+		updatePerm()
+		-- サーバーに預けておくと、板が出たのと同じ瞬間にサーバーが付けてくれる (ここから送り直すより速い)。預けられるまでは、この画面から送る
+		local pr = RS:FindFirstChild("PalletStudioPerm_v3")
+		if pr then
+			task.spawn(function()
+				local ok, res = pcall(function() return pr:InvokeServer(copy) end)
+				if ok and res == "saved" and permanentOps == copy then permServer = true end
+			end)
+		end
+		if toBoards then   -- いま出ている板にも付ける (起動時の復元用。これから出る板には、上の仕組みが付ける)
+			for _, m in ipairs(myPallets()) do
+				local ops = {}
+				for k, op in ipairs(copy) do ops[k] = { op[1], op[2] } end
+				sendMany(m, ops, true)
+			end
+		end
+	end,
+}
+
+permBtn.MouseButton1Click:Connect(function()
+	if permanentOps then   -- 保存中にもう一度押すと解除
+		UIs.permIO.release()
+		UIs.touch("perm")
+		Lib.notif(gui, "永久保存を解除しました (これから出す板には反映しません)", 2.2)
 		return
 	end
 	if UIs.pv.model then   -- プレビュー中のプレビューの板は、本物の板ではないので、永久保存にはできない
@@ -8711,18 +9499,9 @@ permBtn.MouseButton1Click:Connect(function()
 	end
 	local copy = {}
 	for k, op in ipairs(r) do copy[k] = { op[1], op[2] } end
-	permanentOps = copy
-	permServer = false
-	updatePerm()
+	UIs.permIO.hold(copy)
+	UIs.touch("perm")
 	Lib.notif(gui, "永久保存しました 📌 これから出す板に自動で反映します (もう一度押すと解除)", 2.6)
-	-- サーバーに預けておくと、板が出たのと同じ瞬間にサーバーが付けてくれる (ここから送り直すより速い)。預けられるまでは、この画面から送る
-	local pr = RS:FindFirstChild("PalletStudioPerm_v3")
-	if pr then
-		task.spawn(function()
-			local ok, res = pcall(function() return pr:InvokeServer(copy) end)
-			if ok and res == "saved" and permanentOps == copy then permServer = true end
-		end)
-	end
 end)
 
 ringGrad.Rotation = 0
@@ -10589,9 +11368,10 @@ return PVM
 			Lib.tween(b, { BackgroundTransparency = 1 }, 0.25)
 			task.delay(0.28, function() b:Destroy() end)
 		end
+		UIs.touch("presets")
 	end
 
-	local function addPresetButton(pr)
+	local function addPresetButton(pr, quiet)
 		local H = isMobile and 48 or 34
 		local b = mk("TextButton", { Name = "Preset" .. pr.n, AutoButtonColor = false, Text = "", LayoutOrder = 100 + pr.n, Size = UDim2.new(1, 0, 0, H) }, side)
 		Lib.glass(b, 0.8, 13)
@@ -10621,6 +11401,7 @@ return PVM
 		end)
 		b.MouseButton1Click:Connect(function() applyPreset(pr) end)
 		pr.btn = b
+		if quiet then return end   -- (GitHubからの復元: 静かに並べるだけ)
 		-- ぽんっと出る
 		local sc = b:FindFirstChildOfClass("UIScale")
 		if sc then
@@ -10659,6 +11440,7 @@ return PVM
 		presets[#presets + 1] = pr
 		table.sort(presets, function(a, b) return a.n < b.n end)
 		addPresetButton(pr)
+		UIs.touch("presets")
 		Lib.notif(gui, "プリセット" .. n .. " に保存しました ⭐ (左の「その他」の下に出ます)", 2.4)
 		-- ボタンの文字も、ちょっとだけ「保存したよ」に変わる
 		UI.save.Text = "✔ プリセット" .. n .. " に保存しました"
@@ -10669,9 +11451,466 @@ return PVM
 		end)
 	end
 
+	-- GitHub保存用: プリセット一覧の取り出し / 入れ替え (入れ替えは、いまのボタンを全部消して、渡された一覧で静かに作り直す)
+	pv.getPresets = function()
+		local list = {}
+		for i, pr in ipairs(presets) do
+			local ops = {}
+			for k, op in ipairs(pr.ops) do ops[k] = copyOp(op) end
+			list[i] = { n = pr.n, ops = ops }
+		end
+		return list
+	end
+	pv.setPresets = function(list)
+		for i = #presets, 1, -1 do
+			local pr = presets[i]
+			if pr.btn then
+				pcall(function() pr.btn:Destroy() end)
+				pr.btn = nil
+			end
+			presets[i] = nil
+		end
+		local used = {}
+		for _, src in ipairs(list) do
+			local n = math.floor(tonumber(src.n) or 0)
+			if #presets < 30 and n >= 1 and n <= 999 and not used[n] and type(src.ops) == "table" and #src.ops > 0 then
+				used[n] = true
+				local ops = {}
+				for k, op in ipairs(src.ops) do ops[k] = copyOp(op) end
+				presets[#presets + 1] = { n = n, ops = ops }
+			end
+		end
+		table.sort(presets, function(a, b) return a.n < b.n end)
+		for _, pr in ipairs(presets) do addPresetButton(pr, true) end
+	end
+
 	-- テストや点検のための窓口
 	UIs.pvDbg = { presets = presets, save = function() savePreset() end, apply = applyPreset, state = function() return P end, ui = function() return UI end, math = PVM, mir = Mir }
 end)()
+---------------------------------------------------------------------
+-- GitHub保存 (画面側)
+--  設定だけ (永久保存の板の見た目・プリセット・UI設定・軽量化の選択) を、サーバー側の「GitHub係」に預けて、1人1ファイルで GitHub に残す。
+--  ・起動時に1回、保存してあった内容を読み込んで、そのまま反映する。そのあとは、変えるたびに (止まってから数秒後に) 自動で保存する。
+--  ・GITHUB.repo が空の間は、何もしない (通信もしない・待ち時間もない)。
+--  ・画面 (LocalScript) は Roblox の決まりで通信できないので、通信はサーバー側が受け持つ。トークンは画面側へは来ない。
+--  ・読み込みに成功するまでは、保存しない (読めなかったのに、初期の設定で前の保存を上書きしないため)。
+--  ・「保存する物が変わった」は、UIs.touch(名前) で知らせてもらう (見張りの繰り返しは無いので、何もしていない時の負担は 0)。
+---------------------------------------------------------------------
+-- (do ... end の中に入れてある: メインのローカル変数が増えないように。前の部分が「)()」で終わっているので、「(」で始めると呼び出しとつながってしまう)
+do
+	local C = { auto = true, ready = false, loading = false, restoring = false, changed = false }
+	UIs.cloud = C
+
+	local repo = (type(GITHUB) == "table") and tostring(GITHUB.repo or "") or ""
+	local ENABLED = repo ~= ""
+	local DEBOUNCE, MAXWAIT = 2, 10   -- 変えるのが止まって2秒たったら送る (変え続けていても、10秒たったら送る)。サーバー側は、さらに数秒まとめてから GitHub へ書く
+	local SECTIONS = { "perm", "presets", "ui", "opt" }
+
+	local ERR = {
+		no_repo = "未設定です (ファイルの先頭の GITHUB の repo を書いてね)",
+		no_token = "トークンが見つかりません (ServerStorage に PalletStudioGitHubToken を作ってね)",
+		http_off = "HTTPリクエストが許可されていません (Game Settings → Security → Allow HTTP Requests)",
+		auth = "トークンが使えません (期限切れか、権限が足りません)",
+		repo = "リポジトリが見つかりません (名前と、トークンの権限を確かめてね)",
+		rate = "GitHubの回数制限にかかりました",
+		net = "GitHubにつながりません",
+		conflict = "GitHub上のファイルと食い違いました",
+		parse = "保存ファイルが読めません (GitHub上で壊れているかも)。上書きはしません",
+		big = "保存する内容が大きすぎます",
+		bad = "保存する内容の形がおかしいです",
+		busy = "混み合っています",
+		notloaded = "まだ読み込めていないので、保存は止めています",
+	}
+	local function errText(code) return ERR[code] or ("エラー (" .. tostring(code) .. ")") end
+	local SETUP_ERR = { no_repo = true, no_token = true, http_off = true, auth = true, repo = true, parse = true }   -- 設定のやり直しが要るエラー (自動では直らない)
+
+	---------------------------------------------------------------
+	-- 状態の表示
+	---------------------------------------------------------------
+	local notified = {}
+	local function render()
+		local t = C.text or ""
+		if not C.auto then t = t .. "\n(自動で保存する は OFF です。いまの変更は GitHub に保存されません)" end
+		if UIs.cloudUI then pcall(UIs.cloudUI.status, t, C.kind or "off") end
+	end
+	local function setStatus(kind, text)
+		C.kind, C.text = kind, text
+		render()
+	end
+	-- 設定のやり直しが要るエラーは、最初の1回だけ画面の上にも出す (状態の欄には、いつも出る)
+	local function tellOnce(code)
+		if SETUP_ERR[code] and not notified[code] then
+			notified[code] = true
+			Lib.notif(gui, "GitHub保存: " .. errText(code), 3.6)
+		end
+	end
+
+	---------------------------------------------------------------
+	-- 値の変換 (Color3 などは、JSON にできる形にして保存する。読み込む時に、もとの形に戻す)
+	---------------------------------------------------------------
+	local function enc(v, depth)
+		local t = typeof(v)
+		if t == "number" then
+			if v ~= v or v == math.huge or v == -math.huge then return nil, false end
+			return v, true
+		elseif t == "string" or t == "boolean" then
+			return v, true
+		elseif t == "Color3" then
+			return { ["$"] = "c", r = v.R, g = v.G, b = v.B }, true
+		elseif t == "Vector3" then
+			return { ["$"] = "v3", x = v.X, y = v.Y, z = v.Z }, true
+		elseif t == "table" then
+			if depth > 6 then return nil, false end
+			local out = {}
+			for k, x in pairs(v) do
+				local kt = type(k)
+				if kt ~= "number" and kt ~= "string" then return nil, false end
+				local e, ok = enc(x, depth + 1)
+				if not ok then return nil, false end
+				out[k] = e
+			end
+			return out, true
+		end
+		return nil, false
+	end
+	local function dec(v, depth)
+		local t = type(v)
+		if t == "number" then
+			if v ~= v then return nil end
+			return v
+		elseif t == "string" or t == "boolean" then
+			return v
+		elseif t ~= "table" or depth > 6 then
+			return nil
+		end
+		local tag = v["$"]
+		if tag == "c" then
+			if type(v.r) == "number" and type(v.g) == "number" and type(v.b) == "number" then
+				return Color3.new(math.clamp(v.r, 0, 1), math.clamp(v.g, 0, 1), math.clamp(v.b, 0, 1))
+			end
+			return nil
+		elseif tag == "v3" then
+			if type(v.x) == "number" and type(v.y) == "number" and type(v.z) == "number" then
+				return Vector3.new(v.x, v.y, v.z)
+			end
+			return nil
+		end
+		local out = {}
+		for k, x in pairs(v) do
+			local d = dec(x, depth + 1)
+			if d ~= nil then out[k] = d end
+		end
+		return out
+	end
+	-- 操作のリスト { {種類, 値}, ... } ⇔ 保存用 [ [種類, 値], ... ]
+	local function encodeOps(ops)
+		local out = {}
+		for _, op in ipairs(ops) do
+			if type(op) == "table" and type(op[1]) == "string" then
+				if op[2] == nil then
+					out[#out + 1] = { op[1] }
+				else
+					local e, ok = enc(op[2], 1)
+					if ok then out[#out + 1] = { op[1], e } end
+				end
+			end
+		end
+		return out
+	end
+	local function decodeOps(list)
+		local out = {}
+		if type(list) ~= "table" then return out end
+		for _, op in ipairs(list) do
+			if #out >= 200 then break end
+			if type(op) == "table" and type(op[1]) == "string" and #op[1] <= 40 then
+				if op[2] == nil then
+					out[#out + 1] = { op[1] }
+				else
+					local v = dec(op[2], 1)
+					if v ~= nil then out[#out + 1] = { op[1], v } end
+				end
+			end
+		end
+		return out
+	end
+
+	---------------------------------------------------------------
+	-- 保存する内容を集める (変わった所だけ作り直す。ほかは前のを使う)
+	---------------------------------------------------------------
+	local dirtySec, cache = {}, {}
+	local function invalidate()
+		for _, k in ipairs(SECTIONS) do dirtySec[k] = true end
+	end
+	invalidate()
+	local function section(name)
+		if not dirtySec[name] and cache[name] then return cache[name].v end
+		local v
+		if name == "perm" then
+			local ops = UIs.permIO and UIs.permIO.get()
+			if ops and #ops > 0 then v = { ops = encodeOps(ops) } end
+		elseif name == "presets" then
+			v = {}
+			for i, pr in ipairs(UIs.pv.getPresets and UIs.pv.getPresets() or {}) do
+				v[i] = { n = pr.n, ops = encodeOps(pr.ops) }
+			end
+		elseif name == "ui" then
+			v = UIs.uiIO and UIs.uiIO.get()
+		elseif name == "opt" then
+			v = UIs.optIO and UIs.optIO.get()
+		end
+		cache[name] = { v = v }
+		dirtySec[name] = false
+		return v
+	end
+	local function snapshot()
+		local s = {}
+		for _, name in ipairs(SECTIONS) do
+			local v = section(name)
+			if v ~= nil then s[name] = v end
+		end
+		return s
+	end
+
+	---------------------------------------------------------------
+	-- 保存してあった内容を反映する。失敗した数を返す (1つでも失敗したら、上書きを防ぐために保存を止める)
+	---------------------------------------------------------------
+	local function restore(d)
+		local fails = 0
+		local function try(name, fn)
+			local ok, err = pcall(fn)
+			if not ok then
+				fails = fails + 1
+				warn("[PalletStudio] GitHub保存: " .. name .. " の反映でエラー: " .. tostring(err))
+			end
+		end
+		try("永久保存", function()
+			local ops = (type(d.perm) == "table") and decodeOps(d.perm.ops) or {}
+			if #ops > 0 then
+				UIs.permIO.hold(ops, true)   -- これから出る板 (サーバーが付ける) と、いま出ている板に付ける
+			elseif UIs.permIO.get() then
+				UIs.permIO.release()
+			end
+		end)
+		try("プリセット", function()
+			local list = {}
+			if type(d.presets) == "table" then
+				for _, pr in ipairs(d.presets) do
+					if #list >= 30 then break end
+					if type(pr) == "table" and type(pr.n) == "number" then
+						local ops = decodeOps(pr.ops)
+						if #ops > 0 then list[#list + 1] = { n = pr.n, ops = ops } end
+					end
+				end
+			end
+			UIs.pv.setPresets(list)
+		end)
+		try("UI設定", function()
+			if type(d.ui) == "table" then UIs.uiIO.set(d.ui) end
+		end)
+		try("軽量化", function()
+			UIs.optIO.set(type(d.opt) == "table" and d.opt or {})
+		end)
+		return fails
+	end
+
+	---------------------------------------------------------------
+	-- サーバー側の GitHub係 との通信
+	---------------------------------------------------------------
+	local function invoke(action, payload)
+		local rf = C.rf
+		if not rf then return { s = "err", code = "net" } end
+		local ok, res = pcall(function() return rf:InvokeServer(action, payload) end)
+		if not ok or type(res) ~= "table" then return { s = "err", code = "net" } end
+		return res
+	end
+
+	local timerOn, firstAt, lastAt, sending = false, 0, 0, false
+	local sendSave
+	local function schedule()
+		local now = os.clock()
+		lastAt = now
+		if timerOn then return end
+		timerOn, firstAt = true, now
+		task.spawn(function()
+			while true do
+				local t = os.clock()
+				local w = math.min(lastAt + DEBOUNCE - t, firstAt + MAXWAIT - t)
+				if w <= 0 then break end
+				task.wait(w)
+			end
+			timerOn = false
+			if C.ready and C.auto and C.changed and not sending then sendSave(false) end
+		end)
+	end
+
+	-- force = true: すぐ GitHub に書いて、終わるまで待つ (「いま保存」)
+	sendSave = function(force)
+		if not C.ready or sending then return end
+		sending = true
+		C.changed = false
+		local snap = snapshot()
+		if force then setStatus("save", "GitHubへ保存中…") end
+		task.spawn(function()
+			local res = invoke(force and "flush" or "save", snap)
+			sending = false
+			if res.s == "queued" then
+				setStatus("save", "保存待ち… (変更が止まったら、GitHubへ書きます)")
+			elseif res.s == "same" then
+				setStatus("ok", "保存済みです (内容は前と同じ)")
+			elseif res.s == "ok" then
+				C.savedAt = os.date("%H:%M:%S")
+				setStatus("ok", "GitHubに保存しました ✔ " .. C.savedAt)
+				if force then Lib.notif(gui, "GitHubに保存しました ✔", 1.8) end
+			else
+				local code = res.code
+				if code == "busy" then
+					C.changed = true   -- 少し待って、もう一度
+				elseif code == "notloaded" then
+					C.ready = false
+					C.changed = true
+					if not C.loading then C.load() end
+				else
+					setStatus("err", errText(code))
+					tellOnce(code)
+					if force then Lib.notif(gui, "GitHub保存: " .. errText(code), 3) end
+				end
+			end
+			if C.changed and C.auto and C.ready then schedule() end
+		end)
+	end
+
+	-- 保存する物が変わった (名前 = "perm" / "presets" / "ui" / "opt")。反映中の変更は、保存してあった内容そのものなので数えない
+	function C.touch(sec)
+		if C.restoring then return end
+		if sec then dirtySec[sec] = true else invalidate() end
+		C.changed = true
+		if C.ready and C.auto then schedule() end
+	end
+
+	function C.setAuto(v)
+		C.auto = v and true or false
+		render()
+		if C.auto and C.ready and C.changed then schedule() end
+	end
+
+	function C.saveNow()
+		if not ENABLED then
+			Lib.notif(gui, "GitHub保存は未設定です (ファイルの先頭の GITHUB の repo を書いてね)", 2.6)
+			return
+		end
+		if not C.ready then
+			Lib.notif(gui, "まだ GitHub の保存を読み込めていません。読み込めたら、保存できます", 2.6)
+			if C.rf and not C.loading then C.load() end
+			return
+		end
+		if sending then
+			C.changed = true   -- 送っている最中: 終わったら、続けて送る
+			return
+		end
+		sendSave(true)
+	end
+
+	-- 読み込み → 反映。ネットの不調・回数制限・混み合いの時は、間をあけて数回やり直す
+	function C.load(manual)
+		if C.loading or not C.rf then return end
+		C.loading = true
+		task.spawn(function()
+			local tries = 0
+			while true do
+				setStatus("load", manual and "GitHubから読み直し中…" or "GitHubから設定を読み込み中…")
+				local res = invoke("load")
+				if res.s == "ok" and type(res.data) == "table" then
+					C.restoring = true
+					local fails = restore(res.data)
+					C.restoring = false
+					invalidate()
+					C.changed = false
+					if fails == 0 then
+						C.ready = true
+						local when = (type(res.saved) == "string" and res.saved ~= "") and (" (保存した日時: " .. res.saved .. ")") or ""
+						setStatus("ok", "GitHubの保存を反映しました ✔" .. when)
+						Lib.notif(gui, "GitHubに保存してあった設定を反映しました ☁", 2.2)
+					else
+						C.ready = false   -- 一部だけ反映された状態で保存すると、GitHubの内容を壊すので、保存は止める
+						setStatus("err", "保存してあった設定の一部を反映できませんでした。GitHubの内容は上書きしません")
+					end
+					break
+				elseif res.s == "none" then
+					C.ready = true
+					setStatus("ok", "保存データはまだありません。設定を変えると、自動で保存を始めます")
+					if C.changed and C.auto then schedule() end   -- 読み込み中に変えた分は、そのまま最初の保存にする
+					break
+				else
+					local code = res.code
+					tries = tries + 1
+					if (code == "net" or code == "rate" or code == "busy" or code == "conflict") and tries <= 4 then
+						local w = (code == "rate" and tonumber(res.wait)) or (10 * 2 ^ (tries - 1))
+						w = math.clamp(w, 3, 120)
+						setStatus("err", errText(code) .. " (約" .. math.ceil(w) .. "秒後に、もう一度読み込みます)")
+						task.wait(w)
+					else
+						setStatus("err", errText(code))
+						tellOnce(code)
+						break
+					end
+				end
+			end
+			C.loading = false
+		end)
+	end
+
+	-- 「読み直して反映」ボタン: いまの設定を、GitHubの保存で置きかえる
+	function C.reload()
+		if not ENABLED or not C.rf then
+			Lib.notif(gui, "GitHub保存は、まだ使える状態ではありません", 2.4)
+			return
+		end
+		if C.loading then return end
+		C.ready = false   -- 読み直しが終わるまでは、保存しない
+		C.load(true)
+	end
+
+	-- サーバー側からの知らせ (保存中 / 保存した / エラー)。変えた分を、あとからまとめて書くので、画面で待つ必要は無い
+	local function onEvent(kind, state, code, wait)
+		if kind ~= "st" then return end
+		if state == "saving" then
+			setStatus("save", "GitHubへ保存中…")
+		elseif state == "saved" then
+			C.savedAt = os.date("%H:%M:%S")
+			setStatus("ok", "GitHubに保存しました ✔ " .. C.savedAt)
+		elseif state == "error" then
+			local w = tonumber(wait)
+			setStatus("err", errText(code) .. (w and (" (約" .. math.ceil(w) .. "秒後に、やり直します)") or " (あとで自動でやり直します)"))
+			tellOnce(code)
+		end
+	end
+
+	-- テストや点検のための窓口
+	C.dbg = { snapshot = snapshot, restore = restore, enc = enc, dec = dec, encodeOps = encodeOps, decodeOps = decodeOps, invalidate = invalidate }
+
+	---------------------------------------------------------------
+	-- 起動
+	---------------------------------------------------------------
+	if not ENABLED then
+		C.kind, C.text = "off", "未設定です。ファイルの先頭の GITHUB の repo に「ユーザー名/リポジトリ名」を書くと、使えるようになります (書くまでは、何もしません)"
+		render()
+	else
+		UIs.touch = function(sec) C.touch(sec) end
+		Opt.onChange = function() C.touch("opt") end
+		setStatus("wait", "サーバー側を待っています…")
+		task.spawn(function()
+			local rf = RS:WaitForChild("PalletStudioCloud_v1", 90)
+			if not rf then
+				setStatus("err", "サーバー側が見つかりません (Studio の Play を止めて、もう一度始めてね。それでも出る時は、CodeLoader が動いているか確かめてね)")
+				return
+			end
+			C.rf = rf
+			local ev = RS:WaitForChild("PalletStudioCloudEvt_v1", 5)
+			if ev then ev.OnClientEvent:Connect(onEvent) end
+			C.load()
+		end)
+	end
+end
 -- 起動時: 右下に "make by aino" を表示する。丸いエンブレムがポンと出て、横にのびて文字が下からせり上がる。
 -- 終わったら丸に戻って右へ消え、そのあと開閉ボタンが出る (revealToggle)。
 local function playCredit()
