@@ -3180,7 +3180,7 @@ end)
 --   ③ HTTPが使えないStudioでは、「ゲーム設定 → セキュリティ → HTTPリクエストを許可」をオンにする (サーバーが読んで中継する。読むだけ・何も保存しない)。
 --      実行ツールの HttpGet が使える環境なら、それを先に使う。
 local PALLET_BG = {
-	repo = "",                             -- 例: "aino/pallet-bg"  (空のままなら、この画面の欄に入れた時だけ読む)
+	repo = "eisyu-tech/pallet",             -- 例: "aino/pallet-bg"  (空のままなら、この画面の欄に入れた時だけ読む)
 	branch = "main",
 	file = "pallet-backgrounds.json",
 }

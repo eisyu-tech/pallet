@@ -191,7 +191,7 @@
 | 背景スタイル(24種) / 好きな色合い | 空の色合いをまとめて変える。空のこまかい調整も |
 | 🖼 画像・GIFの背景 (GitHub) | 公開リポジトリに置いた `pallet-backgrounds.json` を読んで、画像つきのボタンを並べます。押すと空(6面)や窓の背景に反映、もう一度押すと元に戻ります |
 
-背景カタログの書き方は [`pallet-backgrounds.example.json`](pallet-backgrounds.example.json) を見てください。画像は **Roblox にアップロードした画像の ID** を使います(ほかのサイトの画像 URL は使えません)。読み込みはサーバーが `raw.githubusercontent.com` の JSON だけを読み、コードは実行しません。
+このリポジトリの [`pallet-backgrounds.json`](pallet-backgrounds.json) を、背景タブを開いたときに自動で読みます(`hello.lua` 先頭の `PALLET_BG.repo` が `eisyu-tech/pallet`)。今入っている背景: **ハンザ広場の夜**(Poly Haven の hansaplatz・CC0 を6面に切り分けたもの)。書き方は [`pallet-backgrounds.example.json`](pallet-backgrounds.example.json) を見てください。画像は **Roblox にアップロードした画像の ID** を使います(ほかのサイトの画像 URL は使えません)。読み込みはサーバーが `raw.githubusercontent.com` の JSON だけを読み、コードは実行しません。
 
 ### ⚙️ その他
 上の切り替えバーで **👁 視野 / 🚀 軽量化 / 🎨 UI設定** を行き来します。
@@ -367,6 +367,7 @@ flowchart LR
 pallet/
 ├── hello.lua                        # 本体 (LocalScript 1ファイル。貼り付け用)
 ├── PalletStudio_Final.rbxmx         # 同じ中身を Studio に取り込む用
+├── pallet-backgrounds.json          # 背景カタログ (背景タブが自動で読む)
 ├── pallet-backgrounds.example.json  # 背景カタログの見本 (背景タブ)
 └── README.md                        # このファイル
 ```
