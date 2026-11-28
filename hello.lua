@@ -11338,14 +11338,16 @@ do
 			put(L, "ColorShift_Top", tintC(origOf(L, "ColorShift_Top", BLACK):Lerp(v.top, w * 0.5), 0.5))
 
 			-- 空気 (Atmosphere)
-			local A = (needAtm or cache.Atmosphere) and part("Atmosphere") or nil
+			-- 画像の空を出している間は、空気(もや)を0にする。空気の層が空の画像の手前にかぶさって、画像が暗く・白っぽく隠れてしまうため
+			local A = (needAtm or st.faces ~= nil or cache.Atmosphere) and part("Atmosphere") or nil
 			if A then
+				local clearAir = st.faces ~= nil
 				put(A, "Color", tintC(origOf(A, "Color", WHITE):Lerp(v.ac, w), 0.9))
 				put(A, "Decay", tintD(origOf(A, "Decay", BLACK):Lerp(v.ad, w), 0.5, 0.8))
-				put(A, "Density", clamp(mixN(origOf(A, "Density", 0.395), v.dens, w) * k.air, 0, 1))
+				put(A, "Density", clearAir and 0 or clamp(mixN(origOf(A, "Density", 0.395), v.dens, w) * k.air, 0, 1))
 				put(A, "Offset", clamp(mixN(origOf(A, "Offset", 0), v.off, w), 0, 1))
-				put(A, "Glare", clamp(mixN(origOf(A, "Glare", 0), v.glare, w) * k.glare, 0, 10))
-				put(A, "Haze", clamp(mixN(origOf(A, "Haze", 0), v.haze, w) * k.haze, 0, 10))
+				put(A, "Glare", clearAir and 0 or clamp(mixN(origOf(A, "Glare", 0), v.glare, w) * k.glare, 0, 10))
+				put(A, "Haze", clearAir and 0 or clamp(mixN(origOf(A, "Haze", 0), v.haze, w) * k.haze, 0, 10))
 			end
 
 			-- 空 (Sky): 星・太陽・月・空の画像
